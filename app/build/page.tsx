@@ -1,0 +1,272 @@
+"use client";
+
+import { Suspense, useEffect, useMemo, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { Nav, PoweredBy } from "@/components/Nav";
+import { Mascot } from "@/components/Mascot";
+import {
+  Panel,
+  PixelButton,
+  Badge,
+  Field,
+  TextInput,
+  TextArea,
+  Segmented,
+} from "@/components/ui";
+import { MASCOT_ORDER, MASCOTS, type MascotState } from "@/lib/mascot";
+import { SEED_SKILLS } from "@/lib/skills-seed";
+import { MODELS, TARGETS, type Agent, type AgentTarget } from "@/lib/types";
+import { saveAgent, useAgents } from "@/lib/store";
+import { exportAgent } from "@/lib/export";
+
+function newAgent(): Agent {
+  return {
+    id: `agent-${Date.now().toString(36)}`,
+    name: "Untitled Agent",
+    role: "general assistant",
+    systemPrompt: "You are a focused, pixel-precise engineering agent.",
+    target: "claude-code",
+    model: "claude-opus-4-8",
+    temperature: 0.7,
+    skillIds: [],
+    mascot: "idle",
+    accent: "#f95c4b",
+    createdAt: Date.now(),
+  };
+}
+
+function Builder() {
+  const params = useSearchParams();
+  const router = useRouter();
+  const agents = useAgents();
+  const editId = params.get("id");
+
+  const [agent, setAgent] = useState<Agent>(newAgent);
+  const [saved, setSaved] = useState(false);
+  // preview state driven by which field is active
+  const [previewState, setPreviewState] = useState<MascotState>("idle");
+
+  useEffect(() => {
+    if (editId) {
+      const found = agents.find((a) => a.id === editId);
+      if (found) setAgent(found);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [editId, agents.length]);
+
+  const set = <K extends keyof Agent>(k: K, v: Agent[K]) => {
+    setAgent((a) => ({ ...a, [k]: v }));
+    setSaved(false);
+  };
+
+  const toggleSkill = (id: string) => {
+    setAgent((a) => ({
+      ...a,
+      skillIds: a.skillIds.includes(id)
+        ? a.skillIds.filter((x) => x !== id)
+        : [...a.skillIds, id],
+    }));
+    setPreviewState("wizard");
+    setSaved(false);
+  };
+
+  const output = useMemo(() => exportAgent(agent, SEED_SKILLS), [agent]);
+
+  const doSave = () => {
+    setPreviewState("cooking");
+    saveAgent(agent);
+    setSaved(true);
+    setTimeout(() => setPreviewState(agent.mascot), 900);
+  };
+
+  const copy = () => {
+    navigator.clipboard?.writeText(output.content);
+    setPreviewState("rocket");
+    setTimeout(() => setPreviewState(agent.mascot), 900);
+  };
+
+  return (
+    <div>
+      <Nav />
+      <div className="mx-auto max-w-6xl px-5 py-8">
+        <div className="flex items-center justify-between mb-6">
+          <div>
+            <h1 className="font-pixel text-sm mb-1">AGENT_COMPOSER</h1>
+            <PoweredBy />
+          </div>
+          <div className="flex gap-2">
+            <PixelButton variant="ghost" onClick={() => router.push("/")}>
+              ← Home
+            </PixelButton>
+            <PixelButton variant="coral" onClick={doSave}>
+              {saved ? "✓ Saved" : "Save agent"}
+            </PixelButton>
+          </div>
+        </div>
+
+        <div className="grid gap-6 lg:grid-cols-[1fr_340px]">
+          {/* FORM */}
+          <div className="space-y-5">
+            <Panel className="p-5 space-y-4">
+              <div className="grid sm:grid-cols-2 gap-4">
+                <Field label="Name">
+                  <TextInput
+                    value={agent.name}
+                    onFocus={() => setPreviewState("thinking")}
+                    onChange={(e) => set("name", e.target.value)}
+                  />
+                </Field>
+                <Field label="Role">
+                  <TextInput
+                    value={agent.role}
+                    onFocus={() => setPreviewState("thinking")}
+                    onChange={(e) => set("role", e.target.value)}
+                  />
+                </Field>
+              </div>
+              <Field label="System prompt" hint={`${agent.systemPrompt.length} chars`}>
+                <TextArea
+                  rows={5}
+                  value={agent.systemPrompt}
+                  onFocus={() => setPreviewState("working")}
+                  onChange={(e) => set("systemPrompt", e.target.value)}
+                />
+              </Field>
+            </Panel>
+
+            <Panel className="p-5 space-y-4">
+              <Field label="Target tool" hint={TARGETS.find((t) => t.id === agent.target)?.hint}>
+                <Segmented<AgentTarget>
+                  options={TARGETS.map((t) => ({ id: t.id, label: t.label }))}
+                  value={agent.target}
+                  onChange={(v) => set("target", v)}
+                />
+              </Field>
+
+              <div className="grid sm:grid-cols-2 gap-4">
+                <Field label="Model">
+                  <div className="border-2 border-ink bg-paper">
+                    <select
+                      value={agent.model}
+                      onChange={(e) => set("model", e.target.value)}
+                      className="w-full bg-paper px-3 py-2 font-mono text-sm outline-none cursor-pointer"
+                    >
+                      {MODELS.map((m) => (
+                        <option key={m.id} value={m.id}>
+                          {m.label} · {m.vendor}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </Field>
+                <Field label="Temperature" hint={agent.temperature.toFixed(2)}>
+                  <input
+                    type="range"
+                    min={0}
+                    max={1}
+                    step={0.05}
+                    value={agent.temperature}
+                    onChange={(e) => set("temperature", Number(e.target.value))}
+                    className="w-full accent-coral h-9"
+                  />
+                </Field>
+              </div>
+            </Panel>
+
+            {/* MASCOT PICKER */}
+            <Panel className="p-5">
+              <Field label="Mascot" hint="state animation on the card">
+                <div className="grid grid-cols-6 sm:grid-cols-11 gap-2 mt-1">
+                  {MASCOT_ORDER.map((s) => (
+                    <button
+                      key={s}
+                      title={MASCOTS[s].label}
+                      onClick={() => {
+                        set("mascot", s);
+                        setPreviewState(s);
+                      }}
+                      className={`aspect-square grid place-items-center border-2 border-ink transition-colors ${
+                        agent.mascot === s ? "bg-coral" : "bg-paper hover:bg-stone"
+                      }`}
+                    >
+                      <Mascot state={s} size={30} />
+                    </button>
+                  ))}
+                </div>
+              </Field>
+            </Panel>
+
+            {/* SKILLS */}
+            <Panel className="p-5">
+              <div className="flex items-center justify-between mb-3">
+                <span className="font-pixel text-[10px] uppercase">Skills</span>
+                <Badge tone="coral">{agent.skillIds.length} selected</Badge>
+              </div>
+              <div className="grid sm:grid-cols-2 gap-2">
+                {SEED_SKILLS.map((s) => {
+                  const on = agent.skillIds.includes(s.id);
+                  return (
+                    <button
+                      key={s.id}
+                      onClick={() => toggleSkill(s.id)}
+                      className={`text-left p-2.5 border-2 border-ink transition-all ${
+                        on
+                          ? "bg-ink text-paper"
+                          : "bg-paper hover:shadow-[2px_2px_0_0_var(--coral)]"
+                      }`}
+                    >
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="font-mono text-xs font-bold truncate">{s.name}</span>
+                        <span className="font-pixel text-[9px] shrink-0">{on ? "[x]" : "[ ]"}</span>
+                      </div>
+                      <p className={`font-mono text-[10px] mt-1 leading-snug ${on ? "text-stone" : "text-muted"}`}>
+                        {s.description}
+                      </p>
+                    </button>
+                  );
+                })}
+              </div>
+            </Panel>
+          </div>
+
+          {/* PREVIEW / EXPORT */}
+          <div className="space-y-5 lg:sticky lg:top-20 self-start">
+            <Panel className="p-5 text-center">
+              <div className="grain relative bg-stone pixel-border-sm p-5 overflow-hidden">
+                <Mascot state={previewState} size={104} />
+              </div>
+              <div className="mt-3 font-sans font-bold truncate">{agent.name}</div>
+              <div className="font-mono text-[11px] text-muted truncate">{agent.role}</div>
+              <div className="flex items-center justify-center gap-1.5 mt-2 font-mono text-[10px] text-muted dots">
+                <span>{MASCOTS[previewState].blurb}</span>
+                <span>.</span>
+                <span>.</span>
+                <span>.</span>
+              </div>
+            </Panel>
+
+            <Panel className="overflow-hidden">
+              <div className="flex items-center justify-between px-3 py-2 border-b-2 border-ink bg-stone">
+                <span className="font-mono text-[11px]">{output.filename}</span>
+                <PixelButton onClick={copy} className="!px-2 !py-1 !text-[9px]">
+                  Copy
+                </PixelButton>
+              </div>
+              <pre className="p-3 text-[11px] font-mono leading-relaxed overflow-auto max-h-[420px] whitespace-pre-wrap">
+                {output.content}
+              </pre>
+            </Panel>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+export default function BuildPage() {
+  return (
+    <Suspense fallback={<div className="p-10 font-mono text-sm">loading composer…</div>}>
+      <Builder />
+    </Suspense>
+  );
+}
