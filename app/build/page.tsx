@@ -212,11 +212,13 @@ function Builder() {
                         set("mascot", s);
                         setPreviewState(s);
                       }}
-                      className={`aspect-square grid place-items-center border-2 border-line transition-colors ${
-                        agent.mascot === s ? "bg-coral" : "bg-paper hover:bg-stone"
+                      className={`mascot-stage relative overflow-hidden aspect-square grid place-items-center border-2 transition-all ${
+                        agent.mascot === s
+                          ? "border-coral shadow-[0_0_0_2px_var(--coral)]"
+                          : "border-line hover:border-ink-soft"
                       }`}
                     >
-                      <Mascot state={s} size={30} />
+                      <Mascot state={s} size={40} />
                     </button>
                   ))}
                 </div>
