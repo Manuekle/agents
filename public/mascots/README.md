@@ -1,8 +1,10 @@
 # Mascot assets
 
-Pixel-art PNGs, one per state slot. Transparent background, normalized to a
-512×512 canvas with the subject sized to a common footprint (see
-scripts/remove-bg.py for bg removal; sizing is a follow-up NEAREST resize).
+Pixel-art PNGs, one per state slot, on a transparent 1024×1024 canvas.
+
+These ship exactly as authored — they already come background-free, so they
+no longer pass through scripts/remove-bg.py or the NEAREST resize step. Each
+slot file is a byte-for-byte copy of its source in _raw/.
 
 Slots:
 - sherlock.png
@@ -16,4 +18,5 @@ Slots:
 - thinking.png
 - cooking.png
 
-Source jpegs live in _raw/. Rendered with image-rendering: pixelated.
+Sources live in _raw/ under the same slot names. Rendered with
+image-rendering: pixelated.
