@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { Nav, PoweredBy } from "@/components/Nav";
+import { Footer } from "@/components/Footer";
 import { Mascot } from "@/components/Mascot";
 import { SkillBrowser } from "@/components/SkillBrowser";
 import { Panel, PixelButton, Badge } from "@/components/ui";
@@ -43,6 +44,7 @@ export default function SkillsPage() {
           </Link>
         </div>
       </div>
+      <Footer />
     </div>
   );
 }

@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { Nav, PoweredBy } from "@/components/Nav";
+import { Footer } from "@/components/Footer";
 import { Mascot } from "@/components/Mascot";
 import { Panel, PixelButton, Badge, Field, TextInput } from "@/components/ui";
 import { MODELS } from "@/lib/types";
@@ -105,6 +106,7 @@ export default function McpPage() {
           </Panel>
         </div>
       </div>
+      <Footer />
     </div>
   );
 }

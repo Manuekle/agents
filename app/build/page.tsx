@@ -3,6 +3,7 @@
 import { Suspense, useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Nav, PoweredBy } from "@/components/Nav";
+import { Footer } from "@/components/Footer";
 import { Mascot } from "@/components/Mascot";
 import {
   Panel,
@@ -334,6 +335,7 @@ function Builder() {
           </div>
         </div>
       </div>
+      <Footer />
     </div>
   );
 }

@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { clsx } from "@/lib/clsx";
+import { GitHubStars } from "@/components/GitHubStars";
 
 const LINKS = [
   { href: "/", label: "Home" },
@@ -30,25 +31,28 @@ export function Nav() {
           </span>
         </Link>
 
-        <nav className="flex items-center gap-1">
-          {LINKS.map((l) => {
-            const active = l.href === "/" ? path === "/" : path.startsWith(l.href);
-            return (
-              <Link
-                key={l.href}
-                href={l.href}
-                className={clsx(
-                  "font-mono text-xs px-3 py-1.5 border-2 transition-colors",
-                  active
-                    ? "border-ink bg-ink text-paper"
-                    : "border-transparent hover:border-ink hover:bg-stone",
-                )}
-              >
-                {l.label}
-              </Link>
-            );
-          })}
-        </nav>
+        <div className="flex items-center gap-2">
+          <nav className="flex items-center gap-1">
+            {LINKS.map((l) => {
+              const active = l.href === "/" ? path === "/" : path.startsWith(l.href);
+              return (
+                <Link
+                  key={l.href}
+                  href={l.href}
+                  className={clsx(
+                    "font-mono text-xs px-3 py-1.5 border-2 transition-colors",
+                    active
+                      ? "border-ink bg-ink text-paper"
+                      : "border-transparent hover:border-ink hover:bg-stone",
+                  )}
+                >
+                  {l.label}
+                </Link>
+              );
+            })}
+          </nav>
+          <GitHubStars className="hidden sm:inline-flex" />
+        </div>
       </div>
     </header>
   );

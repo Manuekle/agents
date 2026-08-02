@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { Nav, PoweredBy } from "@/components/Nav";
+import { Footer } from "@/components/Footer";
 import { Mascot } from "@/components/Mascot";
 import { DitherField } from "@/components/DitherField";
 import { Panel, PixelButton, Badge } from "@/components/ui";
@@ -149,12 +150,7 @@ export default function Home() {
         )}
       </section>
 
-      <footer className="border-t-2 border-ink">
-        <div className="mx-auto max-w-6xl px-5 py-6 flex items-center justify-between font-mono text-[10px] text-muted">
-          <span>agents.dev // pixel · dither · ascii</span>
-          <PoweredBy />
-        </div>
-      </footer>
+      <Footer />
     </div>
   );
 }
