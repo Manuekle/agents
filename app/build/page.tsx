@@ -6,6 +6,7 @@ import { Slider } from "@heroui/react";
 import { Nav, PoweredBy } from "@/components/Nav";
 import { Footer } from "@/components/Footer";
 import { Mascot } from "@/components/Mascot";
+import { VendorMark } from "@/components/brands";
 import {
   Panel,
   PixelButton,
@@ -197,6 +198,7 @@ function Builder() {
                       id: m.id,
                       label: m.label,
                       hint: m.vendor,
+                      icon: <VendorMark vendor={m.vendor} />,
                     }))}
                     value={agent.model}
                     onChange={(v) => set("model", v)}
@@ -205,7 +207,7 @@ function Builder() {
                 <Field label="Temperature" hint={agent.temperature.toFixed(2)}>
                   <Slider
                     aria-label="Temperature"
-                    className="heroui-brand w-full h-9 flex items-center"
+                    className="heroui-brand w-full"
                     maxValue={1}
                     minValue={0}
                     step={0.05}

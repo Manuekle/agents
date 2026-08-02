@@ -166,6 +166,37 @@
   --default-foreground: var(--ink);
 }
 
+/* HeroUI's slider base reserves a label/output row this usage doesn't render,
+   which parked the track above the Select beside it. Take the layout over at
+   the Select's own 40px height. The axis is a column, so vertical centring is
+   justify-content — align-items would only centre it horizontally. */
+.heroui-brand.slider {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: stretch;
+  height: 40px;
+}
+
+/* Nothing in this design system is rounded — square the track, fill and thumb
+   (the thumb's visible body is a ::after, out of className's reach). */
+.heroui-brand .slider__track,
+.heroui-brand .slider__fill,
+.heroui-brand .slider__thumb,
+.heroui-brand .slider__thumb::after {
+  border-radius: 0;
+}
+.heroui-brand .slider__track {
+  height: 12px;
+  border: 2px solid var(--line);
+}
+.heroui-brand .slider__thumb::after {
+  width: 12px;
+  height: 20px;
+  border: 2px solid var(--line);
+  box-shadow: none;
+}
+
 /* ---------- mascot stage ---------- */
 /* Lit pool behind a sprite so the tile reads as a display case rather than a
    flat swatch: a soft core, a coral bloom picking up the sprite's own halo,

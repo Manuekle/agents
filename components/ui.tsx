@@ -153,7 +153,7 @@ export function Select<T extends string>({
   onChange,
   className,
 }: {
-  options: { id: T; label: string; hint?: string }[];
+  options: { id: T; label: string; hint?: string; icon?: ReactNode }[];
   value: T;
   onChange: (v: T) => void;
   className?: string;
@@ -190,9 +190,12 @@ export function Select<T extends string>({
           open ? "shadow-[2px_2px_0_0_var(--coral)] border-coral" : "hover:bg-stone",
         )}
       >
-        <span className="truncate">
-          {current?.label}
-          {current?.hint && <span className="text-muted"> · {current.hint}</span>}
+        <span className="flex items-center gap-2 min-w-0">
+          {current?.icon && <span className="shrink-0 flex items-center">{current.icon}</span>}
+          <span className="truncate">
+            {current?.label}
+            {current?.hint && <span className="text-muted"> · {current.hint}</span>}
+          </span>
         </span>
         <span className={clsx("font-pixel text-[9px] transition-transform", open && "rotate-180")}>
           ▼
@@ -221,7 +224,10 @@ export function Select<T extends string>({
                   sel ? "bg-fill text-on-fill" : "hover:bg-stone",
                 )}
               >
-                <span className="truncate">{o.label}</span>
+                <span className="flex items-center gap-2 min-w-0">
+                  {o.icon && <span className="shrink-0 flex items-center">{o.icon}</span>}
+                  <span className="truncate">{o.label}</span>
+                </span>
                 {o.hint && (
                   <span className={clsx("font-mono text-[10px] shrink-0", sel ? "text-on-fill-muted" : "text-muted")}>
                     {o.hint}
