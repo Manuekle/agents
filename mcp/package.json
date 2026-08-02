@@ -12,6 +12,13 @@
   ],
   "license": "MIT",
   "author": "manudev",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Manuekle/agents.git",
+    "directory": "mcp"
+  },
+  "bugs": "https://github.com/Manuekle/agents/issues",
+  "homepage": "https://github.com/Manuekle/agents#readme",
   "type": "module",
   "bin": {
     "agents-dev-mcp": "./index.mjs"
