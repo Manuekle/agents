@@ -4,33 +4,39 @@ import { useMemo, useState } from "react";
 import { Nav, PoweredBy } from "@/components/Nav";
 import { Footer } from "@/components/Footer";
 import { Mascot } from "@/components/Mascot";
-import { Panel, PixelButton, Badge, Field, TextInput } from "@/components/ui";
-import { MODELS } from "@/lib/types";
+import { Panel, PixelButton, Badge } from "@/components/ui";
 
-// A tiny MCP bridge config generator — one server, many models.
+// What @agents-dev/mcp exposes once connected.
+const PRIMITIVES = [
+  { kind: "prompt", name: "activate_agent", desc: "injects the agent persona + skill context" },
+  { kind: "resource", name: "agent://spec", desc: "full agent spec JSON" },
+  { kind: "resource", name: "agent://skills", desc: "picked skills (name + owner/repo)" },
+  { kind: "tool", name: "agent_info", desc: "name / role / model / temperature" },
+  { kind: "tool", name: "list_skills", desc: "the agent's skills" },
+  { kind: "tool", name: "system_prompt", desc: "the raw system prompt" },
+];
+
+const CLIENTS = ["Claude Desktop", "Claude Code", "Cursor", "Codex", "Windsurf", "Cline", "Gemini"];
+
 export default function McpPage() {
-  const [name, setName] = useState("agents-dev-bridge");
-  const [selected, setSelected] = useState<string[]>(["claude-opus-4-8", "gpt-5-codex"]);
   const [copied, setCopied] = useState(false);
 
-  const toggle = (id: string) =>
-    setSelected((s) => (s.includes(id) ? s.filter((x) => x !== id) : [...s, id]));
-
-  const config = useMemo(() => {
-    return JSON.stringify(
-      {
-        mcpServers: {
-          [name]: {
-            command: "npx",
-            args: ["-y", "@agents-dev/mcp"],
-            env: { AGENTS_DEV_MODELS: selected.join(",") },
+  const config = useMemo(
+    () =>
+      JSON.stringify(
+        {
+          mcpServers: {
+            "agents-dev": {
+              command: "npx",
+              args: ["-y", "@agents-dev/mcp", "--agent", "./agents-dev.agent.json"],
+            },
           },
         },
-      },
-      null,
-      2,
-    );
-  }, [name, selected]);
+        null,
+        2,
+      ),
+    [],
+  );
 
   const copy = () => {
     navigator.clipboard?.writeText(config);
@@ -44,7 +50,7 @@ export default function McpPage() {
       <div className="mx-auto max-w-6xl px-5 py-8">
         <div className="flex items-center justify-between mb-6">
           <div>
-            <h1 className="font-pixel text-sm mb-1">MCP_BRIDGE</h1>
+            <h1 className="font-pixel text-sm mb-1">MCP_SERVER</h1>
             <PoweredBy />
           </div>
           <Mascot state="headphones" size={44} />
@@ -53,37 +59,44 @@ export default function McpPage() {
         <div className="grid gap-6 lg:grid-cols-2">
           <div className="space-y-5">
             <Panel className="p-5">
-              <Field label="Server name">
-                <TextInput value={name} onChange={(e) => setName(e.target.value)} />
-              </Field>
+              <p className="font-mono text-xs text-ink-soft leading-relaxed">
+                <b>@agents-dev/mcp</b> serves an agent you composed — its system
+                prompt and skills — over MCP, so <i>any</i> MCP-capable client can
+                load it. Export <b>agent.json</b> from the composer, drop it in your
+                repo, add the config, done.
+              </p>
+              <div className="mt-4 flex flex-wrap gap-1.5">
+                {CLIENTS.map((c) => (
+                  <Badge key={c}>{c}</Badge>
+                ))}
+              </div>
             </Panel>
 
             <Panel className="p-5">
               <div className="flex items-center justify-between mb-3">
-                <span className="font-pixel text-[10px] uppercase">Route models</span>
-                <Badge tone="coral">{selected.length} active</Badge>
+                <span className="font-pixel text-[10px] uppercase">Exposes</span>
+                <Badge tone="coral">{PRIMITIVES.length} primitives</Badge>
               </div>
-              <div className="grid sm:grid-cols-2 gap-2">
-                {MODELS.map((m) => {
-                  const on = selected.includes(m.id);
-                  return (
-                    <button
-                      key={m.id}
-                      onClick={() => toggle(m.id)}
-                      className={`text-left p-3 border-2 border-ink transition-all ${
-                        on ? "bg-ink text-paper" : "bg-paper hover:shadow-[2px_2px_0_0_var(--coral)]"
+              <div className="space-y-2">
+                {PRIMITIVES.map((p) => (
+                  <div key={p.name} className="flex items-start gap-2 p-2 border-2 border-ink bg-paper">
+                    <span
+                      className={`font-pixel text-[8px] uppercase px-1.5 py-0.5 border-2 border-ink shrink-0 ${
+                        p.kind === "tool"
+                          ? "bg-coral text-paper"
+                          : p.kind === "prompt"
+                            ? "bg-ink text-paper"
+                            : "bg-stone text-ink"
                       }`}
                     >
-                      <div className="flex items-center justify-between">
-                        <span className="font-mono text-xs font-bold">{m.label}</span>
-                        <span className="font-pixel text-[9px]">{on ? "[x]" : "[ ]"}</span>
-                      </div>
-                      <span className={`font-mono text-[10px] ${on ? "text-stone" : "text-muted"}`}>
-                        {m.vendor}
-                      </span>
-                    </button>
-                  );
-                })}
+                      {p.kind}
+                    </span>
+                    <div className="min-w-0">
+                      <div className="font-mono text-xs font-bold truncate">{p.name}</div>
+                      <div className="font-mono text-[10px] text-muted">{p.desc}</div>
+                    </div>
+                  </div>
+                ))}
               </div>
             </Panel>
           </div>
@@ -98,9 +111,13 @@ export default function McpPage() {
             <pre className="p-4 text-[11px] font-mono leading-relaxed overflow-auto whitespace-pre-wrap">
               {config}
             </pre>
-            <div className="px-4 py-3 border-t-2 border-ink dither-stone">
+            <div className="px-4 py-3 border-t-2 border-ink dither-stone space-y-1">
               <p className="font-mono text-[10px] text-ink">
-                Drop into <b>.mcp.json</b> or <b>~/.claude/</b> — one bridge, every model.
+                Add to <b>.mcp.json</b>, <b>~/.claude/</b> or your client&apos;s MCP
+                config, alongside <b>agents-dev.agent.json</b>.
+              </p>
+              <p className="font-mono text-[10px] text-ink">
+                Then call the <b>activate_agent</b> prompt to load the persona.
               </p>
             </div>
           </Panel>

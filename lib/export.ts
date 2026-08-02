@@ -16,6 +16,27 @@ export function newProjectCommand(agent: Agent, scaffold = "npx create-next-app@
   return `${scaffold} && cd my-agent-app${add}`;
 }
 
+// The agent spec consumed by @agents-dev/mcp (agents-dev.agent.json).
+export function agentSpecJson(agent: Agent): string {
+  return JSON.stringify(
+    {
+      name: agent.name,
+      role: agent.role,
+      model: agent.model,
+      temperature: agent.temperature,
+      system: agent.systemPrompt,
+      skills: agent.skills.map((s) => ({ name: s.name, repo: s.repo })),
+    },
+    null,
+    2,
+  );
+}
+
+// Command that serves this agent over MCP to any MCP client.
+export function mcpServeCommand(): string {
+  return "npx -y @agents-dev/mcp --agent ./agents-dev.agent.json";
+}
+
 // A reproducible manifest of the picks (drop in repo, share, re-install).
 export function skillsManifest(agent: Agent): string {
   return JSON.stringify(
@@ -110,22 +131,17 @@ Install: ${install}
 
     case "generic-mcp":
     default:
+      // mcp.json that any MCP client (Claude Desktop, Cursor, …) can load.
+      // Save agentSpecJson(agent) next to it as agents-dev.agent.json.
       return {
-        filename: `${agent.name.toLowerCase().replace(/\s+/g, "-")}.mcp.json`,
+        filename: "mcp.json",
         lang: "json",
         content: JSON.stringify(
           {
-            name: agent.name,
-            role: agent.role,
-            model: agent.model,
-            temperature: agent.temperature,
-            system: agent.systemPrompt,
-            skills: agentRepos(agent),
-            install,
             mcpServers: {
               "agents-dev": {
                 command: "npx",
-                args: ["-y", "@agents-dev/mcp", "--agent", agent.id],
+                args: ["-y", "@agents-dev/mcp", "--agent", "./agents-dev.agent.json"],
               },
             },
           },

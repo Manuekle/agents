@@ -30,6 +30,8 @@ import {
   installCommand,
   newProjectCommand,
   skillsManifest,
+  agentSpecJson,
+  mcpServeCommand,
 } from "@/lib/export";
 
 function newAgent(): Agent {
@@ -103,17 +105,19 @@ function Builder() {
     setTimeout(() => setPreviewState(agent.mascot), 900);
   };
 
-  const downloadManifest = () => {
-    const blob = new Blob([skillsManifest(agent)], { type: "application/json" });
+  const download = (filename: string, text: string) => {
+    const blob = new Blob([text], { type: "application/json" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = "agents-dev.skills.json";
+    a.download = filename;
     a.click();
     URL.revokeObjectURL(url);
     setPreviewState("rocket");
     setTimeout(() => setPreviewState(agent.mascot), 900);
   };
+  const downloadManifest = () => download("agents-dev.skills.json", skillsManifest(agent));
+  const downloadAgent = () => download("agents-dev.agent.json", agentSpecJson(agent));
 
   return (
     <div>
@@ -318,18 +322,43 @@ function Builder() {
                   </div>
                 </div>
 
-                <PixelButton
-                  variant="ghost"
-                  onClick={downloadManifest}
-                  disabled={repos.length === 0}
-                  className="w-full"
-                >
-                  ↓ .skills.json manifest
-                </PixelButton>
+                <div className="grid grid-cols-2 gap-1.5">
+                  <PixelButton
+                    variant="ghost"
+                    onClick={downloadManifest}
+                    disabled={repos.length === 0}
+                    className="w-full"
+                  >
+                    ↓ .skills.json
+                  </PixelButton>
+                  <PixelButton variant="ghost" onClick={downloadAgent} className="w-full">
+                    ↓ agent.json
+                  </PixelButton>
+                </div>
                 <p className="font-mono text-[9px] text-muted leading-relaxed">
                   Uses the official <b>skills</b> CLI — auto-detects your agent (Claude
                   Code, Cursor, Codex…) and writes into its skills dir.
                 </p>
+
+                {/* serve the agent over MCP to any model */}
+                <div className="pt-2 border-t-2 border-ink">
+                  <div className="font-mono text-[9px] uppercase text-muted mb-1">serve over MCP</div>
+                  <div className="flex items-stretch gap-1.5">
+                    <code className="flex-1 min-w-0 bg-stone border-2 border-ink px-2 py-1.5 font-mono text-[10px] overflow-auto whitespace-nowrap">
+                      {mcpServeCommand()}
+                    </code>
+                    <PixelButton
+                      onClick={() => copyText(mcpServeCommand())}
+                      className="!px-2 !py-1 !text-[9px] shrink-0"
+                    >
+                      Copy
+                    </PixelButton>
+                  </div>
+                  <p className="font-mono text-[9px] text-muted leading-relaxed mt-1.5">
+                    Drop <b>agent.json</b> in your repo, add the line to any MCP client —
+                    serves this agent&apos;s prompt + skills to Claude, GPT, Gemini…
+                  </p>
+                </div>
               </div>
             </Panel>
           </div>
