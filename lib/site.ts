@@ -1,6 +1,6 @@
 // Central site config.
 export const SITE = {
-  name: "agents.dev",
+  name: "agents",
   tagline: "Build AI agents. Ship your skills.",
   // upstream project powering the skills engine
   githubRepo: "vercel-labs/skills",

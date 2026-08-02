@@ -79,13 +79,13 @@ export default function McpPage() {
               </div>
               <div className="space-y-2">
                 {PRIMITIVES.map((p) => (
-                  <div key={p.name} className="flex items-start gap-2 p-2 border-2 border-ink bg-paper">
+                  <div key={p.name} className="flex items-start gap-2 p-2 border-2 border-line bg-paper">
                     <span
-                      className={`font-pixel text-[8px] uppercase px-1.5 py-0.5 border-2 border-ink shrink-0 ${
+                      className={`font-pixel text-[8px] uppercase px-1.5 py-0.5 border-2 border-line shrink-0 ${
                         p.kind === "tool"
                           ? "bg-coral text-paper"
                           : p.kind === "prompt"
-                            ? "bg-ink text-paper"
+                            ? "bg-fill text-on-fill"
                             : "bg-stone text-ink"
                       }`}
                     >
@@ -102,7 +102,7 @@ export default function McpPage() {
           </div>
 
           <Panel className="overflow-hidden self-start">
-            <div className="flex items-center justify-between px-3 py-2 border-b-2 border-ink bg-stone">
+            <div className="flex items-center justify-between px-3 py-2 border-b-2 border-line bg-stone">
               <span className="font-mono text-[11px]">mcp.json</span>
               <PixelButton onClick={copy} className="!px-2 !py-1 !text-[9px]">
                 {copied ? "Copied ✓" : "Copy"}
@@ -111,7 +111,7 @@ export default function McpPage() {
             <pre className="p-4 text-[11px] font-mono leading-relaxed overflow-auto whitespace-pre-wrap">
               {config}
             </pre>
-            <div className="px-4 py-3 border-t-2 border-ink dither-stone space-y-1">
+            <div className="px-4 py-3 border-t-2 border-line dither-stone space-y-1">
               <p className="font-mono text-[10px] text-ink">
                 Add to <b>.mcp.json</b>, <b>~/.claude/</b> or your client&apos;s MCP
                 config, alongside <b>agents-dev.agent.json</b>.

@@ -88,7 +88,7 @@ export function SkillBrowser({
           <button
             key={s}
             onClick={() => setQ(s)}
-            className="font-mono text-[10px] px-2 py-0.5 border-2 border-ink bg-paper hover:bg-stone transition-colors"
+            className="font-mono text-[10px] px-2 py-0.5 border-2 border-line bg-paper hover:bg-stone transition-colors"
           >
             #{s}
           </button>
@@ -106,19 +106,19 @@ export function SkillBrowser({
             <div
               key={s.id}
               className={clsx(
-                "text-left p-2.5 border-2 border-ink transition-all",
-                on ? "bg-ink text-paper" : "bg-paper",
+                "text-left p-2.5 border-2 border-line transition-all",
+                on ? "bg-fill text-on-fill" : "bg-paper",
               )}
             >
               <div className="flex items-center justify-between gap-2">
                 <span className="font-mono text-xs font-bold truncate">{s.name}</span>
                 {installs && (
-                  <span className={clsx("font-mono text-[9px] shrink-0", on ? "text-stone" : "text-muted")}>
+                  <span className={clsx("font-mono text-[9px] shrink-0", on ? "text-on-fill-muted" : "text-muted")}>
                     ↓{installs}
                   </span>
                 )}
               </div>
-              <div className={clsx("font-mono text-[10px] truncate mt-0.5", on ? "text-stone" : "text-coral")}>
+              <div className={clsx("font-mono text-[10px] truncate mt-0.5", on ? "text-on-fill-muted" : "text-coral")}>
                 {repo}
               </div>
               <div className="mt-2">
@@ -126,8 +126,8 @@ export function SkillBrowser({
                   <button
                     onClick={() => onToggle({ id: s.id, name: s.name, repo })}
                     className={clsx(
-                      "w-full font-pixel text-[9px] uppercase py-1 border-2 border-ink transition-colors",
-                      on ? "bg-paper text-ink" : "bg-ink text-paper hover:bg-coral",
+                      "w-full font-pixel text-[9px] uppercase py-1 border-2 border-line transition-colors",
+                      on ? "bg-paper text-ink" : "bg-fill text-on-fill hover:bg-coral",
                     )}
                   >
                     {on ? "remove [x]" : "add [ ]"}
@@ -135,7 +135,7 @@ export function SkillBrowser({
                 ) : (
                   <button
                     onClick={() => copyInstall(repo, s.id)}
-                    className="w-full font-pixel text-[9px] uppercase py-1 border-2 border-ink bg-ink text-paper hover:bg-coral transition-colors"
+                    className="w-full font-pixel text-[9px] uppercase py-1 border-2 border-line bg-fill text-on-fill hover:bg-coral transition-colors"
                   >
                     {copiedId === s.id ? "copied ✓" : "copy install"}
                   </button>

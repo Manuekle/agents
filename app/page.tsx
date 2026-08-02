@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { Nav, PoweredBy } from "@/components/Nav";
 import { Footer } from "@/components/Footer";
+import { HowItWorks } from "@/components/HowItWorks";
 import { Mascot } from "@/components/Mascot";
 import { DitherField } from "@/components/DitherField";
 import { Panel, PixelButton, Badge } from "@/components/ui";
@@ -27,7 +28,7 @@ export default function Home() {
       <Nav />
 
       {/* HERO */}
-      <section className="relative overflow-hidden border-b-2 border-ink">
+      <section className="relative overflow-hidden border-b-2 border-line">
         <DitherField className="absolute inset-0 w-full h-full opacity-90" cell={7} />
         {/* keep the headline legible over the dark dither lobes */}
         <div className="absolute inset-0 bg-gradient-to-r from-paper via-paper/75 to-transparent md:to-paper/0 pointer-events-none" />
@@ -74,7 +75,7 @@ export default function Home() {
                     key={s}
                     onClick={() => setI(n)}
                     aria-label={s}
-                    className={`w-2 h-2 border border-ink ${n === i ? "bg-coral" : "bg-paper"}`}
+                    className={`w-2 h-2 border border-line ${n === i ? "bg-coral" : "bg-paper"}`}
                   />
                 ))}
               </div>
@@ -98,6 +99,15 @@ export default function Home() {
             </div>
           </Panel>
         ))}
+      </section>
+
+      {/* HOW IT WORKS — animated live demo of the real flow */}
+      <section className="mx-auto max-w-6xl px-5 pb-14">
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="font-pixel text-sm">HOW_IT_WORKS</h2>
+          <span className="font-mono text-[11px] text-muted">compose → skills → install → serve</span>
+        </div>
+        <HowItWorks />
       </section>
 
       {/* SAVED AGENTS */}

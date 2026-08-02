@@ -33,6 +33,25 @@ export function DitherField({
     let w = 0;
     let h = 0;
 
+    // canvas can't use CSS vars — sample them, and resample on theme flips
+    let ink = "#17150f";
+    let paper = "#f7f5f0";
+    let coral = "#ef5c47";
+
+    const readTheme = () => {
+      const cs = getComputedStyle(document.documentElement);
+      ink = cs.getPropertyValue("--ink").trim() || ink;
+      paper = cs.getPropertyValue("--paper").trim() || paper;
+      coral = cs.getPropertyValue("--coral").trim() || coral;
+    };
+    readTheme();
+
+    const themeObserver = new MutationObserver(readTheme);
+    themeObserver.observe(document.documentElement, {
+      attributes: true,
+      attributeFilter: ["data-theme"],
+    });
+
     const resize = () => {
       const r = canvas.getBoundingClientRect();
       w = Math.max(1, Math.floor(r.width / cell));
@@ -41,10 +60,6 @@ export function DitherField({
       canvas.height = h * cell;
     };
     resize();
-
-    const ink = "#000000";
-    const paper = "#f6f4f1";
-    const coral = "#f95c4b";
 
     const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
@@ -83,6 +98,7 @@ export function DitherField({
     return () => {
       cancelAnimationFrame(raf);
       ro.disconnect();
+      themeObserver.disconnect();
     };
   }, [cell, intensity]);
 

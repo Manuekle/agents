@@ -13,6 +13,7 @@ import {
   TextInput,
   TextArea,
   Segmented,
+  Select,
 } from "@/components/ui";
 import { MASCOT_ORDER, MASCOTS, type MascotState } from "@/lib/mascot";
 import { SkillBrowser } from "@/components/SkillBrowser";
@@ -179,19 +180,11 @@ function Builder() {
 
               <div className="grid sm:grid-cols-2 gap-4">
                 <Field label="Model">
-                  <div className="border-2 border-ink bg-paper">
-                    <select
-                      value={agent.model}
-                      onChange={(e) => set("model", e.target.value)}
-                      className="w-full bg-paper px-3 py-2 font-mono text-sm outline-none cursor-pointer"
-                    >
-                      {MODELS.map((m) => (
-                        <option key={m.id} value={m.id}>
-                          {m.label} · {m.vendor}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
+                  <Select
+                    options={MODELS.map((m) => ({ id: m.id, label: m.label, hint: m.vendor }))}
+                    value={agent.model}
+                    onChange={(v) => set("model", v)}
+                  />
                 </Field>
                 <Field label="Temperature" hint={agent.temperature.toFixed(2)}>
                   <input
@@ -219,7 +212,7 @@ function Builder() {
                         set("mascot", s);
                         setPreviewState(s);
                       }}
-                      className={`aspect-square grid place-items-center border-2 border-ink transition-colors ${
+                      className={`aspect-square grid place-items-center border-2 border-line transition-colors ${
                         agent.mascot === s ? "bg-coral" : "bg-paper hover:bg-stone"
                       }`}
                     >
@@ -244,7 +237,7 @@ function Builder() {
                       key={s.id}
                       onClick={() => toggleSkill(s)}
                       title={`remove ${s.repo}`}
-                      className="inline-flex items-center gap-1 font-mono text-[10px] px-2 py-0.5 border-2 border-ink bg-ink text-paper hover:bg-coral transition-colors"
+                      className="inline-flex items-center gap-1 font-mono text-[10px] px-2 py-0.5 border-2 border-line bg-fill text-on-fill hover:bg-coral transition-colors"
                     >
                       {s.name} <span className="opacity-70">✕</span>
                     </button>
@@ -273,7 +266,7 @@ function Builder() {
             </Panel>
 
             <Panel className="overflow-hidden">
-              <div className="flex items-center justify-between px-3 py-2 border-b-2 border-ink bg-stone">
+              <div className="flex items-center justify-between px-3 py-2 border-b-2 border-line bg-stone">
                 <span className="font-mono text-[11px]">{output.filename}</span>
                 <PixelButton onClick={copy} className="!px-2 !py-1 !text-[9px]">
                   Copy
@@ -286,7 +279,7 @@ function Builder() {
 
             {/* INSTALL — wraps the official skills CLI */}
             <Panel className="overflow-hidden">
-              <div className="flex items-center justify-between px-3 py-2 border-b-2 border-ink bg-coral text-paper">
+              <div className="flex items-center justify-between px-3 py-2 border-b-2 border-line bg-coral text-paper">
                 <span className="font-pixel text-[10px] uppercase">Install</span>
                 <Badge tone="ink">{repos.length} repos</Badge>
               </div>
@@ -294,7 +287,7 @@ function Builder() {
                 <div>
                   <div className="font-mono text-[9px] uppercase text-muted mb-1">existing project</div>
                   <div className="flex items-stretch gap-1.5">
-                    <code className="flex-1 min-w-0 bg-stone border-2 border-ink px-2 py-1.5 font-mono text-[10px] overflow-auto whitespace-nowrap">
+                    <code className="flex-1 min-w-0 bg-stone border-2 border-line px-2 py-1.5 font-mono text-[10px] overflow-auto whitespace-nowrap">
                       {install}
                     </code>
                     <PixelButton
@@ -310,7 +303,7 @@ function Builder() {
                 <div>
                   <div className="font-mono text-[9px] uppercase text-muted mb-1">new project</div>
                   <div className="flex items-stretch gap-1.5">
-                    <code className="flex-1 min-w-0 bg-stone border-2 border-ink px-2 py-1.5 font-mono text-[10px] overflow-auto whitespace-nowrap">
+                    <code className="flex-1 min-w-0 bg-stone border-2 border-line px-2 py-1.5 font-mono text-[10px] overflow-auto whitespace-nowrap">
                       {newProj}
                     </code>
                     <PixelButton
@@ -341,10 +334,10 @@ function Builder() {
                 </p>
 
                 {/* serve the agent over MCP to any model */}
-                <div className="pt-2 border-t-2 border-ink">
+                <div className="pt-2 border-t-2 border-line">
                   <div className="font-mono text-[9px] uppercase text-muted mb-1">serve over MCP</div>
                   <div className="flex items-stretch gap-1.5">
-                    <code className="flex-1 min-w-0 bg-stone border-2 border-ink px-2 py-1.5 font-mono text-[10px] overflow-auto whitespace-nowrap">
+                    <code className="flex-1 min-w-0 bg-stone border-2 border-line px-2 py-1.5 font-mono text-[10px] overflow-auto whitespace-nowrap">
                       {mcpServeCommand()}
                     </code>
                     <PixelButton

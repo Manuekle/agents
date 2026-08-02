@@ -5,20 +5,65 @@
    pixel · dither · ASCII · Claude palette
    ============================================================ */
 
+/* Tokens split by *role*, not by lightness: text (`ink`), outline (`line`),
+   and drop shadow (`shadow`) used to all be `--ink`, which made dark mode a
+   near-white wireframe. They move independently now. */
 :root {
-  --paper: #f6f4f1;
-  --stone: #e4ded2;
-  --stone-deep: #d6cec0;
-  --coral: #f95c4b;
-  --coral-deep: #e0432f;
-  --ink: #000000;
-  --ink-soft: #1a1a1a;
-  --muted: #7c766c;
+  --paper: #f7f5f0;
+  --stone: #eae4d7;
+  --stone-deep: #d9d2c2;
+  --coral: #ef5c47;
+  --coral-deep: #d44430;
+  --ink: #17150f; /* warm near-black — pure #000 read too harsh on cream */
+  --ink-soft: #3c3629;
+  --muted: #7e776a;
+
+  /* Both themes keep the outline ~1.5:1 against their own paper, so light and
+     dark read with the same weight. A near-black line here was ~14:1 and made
+     light mode look like a wireframe next to dark. */
+  --line: #cbc3b2;
+  --shadow: rgba(23, 21, 15, 0.13); /* soft hard-edged drop, not a black slab */
+  --dot: rgba(23, 21, 15, 0.22); /* dither/grain speckle */
+
+  /* solid button / active-state fill — deliberately NOT --ink, so neither theme
+     turns every secondary button into a slab that outshouts the coral CTA */
+  --fill: #4a4338; /* warm taupe: still clearly "solid", no longer near-black */
+  --fill-hover: #35302a;
+  --on-fill: #f7f5f0;
+  --on-fill-muted: #bdb3a0;
 
   --background: var(--paper);
   --foreground: var(--ink);
 
   --px: 4px; /* pixel unit */
+
+  /* native chrome: range tracks, scrollbars, form controls */
+  color-scheme: light;
+}
+
+[data-theme="dark"] {
+  --paper: #15130f;
+  --stone: #221f19;
+  --stone-deep: #322c23;
+  --coral: #f4705c;
+  --coral-deep: #ff8a76;
+  --ink: #e9e3d6;
+  --ink-soft: #bdb6a6;
+  --muted: #8a8271;
+
+  --line: #3b352b; /* dim warm outline — never the text colour */
+  --shadow: rgba(0, 0, 0, 0.55); /* shadows stay dark in dark mode */
+  --dot: rgba(233, 227, 214, 0.14);
+
+  --fill: #342e26; /* raised warm surface, leaves coral as the only bright accent */
+  --fill-hover: #453e33;
+  --on-fill: #efe9dc;
+  --on-fill-muted: #bdb3a0;
+
+  --background: var(--paper);
+  --foreground: var(--ink);
+
+  color-scheme: dark;
 }
 
 @theme inline {
@@ -30,6 +75,11 @@
   --color-ink: var(--ink);
   --color-ink-soft: var(--ink-soft);
   --color-muted: var(--muted);
+  --color-line: var(--line);
+  --color-fill: var(--fill);
+  --color-fill-hover: var(--fill-hover);
+  --color-on-fill: var(--on-fill);
+  --color-on-fill-muted: var(--on-fill-muted);
 
   --color-background: var(--background);
   --color-foreground: var(--foreground);
@@ -69,6 +119,12 @@
   }
 }
 
+/* logo.png is a transparent PNG drawn in near-black ink — it vanishes on a
+   dark page, so flip it with the theme (sepia warms it back toward --ink). */
+[data-theme="dark"] .theme-invert {
+  filter: invert(1) sepia(0.18) saturate(0.85);
+}
+
 /* crisp pixel rendering for pixel-art images */
 .pixelated {
   image-rendering: pixelated;
@@ -77,29 +133,30 @@
 
 /* ---------- pixel borders / panels ---------- */
 .pixel-border {
-  border: 2px solid var(--ink);
-  box-shadow: var(--px) var(--px) 0 0 var(--ink);
+  border: 2px solid var(--line);
+  box-shadow: var(--px) var(--px) 0 0 var(--shadow);
 }
 .pixel-border-sm {
-  border: 2px solid var(--ink);
-  box-shadow: 2px 2px 0 0 var(--ink);
+  border: 2px solid var(--line);
+  box-shadow: 2px 2px 0 0 var(--shadow);
 }
 .pixel-inset {
-  border: 2px solid var(--ink);
-  box-shadow: inset 2px 2px 0 0 rgba(0, 0, 0, 0.12);
+  border: 2px solid var(--line);
+  box-shadow: inset 2px 2px 0 0 var(--shadow);
 }
 
 /* ---------- dither textures ---------- */
+/* texture, not noise — opaque ink dots at 4px made overlaid copy unreadable */
 .dither-stone {
   background-color: var(--stone);
-  background-image: radial-gradient(var(--ink) 1px, transparent 1px);
-  background-size: 4px 4px;
+  background-image: radial-gradient(var(--dot) 1px, transparent 1px);
+  background-size: 6px 6px;
   background-position: 0 0;
 }
 .dither-coral {
   background-color: var(--coral);
-  background-image: radial-gradient(rgba(0, 0, 0, 0.35) 1px, transparent 1px);
-  background-size: 4px 4px;
+  background-image: radial-gradient(rgba(23, 21, 15, 0.3) 1px, transparent 1px);
+  background-size: 6px 6px;
 }
 .dither-fade {
   background:
@@ -114,12 +171,12 @@
   pointer-events: none;
   background: repeating-linear-gradient(
     0deg,
-    rgba(0, 0, 0, 0.05) 0px,
-    rgba(0, 0, 0, 0.05) 1px,
+    var(--dot) 0px,
+    var(--dot) 1px,
     transparent 1px,
     transparent 3px
   );
-  mix-blend-mode: multiply;
+  opacity: 0.35;
 }
 
 /* ---------- animated dither noise ---------- */
@@ -129,7 +186,7 @@
   inset: 0;
   pointer-events: none;
   opacity: 0.5;
-  background-image: radial-gradient(rgba(0, 0, 0, 0.18) 1px, transparent 1px);
+  background-image: radial-gradient(var(--dot) 1px, transparent 1px);
   background-size: 3px 3px;
   animation: grain 1.2s steps(4) infinite;
 }

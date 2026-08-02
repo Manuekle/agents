@@ -28,15 +28,15 @@ export function GitHubStars({ className }: { className?: string }) {
       target="_blank"
       rel="noreferrer noopener"
       className={clsx(
-        "group inline-flex items-stretch border-2 border-ink pixel-border-sm bg-paper hover:bg-stone transition-colors select-none",
+        "group inline-flex items-stretch border-2 border-line pixel-border-sm bg-paper hover:bg-stone transition-colors select-none",
         className,
       )}
     >
-      <span className="flex items-center gap-1.5 px-2.5 py-1.5 border-r-2 border-ink">
+      <span className="flex items-center gap-1.5 px-2.5 py-1.5 border-r-2 border-line">
         <GitHubIcon size={14} />
         <span className="font-pixel text-[10px] uppercase">Star</span>
       </span>
-      <span className="flex items-center gap-1 px-2.5 py-1.5 bg-ink text-paper group-hover:bg-coral transition-colors">
+      <span className="flex items-center gap-1 px-2.5 py-1.5 bg-fill text-on-fill group-hover:bg-coral transition-colors">
         <StarIcon size={12} className="text-coral group-hover:text-paper" />
         <span className="font-mono text-[11px] tabular-nums">
           {stars === null ? "—" : fmtCount(stars)}

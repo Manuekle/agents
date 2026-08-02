@@ -41,15 +41,13 @@ function Rating() {
 
 export function Footer() {
   return (
-    <footer className="mt-20 border-t-2 border-ink bg-stone">
+    <footer className="mt-20 border-t-2 border-line bg-stone">
       <div className="mx-auto max-w-6xl px-5 py-12 grid gap-10 md:grid-cols-[1.4fr_1fr_1fr]">
         {/* brand */}
         <div>
-          <Link href="/" className="inline-flex items-center gap-2 group">
-            <span className="grid place-items-center w-7 h-7 bg-paper pixel-border-sm overflow-hidden">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src="/agent-icon.png" alt="" className="pixelated w-6 h-6 object-contain" />
-            </span>
+          <Link href="/" className="group inline-flex items-center gap-2">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src="/logo.png" alt="" className="w-7 h-7 object-contain theme-invert" />
             <span className="font-pixel text-sm lowercase tracking-tight group-hover:text-coral transition-colors">
               {SITE.name}
             </span>
@@ -101,10 +99,10 @@ export function Footer() {
       </div>
 
       {/* bottom bar */}
-      <div className="border-t-2 border-ink">
+      <div className="border-t-2 border-line">
         <div className="mx-auto max-w-6xl px-5 py-4 flex flex-wrap items-center justify-between gap-3">
           <span className="font-mono text-[10px] text-muted">
-            {SITE.name} © {new Date().getFullYear()} // pixel · dither · ascii
+            {SITE.name} © {new Date().getFullYear()}
           </span>
           <PoweredBy />
         </div>

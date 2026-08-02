@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { clsx } from "@/lib/clsx";
 import { GitHubStars } from "@/components/GitHubStars";
+import { ThemeToggle } from "@/components/ThemeToggle";
 
 const LINKS = [
   { href: "/", label: "Home" },
@@ -15,19 +16,13 @@ const LINKS = [
 export function Nav() {
   const path = usePathname();
   return (
-    <header className="sticky top-0 z-40 border-b-2 border-ink bg-paper/95 backdrop-blur">
+    <header className="sticky top-0 z-40 border-b-2 border-line bg-paper/95 backdrop-blur">
       <div className="mx-auto max-w-6xl px-5 h-14 flex items-center justify-between">
-        <Link href="/" className="flex items-center gap-2 group">
-          <span className="grid place-items-center w-7 h-7 bg-paper pixel-border-sm overflow-hidden">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src="/agent-icon.png"
-              alt="agents.dev logo"
-              className="pixelated w-6 h-6 object-contain"
-            />
-          </span>
+        <Link href="/" className="group flex items-center gap-2">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/logo.png" alt="" className="w-7 h-7 object-contain theme-invert" />
           <span className="font-pixel text-sm lowercase tracking-tight group-hover:text-coral transition-colors">
-            agents.dev
+            agents
           </span>
         </Link>
 
@@ -42,8 +37,8 @@ export function Nav() {
                   className={clsx(
                     "font-mono text-xs px-3 py-1.5 border-2 transition-colors",
                     active
-                      ? "border-ink bg-ink text-paper"
-                      : "border-transparent hover:border-ink hover:bg-stone",
+                      ? "border-line bg-fill text-on-fill"
+                      : "border-transparent hover:border-line hover:bg-stone",
                   )}
                 >
                   {l.label}
@@ -52,6 +47,7 @@ export function Nav() {
             })}
           </nav>
           <GitHubStars className="hidden sm:inline-flex" />
+          <ThemeToggle />
         </div>
       </div>
     </header>

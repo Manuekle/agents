@@ -28,7 +28,7 @@ export default function SkillsPage() {
               agent in <Link href="/build" className="text-coral underline">Build</Link> to
               bundle several.
             </p>
-            <code className="inline-block mt-2 bg-stone border-2 border-ink px-2 py-1 font-mono text-[10px]">
+            <code className="inline-block mt-2 bg-stone border-2 border-line px-2 py-1 font-mono text-[10px]">
               npx skills add &lt;owner/repo&gt;
             </code>
           </div>

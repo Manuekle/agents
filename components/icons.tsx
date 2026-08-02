@@ -35,3 +35,27 @@ export function StarOutlineIcon({ size = 16, className }: IconProps) {
     </svg>
   );
 }
+
+export function SunIcon({ size = 16, className }: IconProps) {
+  return (
+    <svg {...base(size)} className={className}>
+      <polygon points="4 5 3 5 3 4 4 4 4 3 5 3 5 4 6 4 6 5 7 5 7 6 8 6 8 7 7 7 7 8 6 8 6 7 5 7 5 6 4 6 4 5" />
+      <rect x="1" y="11" width="5" height="2" />
+      <polygon points="7 17 8 17 8 18 7 18 7 19 6 19 6 20 5 20 5 21 4 21 4 20 3 20 3 19 4 19 4 18 5 18 5 17 6 17 6 16 7 16 7 17" />
+      <rect x="11" y="18" width="2" height="5" />
+      <rect x="11" y="1" width="2" height="5" />
+      <rect x="18" y="11" width="5" height="2" />
+      <polygon points="17 7 16 7 16 6 17 6 17 5 18 5 18 4 19 4 19 3 20 3 20 4 21 4 21 5 20 5 20 6 19 6 19 7 18 7 18 8 17 8 17 7" />
+      <polygon points="21 19 21 20 20 20 20 21 19 21 19 20 18 20 18 19 17 19 17 18 16 18 16 17 17 17 17 16 18 16 18 17 19 17 19 18 20 18 20 19 21 19" />
+      <path d="m16,14h1v-4h-1v-2h-2v-1h-4v1h-2v2h-1v4h1v2h2v1h4v-1h2v-2Zm-1,0h-1v1h-4v-1h-1v-4h1v-1h4v1h1v4Z" />
+    </svg>
+  );
+}
+
+export function MoonIcon({ size = 16, className }: IconProps) {
+  return (
+    <svg {...base(size)} className={className}>
+      <polygon points="22 17 22 19 21 19 21 20 20 20 20 21 18 21 18 22 16 22 16 23 10 23 10 22 8 22 8 21 6 21 6 20 5 20 5 19 4 19 4 17 3 17 3 15 2 15 2 9 3 9 3 7 4 7 4 5 5 5 5 4 6 4 6 3 8 3 8 2 10 2 10 1 15 1 15 2 13 2 13 3 11 3 11 4 10 4 10 6 9 6 9 8 8 8 8 12 9 12 9 14 10 14 10 16 11 16 11 17 13 17 13 18 15 18 15 19 19 19 19 18 21 18 21 17 22 17" />
+    </svg>
+  );
+}
