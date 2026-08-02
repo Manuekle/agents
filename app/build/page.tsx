@@ -252,7 +252,7 @@ function Builder() {
           {/* PREVIEW / EXPORT */}
           <div className="space-y-5 lg:sticky lg:top-20 self-start">
             <Panel className="p-5 text-center">
-              <div className="grain relative bg-stone pixel-border-sm p-5 overflow-hidden">
+              <div className="grain mascot-stage relative pixel-border-sm p-5 overflow-hidden">
                 <Mascot state={previewState} size={104} />
               </div>
               <div className="mt-3 font-sans font-bold truncate">{agent.name}</div>

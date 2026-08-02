@@ -179,7 +179,7 @@ export function HowItWorks() {
       {/* mascot + step nav */}
       <div className="space-y-4">
         <Panel className="p-4 text-center">
-          <div className="grain relative bg-stone pixel-border-sm p-4 overflow-hidden">
+          <div className="grain mascot-stage relative pixel-border-sm p-4 overflow-hidden">
             <Mascot state={s.mascot} size={84} />
           </div>
           <div className="mt-3 font-mono text-[11px] text-muted leading-snug">{s.blurb}</div>

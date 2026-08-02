@@ -62,7 +62,7 @@ export default function Home() {
           {/* mascot state showcase */}
           <div className="justify-self-center">
             <Panel className="p-6 bg-paper w-64 text-center">
-              <div className="grain relative bg-stone pixel-border-sm p-6 mb-4 overflow-hidden">
+              <div className="grain mascot-stage relative pixel-border-sm p-6 mb-4 overflow-hidden">
                 <Mascot state={state} size={120} />
               </div>
               <div className="font-pixel text-xs">{MASCOTS[state].label}</div>
@@ -132,7 +132,7 @@ export default function Home() {
             {agents.map((a) => (
               <Panel key={a.id} className="p-4">
                 <div className="flex items-start gap-3">
-                  <div className="bg-stone pixel-border-sm p-1.5 shrink-0">
+                  <div className="mascot-stage relative overflow-hidden pixel-border-sm p-1.5 shrink-0">
                     <Mascot state={a.mascot} size={48} />
                   </div>
                   <div className="min-w-0">
