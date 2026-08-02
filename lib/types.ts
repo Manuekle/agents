@@ -49,11 +49,47 @@ export const TARGETS: { id: AgentTarget; label: string; hint: string }[] = [
   { id: "generic-mcp", label: "Generic MCP", hint: "any MCP-capable model" },
 ];
 
-export const MODELS: { id: string; label: string; vendor: string }[] = [
-  { id: "claude-opus-4-8", label: "Opus 4.8", vendor: "Anthropic" },
-  { id: "claude-sonnet-5", label: "Sonnet 5", vendor: "Anthropic" },
-  { id: "claude-haiku-4-5", label: "Haiku 4.5", vendor: "Anthropic" },
-  { id: "gpt-5-codex", label: "GPT-5 Codex", vendor: "OpenAI" },
-  { id: "gemini-2.5-pro", label: "Gemini 2.5 Pro", vendor: "Google" },
-  { id: "llama-4-scout", label: "Llama 4 Scout", vendor: "Meta" },
+// `tools` scopes a model to the CLIs that can actually run it. Cursor and
+// Generic MCP are model-agnostic, so they get the whole list (see modelsFor).
+export interface Model {
+  id: string;
+  label: string;
+  vendor: string;
+  tools: AgentTarget[];
+}
+
+export const MODELS: Model[] = [
+  // Anthropic — Claude Code
+  { id: "claude-opus-5", label: "Opus 5", vendor: "Anthropic", tools: ["claude-code"] },
+  { id: "claude-fable-5", label: "Fable 5", vendor: "Anthropic", tools: ["claude-code"] },
+  { id: "claude-sonnet-5", label: "Sonnet 5", vendor: "Anthropic", tools: ["claude-code"] },
+  {
+    id: "claude-haiku-4-5-20251001",
+    label: "Haiku 4.5",
+    vendor: "Anthropic",
+    tools: ["claude-code"],
+  },
+
+  // OpenAI — Codex
+  { id: "gpt-5.5", label: "GPT-5.5", vendor: "OpenAI", tools: ["codex"] },
+  { id: "gpt-5-codex", label: "GPT-5 Codex", vendor: "OpenAI", tools: ["codex"] },
+  { id: "gpt-5-codex-mini", label: "GPT-5 Codex Mini", vendor: "OpenAI", tools: ["codex"] },
+  { id: "gpt-5.4-mini", label: "GPT-5.4 Mini", vendor: "OpenAI", tools: ["codex"] },
+
+  // Google — Gemini CLI
+  { id: "gemini-3-pro", label: "Gemini 3 Pro", vendor: "Google", tools: ["gemini-cli"] },
+  { id: "gemini-3-flash", label: "Gemini 3 Flash", vendor: "Google", tools: ["gemini-cli"] },
+  {
+    id: "gemini-3.1-pro-preview",
+    label: "Gemini 3.1 Pro Preview",
+    vendor: "Google",
+    tools: ["gemini-cli"],
+  },
+  { id: "gemini-3.6-flash", label: "Gemini 3.6 Flash", vendor: "Google", tools: ["gemini-cli"] },
 ];
+
+// Models the given tool can drive. Tools with no dedicated list run anything.
+export function modelsFor(target: AgentTarget): Model[] {
+  const scoped = MODELS.filter((m) => m.tools.includes(target));
+  return scoped.length > 0 ? scoped : MODELS;
+}

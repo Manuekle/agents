@@ -42,7 +42,7 @@ Spec resolution order: `--agent <file>` → `$AGENTS_DEV_AGENT` → `./agents-de
 {
   "name": "Pixel Reviewer",
   "role": "a meticulous code reviewer",
-  "model": "claude-opus-4-8",
+  "model": "claude-opus-5",
   "temperature": 0.4,
   "system": "You review diffs for correctness and clarity.",
   "skills": [{ "name": "Security Review", "repo": "anthropics/skills" }]

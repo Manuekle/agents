@@ -1,4 +1,8 @@
-@import "tailwindcss";
+/* Pulls in tailwindcss itself, so there is no separate @import for it.
+   HeroUI's theme lives in @layer theme; the tokens below are unlayered and
+   therefore win the cascade, which is what keeps the pixel palette intact
+   where the two overlap (--background, --foreground, --muted). */
+@import "@heroui/styles";
 
 /* ============================================================
    agents.dev — design system
@@ -147,6 +151,19 @@
 .pixel-border-sm {
   border: 2px solid var(--line);
   box-shadow: 2px 2px 0 0 var(--shadow);
+}
+
+/* ---------- HeroUI bridge ---------- */
+/* HeroUI paints from its own theme tokens, which would drop a blue control
+   into a coral page. Remapping them here (rather than restyling each slot)
+   keeps the component's own behaviour and states intact. Its dark theme keys
+   off [data-theme="dark"] too, so these follow the toggle for free. */
+.heroui-brand {
+  --accent: var(--coral);
+  --accent-hover: var(--coral-deep);
+  --accent-foreground: var(--paper);
+  --default: var(--stone);
+  --default-foreground: var(--ink);
 }
 
 /* ---------- mascot stage ---------- */

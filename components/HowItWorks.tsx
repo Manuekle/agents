@@ -60,7 +60,7 @@ function Compose({ active }: { active: boolean }) {
         {active && <span className="caret" />}
       </MiniField>
       <div className="grid grid-cols-2 gap-3">
-        <MiniField label="Model">Opus 4.8 · Anthropic</MiniField>
+        <MiniField label="Model">Opus 5 · Anthropic</MiniField>
         <MiniField label="Target">Claude Code</MiniField>
       </div>
     </div>

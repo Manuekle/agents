@@ -2,6 +2,7 @@
 
 import { Suspense, useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+import { Slider } from "@heroui/react";
 import { Nav, PoweredBy } from "@/components/Nav";
 import { Footer } from "@/components/Footer";
 import { Mascot } from "@/components/Mascot";
@@ -18,9 +19,9 @@ import {
 import { MASCOT_ORDER, MASCOTS, type MascotState } from "@/lib/mascot";
 import { SkillBrowser } from "@/components/SkillBrowser";
 import {
-  MODELS,
   TARGETS,
   agentRepos,
+  modelsFor,
   type Agent,
   type AgentTarget,
   type PickedSkill,
@@ -42,7 +43,7 @@ function newAgent(): Agent {
     role: "general assistant",
     systemPrompt: "You are a focused, pixel-precise engineering agent.",
     target: "claude-code",
-    model: "claude-opus-4-8",
+    model: "claude-opus-5",
     temperature: 0.7,
     skills: [],
     mascot: "working",
@@ -174,28 +175,48 @@ function Builder() {
                 <Segmented<AgentTarget>
                   options={TARGETS.map((t) => ({ id: t.id, label: t.label }))}
                   value={agent.target}
-                  onChange={(v) => set("target", v)}
+                  onChange={(v) => {
+                    // Switching tools can strand the model on one the new tool
+                    // can't run (Opus 5 under Gemini CLI), so fall back to the
+                    // new tool's first option when that happens.
+                    const allowed = modelsFor(v);
+                    setAgent((a) => ({
+                      ...a,
+                      target: v,
+                      model: allowed.some((m) => m.id === a.model) ? a.model : allowed[0].id,
+                    }));
+                    setSaved(false);
+                  }}
                 />
               </Field>
 
               <div className="grid sm:grid-cols-2 gap-4">
                 <Field label="Model">
                   <Select
-                    options={MODELS.map((m) => ({ id: m.id, label: m.label, hint: m.vendor }))}
+                    options={modelsFor(agent.target).map((m) => ({
+                      id: m.id,
+                      label: m.label,
+                      hint: m.vendor,
+                    }))}
                     value={agent.model}
                     onChange={(v) => set("model", v)}
                   />
                 </Field>
                 <Field label="Temperature" hint={agent.temperature.toFixed(2)}>
-                  <input
-                    type="range"
-                    min={0}
-                    max={1}
+                  <Slider
+                    aria-label="Temperature"
+                    className="heroui-brand w-full h-9 flex items-center"
+                    maxValue={1}
+                    minValue={0}
                     step={0.05}
                     value={agent.temperature}
-                    onChange={(e) => set("temperature", Number(e.target.value))}
-                    className="w-full accent-coral h-9"
-                  />
+                    onChange={(v) => set("temperature", Array.isArray(v) ? v[0] : v)}
+                  >
+                    <Slider.Track>
+                      <Slider.Fill />
+                      <Slider.Thumb />
+                    </Slider.Track>
+                  </Slider>
                 </Field>
               </div>
             </Panel>
