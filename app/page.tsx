@@ -35,7 +35,7 @@ export default function Home() {
             <div className="mb-4">
               <Badge tone="coral">v0.1 · pixel native</Badge>
             </div>
-            <h1 className="font-sans font-bold text-5xl md:text-6xl leading-[0.95] tracking-tight">
+            <h1 className="font-serif text-5xl md:text-6xl leading-[0.98] tracking-tight">
               Build AI agents.
               <br />
               <span className="caret">Ship your skills</span>

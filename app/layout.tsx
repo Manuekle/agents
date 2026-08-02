@@ -1,20 +1,18 @@
 import type { Metadata } from "next";
-import { Space_Grotesk, JetBrains_Mono, Silkscreen } from "next/font/google";
+import { GeistSans } from "geist/font/sans";
+import { GeistMono } from "geist/font/mono";
+import { Silkscreen, Habibi } from "next/font/google";
 import "./globals.css";
-
-const sans = Space_Grotesk({
-  variable: "--font-sans-stack",
-  subsets: ["latin"],
-});
-
-const mono = JetBrains_Mono({
-  variable: "--font-mono-stack",
-  subsets: ["latin"],
-});
 
 const pixel = Silkscreen({
   variable: "--font-pixel-stack",
   weight: ["400", "700"],
+  subsets: ["latin"],
+});
+
+const serif = Habibi({
+  variable: "--font-serif-stack",
+  weight: ["400"],
   subsets: ["latin"],
 });
 
@@ -30,7 +28,7 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={`${sans.variable} ${mono.variable} ${pixel.variable} h-full antialiased`}
+      className={`${GeistSans.variable} ${GeistMono.variable} ${pixel.variable} ${serif.variable} h-full antialiased`}
     >
       <body className="min-h-full bg-paper text-ink">{children}</body>
     </html>
