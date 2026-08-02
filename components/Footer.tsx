@@ -19,7 +19,7 @@ const COLS: { title: string; links: { label: string; href: string; external?: bo
     title: "Resources",
     links: [
       { label: "skills.sh", href: SITE.registry, external: true },
-      { label: "npx skills", href: "https://github.com/vercel-labs/skills", external: true },
+      { label: "npx skills", href: SITE.upstreamUrl, external: true },
       { label: "GitHub", href: SITE.githubUrl, external: true },
     ],
   },

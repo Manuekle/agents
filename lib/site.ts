@@ -2,9 +2,12 @@
 export const SITE = {
   name: "agents",
   tagline: "Build AI agents. Ship your skills.",
-  // upstream project powering the skills engine
-  githubRepo: "vercel-labs/skills",
-  githubUrl: "https://github.com/vercel-labs/skills",
+  author: "Manuekle",
+  // this project — the star count and the GitHub link both point here
+  githubRepo: "Manuekle/agents",
+  githubUrl: "https://github.com/Manuekle/agents",
+  // upstream CLI this builds on, linked separately in the footer
+  upstreamUrl: "https://github.com/vercel-labs/skills",
   registry: "https://skills.sh",
 };
 
