@@ -7,9 +7,14 @@ const KEY = "agents-dev:agents";
 const listeners = new Set<() => void>();
 let cache: Agent[] | null = null;
 
+// useSyncExternalStore compares snapshots by identity, so every no-agents path
+// must hand back this same array — a fresh `[]` reads as "changed" each call
+// and React loops.
+const EMPTY: Agent[] = [];
+
 function read(): Agent[] {
   if (cache) return cache;
-  if (typeof window === "undefined") return [];
+  if (typeof window === "undefined") return EMPTY;
   try {
     cache = JSON.parse(localStorage.getItem(KEY) ?? "[]");
   } catch {
@@ -40,13 +45,19 @@ export function deleteAgent(id: string) {
   write(read().filter((a) => a.id !== id));
 }
 
+// Hoisted so their identity is stable across renders — an inline subscribe
+// makes React tear down and re-add the listener on every render.
+function subscribe(cb: () => void) {
+  listeners.add(cb);
+  return () => {
+    listeners.delete(cb);
+  };
+}
+
+function readServer(): Agent[] {
+  return EMPTY;
+}
+
 export function useAgents(): Agent[] {
-  return useSyncExternalStore(
-    (cb) => {
-      listeners.add(cb);
-      return () => listeners.delete(cb);
-    },
-    read,
-    () => [],
-  );
+  return useSyncExternalStore(subscribe, read, readServer);
 }
