@@ -119,12 +119,6 @@
   }
 }
 
-/* logo.png is a transparent PNG drawn in near-black ink — it vanishes on a
-   dark page, so flip it with the theme (sepia warms it back toward --ink). */
-[data-theme="dark"] .theme-invert {
-  filter: invert(1) sepia(0.18) saturate(0.85);
-}
-
 /* crisp pixel rendering for pixel-art images */
 .pixelated {
   image-rendering: pixelated;

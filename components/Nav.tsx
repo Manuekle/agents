@@ -18,10 +18,10 @@ export function Nav() {
   return (
     <header className="sticky top-0 z-40 border-b-2 border-line bg-paper/95 backdrop-blur">
       <div className="mx-auto max-w-6xl px-5 h-14 flex items-center justify-between">
-        <Link href="/" className="group flex items-center gap-2">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/logo.png" alt="" className="w-7 h-7 object-contain theme-invert" />
-          <span className="font-pixel text-sm lowercase tracking-tight group-hover:text-coral transition-colors">
+        <Link href="/" className="group flex items-center">
+          {/* Habibi wordmark as live text — scales at any DPI and inherits the
+              theme colour, which a rasterised logo could not. */}
+          <span className="font-serif text-2xl leading-none lowercase group-hover:text-coral transition-colors">
             agents
           </span>
         </Link>

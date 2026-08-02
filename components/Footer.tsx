@@ -45,10 +45,8 @@ export function Footer() {
       <div className="mx-auto max-w-6xl px-5 py-12 grid gap-10 md:grid-cols-[1.4fr_1fr_1fr]">
         {/* brand */}
         <div>
-          <Link href="/" className="group inline-flex items-center gap-2">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src="/logo.png" alt="" className="w-7 h-7 object-contain theme-invert" />
-            <span className="font-pixel text-sm lowercase tracking-tight group-hover:text-coral transition-colors">
+          <Link href="/" className="group inline-flex items-center">
+            <span className="font-serif text-2xl leading-none lowercase group-hover:text-coral transition-colors">
               {SITE.name}
             </span>
           </Link>
