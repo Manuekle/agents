@@ -2,6 +2,16 @@
   "name": "@agents-dev/mcp",
   "version": "0.1.0",
   "description": "Serve an agents.dev agent (system prompt + skills) over MCP to any MCP-capable model.",
+  "keywords": [
+    "mcp",
+    "model-context-protocol",
+    "ai-agent",
+    "claude",
+    "cursor",
+    "agent-skills"
+  ],
+  "license": "MIT",
+  "author": "manudev",
   "type": "module",
   "bin": {
     "agents-dev-mcp": "./index.mjs"
@@ -9,6 +19,12 @@
   "files": ["index.mjs", "README.md"],
   "engines": {
     "node": ">=18"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "scripts": {
+    "test": "node test.mjs"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.0.0",
