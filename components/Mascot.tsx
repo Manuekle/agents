@@ -4,15 +4,6 @@ import { useEffect, useState } from "react";
 import { MASCOTS, type MascotState } from "@/lib/mascot";
 import { clsx } from "@/lib/clsx";
 
-const PARTICLE: Partial<Record<MascotState, string>> = {
-  sleeping: "z",
-  cooking: "~",
-  coffee: "°",
-  rocket: "*",
-  thinking: "?",
-  wizard: "✦",
-};
-
 // Cache which slots have a real PNG so we never flash a broken-image icon.
 const loaded: Record<string, boolean> = {};
 
@@ -28,7 +19,6 @@ export function Mascot({
   const def = MASCOTS[state];
   const src = `/mascots/${def.slot}.png`;
   const [ok, setOk] = useState<boolean>(loaded[src] ?? false);
-  const particle = PARTICLE[state];
 
   // Preload: only render <img> once we know the asset exists.
   useEffect(() => {
@@ -55,12 +45,6 @@ export function Mascot({
       aria-label={def.label}
       role="img"
     >
-      {particle && (
-        <div className="absolute -top-1 right-0 font-pixel text-coral text-xs pointer-events-none">
-          <span className="rise inline-block">{particle}</span>
-        </div>
-      )}
-
       <div className={clsx("will-change-transform", def.anim)} style={{ width: size, height: size }}>
         {ok ? (
           // eslint-disable-next-line @next/next/no-img-element

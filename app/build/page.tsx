@@ -29,7 +29,7 @@ function newAgent(): Agent {
     model: "claude-opus-4-8",
     temperature: 0.7,
     skillIds: [],
-    mascot: "idle",
+    mascot: "working",
     accent: "#f95c4b",
     createdAt: Date.now(),
   };
@@ -44,7 +44,7 @@ function Builder() {
   const [agent, setAgent] = useState<Agent>(newAgent);
   const [saved, setSaved] = useState(false);
   // preview state driven by which field is active
-  const [previewState, setPreviewState] = useState<MascotState>("idle");
+  const [previewState, setPreviewState] = useState<MascotState>("working");
 
   useEffect(() => {
     if (editId) {

@@ -17,8 +17,13 @@ export function Nav() {
     <header className="sticky top-0 z-40 border-b-2 border-ink bg-paper/95 backdrop-blur">
       <div className="mx-auto max-w-6xl px-5 h-14 flex items-center justify-between">
         <Link href="/" className="flex items-center gap-2 group">
-          <span className="grid place-items-center w-7 h-7 bg-coral pixel-border-sm text-paper font-pixel text-[10px]">
-            a.
+          <span className="grid place-items-center w-7 h-7 bg-paper pixel-border-sm overflow-hidden">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src="/agent-icon.png"
+              alt="agents.dev logo"
+              className="pixelated w-6 h-6 object-contain"
+            />
           </span>
           <span className="font-pixel text-sm lowercase tracking-tight group-hover:text-coral transition-colors">
             agents.dev

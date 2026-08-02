@@ -3,7 +3,6 @@
 // Drop PNGs into /public/mascots/<slot>.png and they replace the ASCII automatically.
 
 export type MascotState =
-  | "idle"
   | "sleeping"
   | "thinking"
   | "working"
@@ -24,13 +23,6 @@ export interface MascotDef {
 }
 
 export const MASCOTS: Record<MascotState, MascotDef> = {
-  idle: {
-    slot: "idle",
-    label: "Idle",
-    anim: "anim-idle",
-    ascii: "(·_·)",
-    blurb: "waiting for orders",
-  },
   sleeping: {
     slot: "sleeping",
     label: "Sleeping",
@@ -104,7 +96,6 @@ export const MASCOTS: Record<MascotState, MascotDef> = {
 };
 
 export const MASCOT_ORDER: MascotState[] = [
-  "idle",
   "thinking",
   "working",
   "cooking",

@@ -156,7 +156,6 @@
    ============================================================ */
 /* translate-only motion — rotation/scale resample and blur the crisp
    pixel art, so every signature moves the sprite by whole pixels only. */
-.anim-idle       { animation: bob 3.6s ease-in-out infinite; }
 .anim-sleeping   { animation: breathe 4.4s ease-in-out infinite; }
 .anim-thinking   { animation: float 2.8s ease-in-out infinite; }
 .anim-working    { animation: type 0.9s ease-in-out infinite; }
@@ -224,14 +223,6 @@
 @keyframes dots {
   0%, 100% { opacity: 0.2; }
   50% { opacity: 1; }
-}
-
-/* rising steam / zzz particles */
-.rise { animation: rise 2s ease-out infinite; }
-@keyframes rise {
-  0% { transform: translateY(0) scale(0.8); opacity: 0; }
-  20% { opacity: 1; }
-  100% { transform: translateY(-26px) scale(1.2); opacity: 0; }
 }
 
 /* entrance */
