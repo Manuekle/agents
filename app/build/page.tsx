@@ -14,10 +14,22 @@ import {
   Segmented,
 } from "@/components/ui";
 import { MASCOT_ORDER, MASCOTS, type MascotState } from "@/lib/mascot";
-import { SEED_SKILLS } from "@/lib/skills-seed";
-import { MODELS, TARGETS, type Agent, type AgentTarget } from "@/lib/types";
+import { SkillBrowser } from "@/components/SkillBrowser";
+import {
+  MODELS,
+  TARGETS,
+  agentRepos,
+  type Agent,
+  type AgentTarget,
+  type PickedSkill,
+} from "@/lib/types";
 import { saveAgent, useAgents } from "@/lib/store";
-import { exportAgent } from "@/lib/export";
+import {
+  exportAgent,
+  installCommand,
+  newProjectCommand,
+  skillsManifest,
+} from "@/lib/export";
 
 function newAgent(): Agent {
   return {
@@ -28,7 +40,7 @@ function newAgent(): Agent {
     target: "claude-code",
     model: "claude-opus-4-8",
     temperature: 0.7,
-    skillIds: [],
+    skills: [],
     mascot: "working",
     accent: "#f95c4b",
     createdAt: Date.now(),
@@ -59,18 +71,21 @@ function Builder() {
     setSaved(false);
   };
 
-  const toggleSkill = (id: string) => {
+  const toggleSkill = (s: PickedSkill) => {
     setAgent((a) => ({
       ...a,
-      skillIds: a.skillIds.includes(id)
-        ? a.skillIds.filter((x) => x !== id)
-        : [...a.skillIds, id],
+      skills: a.skills.some((x) => x.id === s.id)
+        ? a.skills.filter((x) => x.id !== s.id)
+        : [...a.skills, s],
     }));
     setPreviewState("wizard");
     setSaved(false);
   };
 
-  const output = useMemo(() => exportAgent(agent, SEED_SKILLS), [agent]);
+  const output = useMemo(() => exportAgent(agent), [agent]);
+  const install = useMemo(() => installCommand(agent), [agent]);
+  const newProj = useMemo(() => newProjectCommand(agent), [agent]);
+  const repos = agentRepos(agent);
 
   const doSave = () => {
     setPreviewState("cooking");
@@ -79,8 +94,22 @@ function Builder() {
     setTimeout(() => setPreviewState(agent.mascot), 900);
   };
 
-  const copy = () => {
-    navigator.clipboard?.writeText(output.content);
+  const copy = () => copyText(output.content);
+
+  const copyText = (text: string) => {
+    navigator.clipboard?.writeText(text);
+    setPreviewState("rocket");
+    setTimeout(() => setPreviewState(agent.mascot), 900);
+  };
+
+  const downloadManifest = () => {
+    const blob = new Blob([skillsManifest(agent)], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "agents-dev.skills.json";
+    a.click();
+    URL.revokeObjectURL(url);
     setPreviewState("rocket");
     setTimeout(() => setPreviewState(agent.mascot), 900);
   };
@@ -196,36 +225,29 @@ function Builder() {
               </Field>
             </Panel>
 
-            {/* SKILLS */}
+            {/* SKILLS — live search of skills.sh */}
             <Panel className="p-5">
               <div className="flex items-center justify-between mb-3">
-                <span className="font-pixel text-[10px] uppercase">Skills</span>
-                <Badge tone="coral">{agent.skillIds.length} selected</Badge>
+                <span className="font-pixel text-[10px] uppercase">Skills · skills.sh</span>
+                <Badge tone="coral">{agent.skills.length} selected</Badge>
               </div>
-              <div className="grid sm:grid-cols-2 gap-2">
-                {SEED_SKILLS.map((s) => {
-                  const on = agent.skillIds.includes(s.id);
-                  return (
+
+              {agent.skills.length > 0 && (
+                <div className="flex flex-wrap gap-1.5 mb-3">
+                  {agent.skills.map((s) => (
                     <button
                       key={s.id}
-                      onClick={() => toggleSkill(s.id)}
-                      className={`text-left p-2.5 border-2 border-ink transition-all ${
-                        on
-                          ? "bg-ink text-paper"
-                          : "bg-paper hover:shadow-[2px_2px_0_0_var(--coral)]"
-                      }`}
+                      onClick={() => toggleSkill(s)}
+                      title={`remove ${s.repo}`}
+                      className="inline-flex items-center gap-1 font-mono text-[10px] px-2 py-0.5 border-2 border-ink bg-ink text-paper hover:bg-coral transition-colors"
                     >
-                      <div className="flex items-center justify-between gap-2">
-                        <span className="font-mono text-xs font-bold truncate">{s.name}</span>
-                        <span className="font-pixel text-[9px] shrink-0">{on ? "[x]" : "[ ]"}</span>
-                      </div>
-                      <p className={`font-mono text-[10px] mt-1 leading-snug ${on ? "text-stone" : "text-muted"}`}>
-                        {s.description}
-                      </p>
+                      {s.name} <span className="opacity-70">✕</span>
                     </button>
-                  );
-                })}
-              </div>
+                  ))}
+                </div>
+              )}
+
+              <SkillBrowser selected={agent.skills} onToggle={toggleSkill} />
             </Panel>
           </div>
 
@@ -255,6 +277,59 @@ function Builder() {
               <pre className="p-3 text-[11px] font-mono leading-relaxed overflow-auto max-h-[420px] whitespace-pre-wrap">
                 {output.content}
               </pre>
+            </Panel>
+
+            {/* INSTALL — wraps the official skills CLI */}
+            <Panel className="overflow-hidden">
+              <div className="flex items-center justify-between px-3 py-2 border-b-2 border-ink bg-coral text-paper">
+                <span className="font-pixel text-[10px] uppercase">Install</span>
+                <Badge tone="ink">{repos.length} repos</Badge>
+              </div>
+              <div className="p-3 space-y-3">
+                <div>
+                  <div className="font-mono text-[9px] uppercase text-muted mb-1">existing project</div>
+                  <div className="flex items-stretch gap-1.5">
+                    <code className="flex-1 min-w-0 bg-stone border-2 border-ink px-2 py-1.5 font-mono text-[10px] overflow-auto whitespace-nowrap">
+                      {install}
+                    </code>
+                    <PixelButton
+                      onClick={() => copyText(install)}
+                      disabled={repos.length === 0}
+                      className="!px-2 !py-1 !text-[9px] shrink-0"
+                    >
+                      Copy
+                    </PixelButton>
+                  </div>
+                </div>
+
+                <div>
+                  <div className="font-mono text-[9px] uppercase text-muted mb-1">new project</div>
+                  <div className="flex items-stretch gap-1.5">
+                    <code className="flex-1 min-w-0 bg-stone border-2 border-ink px-2 py-1.5 font-mono text-[10px] overflow-auto whitespace-nowrap">
+                      {newProj}
+                    </code>
+                    <PixelButton
+                      onClick={() => copyText(newProj)}
+                      className="!px-2 !py-1 !text-[9px] shrink-0"
+                    >
+                      Copy
+                    </PixelButton>
+                  </div>
+                </div>
+
+                <PixelButton
+                  variant="ghost"
+                  onClick={downloadManifest}
+                  disabled={repos.length === 0}
+                  className="w-full"
+                >
+                  ↓ .skills.json manifest
+                </PixelButton>
+                <p className="font-mono text-[9px] text-muted leading-relaxed">
+                  Uses the official <b>skills</b> CLI — auto-detects your agent (Claude
+                  Code, Cursor, Codex…) and writes into its skills dir.
+                </p>
+              </div>
             </Panel>
           </div>
         </div>

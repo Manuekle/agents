@@ -8,9 +8,18 @@ export interface Skill {
   slug: string;
   description: string;
   category: string;
-  source: string; // where it was scraped from
+  source: string; // registry/host it came from
+  repo?: string; // owner/repo — the `npx skills add` target
   tags: string[];
   installs?: number;
+}
+
+// A skill the user picked into an agent. `repo` (owner/repo) is what the
+// official `skills` CLI installs.
+export interface PickedSkill {
+  id: string;
+  name: string;
+  repo: string;
 }
 
 export interface Agent {
@@ -21,10 +30,15 @@ export interface Agent {
   target: AgentTarget;
   model: string;
   temperature: number;
-  skillIds: string[];
+  skills: PickedSkill[];
   mascot: MascotState;
   accent: string; // hex
   createdAt: number;
+}
+
+// Unique owner/repo install targets for an agent's picked skills.
+export function agentRepos(agent: Agent): string[] {
+  return Array.from(new Set(agent.skills.map((s) => s.repo).filter(Boolean)));
 }
 
 export const TARGETS: { id: AgentTarget; label: string; hint: string }[] = [

@@ -1,10 +1,41 @@
-import type { Agent, Skill } from "./types";
+import { agentRepos, type Agent } from "./types";
+
+// The official `skills` CLI install command for an agent's picked skills.
+// Works in any existing project — it detects the agent and writes the skills
+// into the right config dir (.claude/skills, .agents/skills, …).
+export function installCommand(agent: Agent): string {
+  const repos = agentRepos(agent);
+  if (repos.length === 0) return "# pick some skills first";
+  return `npx skills add ${repos.join(" ")}`;
+}
+
+// Bootstrap a brand-new project, then add the skills.
+export function newProjectCommand(agent: Agent, scaffold = "npx create-next-app@latest my-agent-app --yes"): string {
+  const repos = agentRepos(agent);
+  const add = repos.length ? ` && npx skills add ${repos.join(" ")}` : "";
+  return `${scaffold} && cd my-agent-app${add}`;
+}
+
+// A reproducible manifest of the picks (drop in repo, share, re-install).
+export function skillsManifest(agent: Agent): string {
+  return JSON.stringify(
+    {
+      agent: agent.name,
+      target: agent.target,
+      model: agent.model,
+      skills: agent.skills.map((s) => ({ name: s.name, repo: s.repo })),
+      repos: agentRepos(agent),
+    },
+    null,
+    2,
+  );
+}
 
 // Turn an agent spec into the config file its target tool expects.
-export function exportAgent(agent: Agent, skills: Skill[]): { filename: string; lang: string; content: string } {
-  const picked = skills.filter((s) => agent.skillIds.includes(s.id));
-  const skillList = picked.map((s) => `- **${s.name}** — ${s.description}`).join("\n") || "- (none)";
-  const skillSlugs = picked.map((s) => s.slug);
+export function exportAgent(agent: Agent): { filename: string; lang: string; content: string } {
+  const skillList =
+    agent.skills.map((s) => `- **${s.name}** — \`${s.repo}\``).join("\n") || "- (none)";
+  const install = installCommand(agent);
 
   switch (agent.target) {
     case "claude-code":
@@ -24,9 +55,11 @@ ${agent.systemPrompt}
 
 ${skillList}
 
-## Invocation
+## Install
 
-Use \`/<skill-name>\` to invoke a skill. Available: ${skillSlugs.map((s) => `\`/${s}\``).join(", ") || "—"}.
+\`\`\`bash
+${install}
+\`\`\`
 `,
       };
 
@@ -43,8 +76,13 @@ Model: ${agent.model}
 
 ${agent.systemPrompt}
 
-## Enabled skills
+## Skills
 ${skillList}
+
+## Install
+\`\`\`bash
+${install}
+\`\`\`
 `,
       };
 
@@ -58,6 +96,8 @@ ${agent.systemPrompt}
 
 Skills in scope:
 ${skillList}
+
+Install: ${install}
 `,
       };
 
@@ -65,7 +105,7 @@ ${skillList}
       return {
         filename: "GEMINI.md",
         lang: "markdown",
-        content: `# ${agent.name}\n\n${agent.systemPrompt}\n\n## Skills\n${skillList}\n`,
+        content: `# ${agent.name}\n\n${agent.systemPrompt}\n\n## Skills\n${skillList}\n\n## Install\n\`\`\`bash\n${install}\n\`\`\`\n`,
       };
 
     case "generic-mcp":
@@ -80,7 +120,8 @@ ${skillList}
             model: agent.model,
             temperature: agent.temperature,
             system: agent.systemPrompt,
-            skills: skillSlugs,
+            skills: agentRepos(agent),
+            install,
             mcpServers: {
               "agents-dev": {
                 command: "npx",
