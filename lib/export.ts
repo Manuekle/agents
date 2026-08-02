@@ -82,9 +82,9 @@ ${skillList}
             system: agent.systemPrompt,
             skills: skillSlugs,
             mcpServers: {
-              "agent-forge": {
+              "agents-dev": {
                 command: "npx",
-                args: ["-y", "agent-forge-mcp", "--agent", agent.id],
+                args: ["-y", "@agents-dev/mcp", "--agent", agent.id],
               },
             },
           },

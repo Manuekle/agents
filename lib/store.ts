@@ -3,7 +3,7 @@
 import { useSyncExternalStore } from "react";
 import type { Agent } from "./types";
 
-const KEY = "agent-forge:agents";
+const KEY = "agents-dev:agents";
 const listeners = new Set<() => void>();
 let cache: Agent[] | null = null;
 

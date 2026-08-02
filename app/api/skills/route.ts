@@ -59,7 +59,7 @@ export async function GET(req: Request) {
     if (!/^https?:$/.test(target.protocol)) throw new Error("bad protocol");
 
     const res = await fetch(target.toString(), {
-      headers: { "user-agent": "agent-forge-scraper/1.0" },
+      headers: { "user-agent": "agents-dev-scraper/1.0" },
       signal: AbortSignal.timeout(8000),
     });
     if (!res.ok) throw new Error(`upstream ${res.status}`);

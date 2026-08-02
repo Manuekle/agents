@@ -8,7 +8,7 @@ import { MODELS } from "@/lib/types";
 
 // A tiny MCP bridge config generator — one server, many models.
 export default function McpPage() {
-  const [name, setName] = useState("agent-forge-bridge");
+  const [name, setName] = useState("agents-dev-bridge");
   const [selected, setSelected] = useState<string[]>(["claude-opus-4-8", "gpt-5-codex"]);
   const [copied, setCopied] = useState(false);
 
@@ -21,8 +21,8 @@ export default function McpPage() {
         mcpServers: {
           [name]: {
             command: "npx",
-            args: ["-y", "@agent-forge/mcp"],
-            env: { AGENT_FORGE_MODELS: selected.join(",") },
+            args: ["-y", "@agents-dev/mcp"],
+            env: { AGENTS_DEV_MODELS: selected.join(",") },
           },
         },
       },

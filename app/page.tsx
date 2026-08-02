@@ -151,7 +151,7 @@ export default function Home() {
 
       <footer className="border-t-2 border-ink">
         <div className="mx-auto max-w-6xl px-5 py-6 flex items-center justify-between font-mono text-[10px] text-muted">
-          <span>AGENT_FORGE // pixel · dither · ascii</span>
+          <span>agents.dev // pixel · dither · ascii</span>
           <PoweredBy />
         </div>
       </footer>

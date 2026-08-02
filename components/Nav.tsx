@@ -18,10 +18,10 @@ export function Nav() {
       <div className="mx-auto max-w-6xl px-5 h-14 flex items-center justify-between">
         <Link href="/" className="flex items-center gap-2 group">
           <span className="grid place-items-center w-7 h-7 bg-coral pixel-border-sm text-paper font-pixel text-[10px]">
-            AF
+            a.
           </span>
-          <span className="font-pixel text-xs tracking-tight group-hover:text-coral transition-colors">
-            AGENT_FORGE
+          <span className="font-pixel text-sm lowercase tracking-tight group-hover:text-coral transition-colors">
+            agents.dev
           </span>
         </Link>
 

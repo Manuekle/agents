@@ -1,7 +1,7 @@
 @import "tailwindcss";
 
 /* ============================================================
-   AGENT FORGE — design system
+   agents.dev — design system
    pixel · dither · ASCII · Claude palette
    ============================================================ */
 
@@ -36,7 +36,7 @@
 
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
-  --font-pixel: var(--font-pixel-stack);
+  --font-pixel: var(--font-geist-mono); /* pixel/label role uses Geist Mono */
   --font-serif: var(--font-serif-stack);
 }
 
@@ -55,13 +55,17 @@
     -webkit-font-smoothing: antialiased;
   }
 
-  /* keep the mono + pixel faces at their own metrics — the tight sans
-     tracking / semibold weight only belongs to Geist Sans.
+  /* keep the mono face at its own metrics — the tight sans tracking /
+     semibold weight only belongs to Geist Sans.
      In @layer base so `font-bold` / `tracking-*` utilities still win. */
-  .font-mono,
-  .font-pixel {
+  .font-mono {
     letter-spacing: 0;
     font-weight: 400;
+  }
+  /* pixel/label role: Geist Mono, bold, wide tracking for the tech-label look */
+  .font-pixel {
+    font-weight: 700;
+    letter-spacing: 0.04em;
   }
 }
 
@@ -150,60 +154,67 @@
 /* ============================================================
    MASCOT STATE ANIMATIONS
    ============================================================ */
-.anim-sleeping { animation: bob 3.4s ease-in-out infinite; }
-.anim-thinking { animation: float 2.6s ease-in-out infinite; }
-.anim-working  { animation: jitter 0.28s steps(2) infinite; }
-.anim-cooking  { animation: wobble 1.1s ease-in-out infinite; }
-.anim-coffee   { animation: sip 2.2s ease-in-out infinite; }
-.anim-rocket   { animation: launch 0.9s ease-in-out infinite; }
-.anim-headphones { animation: nod 0.7s ease-in-out infinite; }
-.anim-paragliding { animation: sway 3s ease-in-out infinite; }
-.anim-wizard   { animation: pulse 2s ease-in-out infinite; }
-.anim-sherlock { animation: peer 4s ease-in-out infinite; }
-.anim-idle     { animation: bob 4s ease-in-out infinite; }
+/* translate-only motion — rotation/scale resample and blur the crisp
+   pixel art, so every signature moves the sprite by whole pixels only. */
+.anim-idle       { animation: bob 3.6s ease-in-out infinite; }
+.anim-sleeping   { animation: breathe 4.4s ease-in-out infinite; }
+.anim-thinking   { animation: float 2.8s ease-in-out infinite; }
+.anim-working    { animation: type 0.9s ease-in-out infinite; }
+.anim-cooking    { animation: sizzle 0.6s ease-in-out infinite; }
+.anim-coffee     { animation: bob 2.6s ease-in-out infinite; }
+.anim-rocket     { animation: hop 1.3s cubic-bezier(0.4, 0, 0.5, 1) infinite; }
+.anim-headphones { animation: beat 0.66s ease-in-out infinite; }
+.anim-paragliding{ animation: drift 3.6s ease-in-out infinite; }
+.anim-wizard     { animation: float 2.4s ease-in-out infinite; }
+.anim-sherlock   { animation: scan 3.8s ease-in-out infinite; }
 
+/* gentle vertical bob — the grounded resting motion */
 @keyframes bob {
   0%, 100% { transform: translateY(0); }
-  50% { transform: translateY(6px); }
+  50% { transform: translateY(4px); }
 }
-@keyframes float {
-  0%, 100% { transform: translateY(0) rotate(-1deg); }
-  50% { transform: translateY(-8px) rotate(1deg); }
-}
-@keyframes jitter {
-  0% { transform: translate(0, 0); }
-  50% { transform: translate(-2px, 1px); }
-  100% { transform: translate(2px, -1px); }
-}
-@keyframes wobble {
-  0%, 100% { transform: rotate(-3deg); }
-  50% { transform: rotate(3deg); }
-}
-@keyframes sip {
-  0%, 70%, 100% { transform: rotate(0); }
-  80% { transform: rotate(-6deg) translateY(-2px); }
-}
-@keyframes launch {
+/* slow shallow rise/fall for sleeping */
+@keyframes breathe {
   0%, 100% { transform: translateY(0); }
-  20% { transform: translateY(3px); }
-  60% { transform: translateY(-10px); }
+  50% { transform: translateY(3px); }
 }
-@keyframes nod {
-  0%, 100% { transform: translateY(0) rotate(0); }
-  50% { transform: translateY(2px) rotate(2deg); }
+/* airy hover — the one that already read well */
+@keyframes float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-7px); }
 }
-@keyframes sway {
-  0%, 100% { transform: translateX(-8px) rotate(-2deg); }
-  50% { transform: translateX(8px) rotate(2deg); }
+/* busy: quick tiny bob like keystrokes */
+@keyframes type {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(2px); }
 }
-@keyframes pulse {
-  0%, 100% { transform: scale(1); }
-  50% { transform: scale(1.06); }
-}
-@keyframes peer {
+/* sizzling pan — small snappy horizontal shimmy, whole-pixel */
+@keyframes sizzle {
   0%, 100% { transform: translateX(0); }
-  25% { transform: translateX(-4px); }
-  75% { transform: translateX(4px); }
+  25% { transform: translateX(-2px); }
+  75% { transform: translateX(2px); }
+}
+/* rocket launch — anticipation dip then a spring up */
+@keyframes hop {
+  0%, 100% { transform: translateY(0); }
+  30% { transform: translateY(3px); }
+  60% { transform: translateY(-9px); }
+  80% { transform: translateY(-4px); }
+}
+/* nodding to the beat */
+@keyframes beat {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(3px); }
+}
+/* parachute drift — slow horizontal glide with a touch of lift */
+@keyframes drift {
+  0%, 100% { transform: translate(-5px, 0); }
+  50% { transform: translate(5px, -4px); }
+}
+/* detective scanning left/right */
+@keyframes scan {
+  0%, 100% { transform: translateX(-4px); }
+  50% { transform: translateX(4px); }
 }
 
 /* thinking dots */
