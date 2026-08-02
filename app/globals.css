@@ -134,10 +134,6 @@
   border: 2px solid var(--line);
   box-shadow: 2px 2px 0 0 var(--shadow);
 }
-.pixel-inset {
-  border: 2px solid var(--line);
-  box-shadow: inset 2px 2px 0 0 var(--shadow);
-}
 
 /* ---------- dither textures ---------- */
 /* texture, not noise — opaque ink dots at 4px made overlaid copy unreadable */
@@ -146,31 +142,6 @@
   background-image: radial-gradient(var(--dot) 1px, transparent 1px);
   background-size: 6px 6px;
   background-position: 0 0;
-}
-.dither-coral {
-  background-color: var(--coral);
-  background-image: radial-gradient(rgba(23, 21, 15, 0.3) 1px, transparent 1px);
-  background-size: 6px 6px;
-}
-.dither-fade {
-  background:
-    linear-gradient(var(--paper), var(--paper)),
-    repeating-conic-gradient(var(--ink) 0% 25%, transparent 0% 50%) 0 0 / 4px 4px;
-}
-/* scanline overlay */
-.scanlines::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-  background: repeating-linear-gradient(
-    0deg,
-    var(--dot) 0px,
-    var(--dot) 1px,
-    transparent 1px,
-    transparent 3px
-  );
-  opacity: 0.35;
 }
 
 /* ---------- animated dither noise ---------- */
