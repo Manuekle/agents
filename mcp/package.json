@@ -21,9 +21,12 @@
   "homepage": "https://github.com/Manuekle/agents#readme",
   "type": "module",
   "bin": {
-    "agents": "./index.mjs"
+    "agents": "index.mjs"
   },
-  "files": ["index.mjs", "README.md"],
+  "files": [
+    "index.mjs",
+    "README.md"
+  ],
   "engines": {
     "node": ">=18"
   },
