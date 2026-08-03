@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { clsx } from "@/lib/clsx";
+import { themeWipe } from "@/lib/theme-wipe";
 import { SunIcon, MoonIcon } from "@/components/icons";
 
 type Theme = "light" | "dark";
@@ -17,10 +18,15 @@ export function ThemeToggle({ className }: { className?: string }) {
   function toggle() {
     const next: Theme = theme === "dark" ? "light" : "dark";
     setTheme(next);
-    document.documentElement.setAttribute("data-theme", next);
-    try {
-      localStorage.setItem("theme", next);
-    } catch {}
+    // The attribute swap is deferred into the wipe: it repaints the whole page
+    // in one frame, which is exactly what the overlay is there to hide. The
+    // icon is CSS-driven off the same attribute, so it turns over with it.
+    themeWipe(next, () => {
+      document.documentElement.setAttribute("data-theme", next);
+      try {
+        localStorage.setItem("theme", next);
+      } catch {}
+    });
   }
 
   return (

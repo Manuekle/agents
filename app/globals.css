@@ -12,11 +12,24 @@
 /* Tokens split by *role*, not by lightness: text (`ink`), outline (`line`),
    and drop shadow (`shadow`) used to all be `--ink`, which made dark mode a
    near-white wireframe. They move independently now. */
+/* Both palettes' base colours, resolvable from either theme. The theme wipe
+   paints the INCOMING theme's blocks while the OUTGOING theme is still on
+   <html>, so it needs to name a colour the current theme has not defined.
+   --paper / --stone / --coral alias these — one source of truth per colour. */
 :root {
-  --paper: #f7f5f0;
-  --stone: #eae4d7;
+  --paper-light: #f7f5f0;
+  --paper-dark: #15130f;
+  --stone-light: #eae4d7;
+  --stone-dark: #221f19;
+  --coral-light: #ef5c47;
+  --coral-dark: #f4705c;
+}
+
+:root {
+  --paper: var(--paper-light);
+  --stone: var(--stone-light);
   --stone-deep: #d9d2c2;
-  --coral: #ef5c47;
+  --coral: var(--coral-light);
   --coral-deep: #d44430;
   --ink: #17150f; /* warm near-black — pure #000 read too harsh on cream */
   --ink-soft: #3c3629;
@@ -55,10 +68,10 @@
 }
 
 [data-theme="dark"] {
-  --paper: #15130f;
-  --stone: #221f19;
+  --paper: var(--paper-dark);
+  --stone: var(--stone-dark);
   --stone-deep: #322c23;
-  --coral: #f4705c;
+  --coral: var(--coral-dark);
   --coral-deep: #ff8a76;
   --ink: #e9e3d6;
   --ink-soft: #bdb6a6;
@@ -569,6 +582,81 @@
   display: flex;
   align-items: center;
   justify-content: center;
+}
+
+/* ---------- theme wipe ---------- */
+/* Full-screen block wipe on theme change: dark floods UP from the bottom,
+   light rains DOWN from the top. Every cell is a hard-edged square that snaps
+   between states — steps(1) everywhere, never a fade, so the sweep reads as
+   pixel art filling in rather than a CSS cross-dissolve.
+   Grid geometry and the per-cell delays are written inline by lib/theme-wipe. */
+.t-wipe {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  display: grid;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+/* The incoming theme's colours, named explicitly: while the wipe runs, <html>
+   still carries the OUTGOING theme, so plain var(--paper) would paint the
+   colour we are leaving. */
+.t-wipe.to-dark {
+  --wipe-fill: var(--paper-dark);
+  --wipe-stone: var(--stone-dark);
+  --wipe-coral: var(--coral-dark);
+}
+.t-wipe.to-light {
+  --wipe-fill: var(--paper-light);
+  --wipe-stone: var(--stone-light);
+  --wipe-coral: var(--coral-light);
+}
+
+/* Two animations, not two class swaps: `forwards` fill means wipe-in holds the
+   cell opaque until wipe-out's own delay starts it, so the screen stays
+   covered across the theme flip with no seam between the phases. */
+.t-wipe i {
+  display: block;
+  opacity: 0;
+  --wipe-edge: var(--wipe-stone);
+  animation:
+    wipe-in var(--wipe-life) steps(1, end) var(--d-in) forwards,
+    wipe-out var(--wipe-life) steps(1, end) var(--d-out) forwards;
+}
+
+/* A minority of cells land on coral first, so the advancing edge dithers into
+   the fill instead of sweeping as one flat band. */
+.t-wipe i.is-spark {
+  --wipe-edge: var(--wipe-coral);
+}
+
+@keyframes wipe-in {
+  0% {
+    opacity: 1;
+    background: var(--wipe-edge);
+  }
+  55% {
+    opacity: 1;
+    background: var(--wipe-fill);
+  }
+  100% {
+    opacity: 1;
+    background: var(--wipe-fill);
+  }
+}
+
+@keyframes wipe-out {
+  0% {
+    opacity: 1;
+    background: var(--wipe-edge);
+  }
+  55% {
+    opacity: 0;
+  }
+  100% {
+    opacity: 0;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {
