@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useEffect, useMemo, useState } from "react";
+import { Suspense, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Slider } from "@heroui/react";
 import { Nav, PoweredBy } from "@/components/Nav";
@@ -37,6 +37,8 @@ import {
   mcpServeCommand,
 } from "@/lib/export";
 
+const CONFETTI = 18;
+
 function newAgent(): Agent {
   return {
     id: `agent-${Date.now().toString(36)}`,
@@ -61,6 +63,8 @@ function Builder() {
 
   const [agent, setAgent] = useState<Agent>(newAgent);
   const [saved, setSaved] = useState(false);
+  const saveRef = useRef<HTMLSpanElement>(null);
+  const confettiTimer = useRef<number | undefined>(undefined);
   // preview state driven by which field is active
   const [previewState, setPreviewState] = useState<MascotState>("working");
 
@@ -93,10 +97,39 @@ function Builder() {
   const newProj = useMemo(() => newProjectCommand(agent), [agent]);
   const repos = agentRepos(agent);
 
+  // Spray each piece on its own vector/rotation/tint so the burst reads as
+  // confetti rather than a symmetric starburst.
+  const fireConfetti = () => {
+    const root = saveRef.current;
+    if (!root) return;
+    const tints = ["var(--coral)", "var(--coral-deep)", "var(--ink)", "var(--stone-deep)"];
+    root.querySelectorAll<HTMLElement>(".t-confetti i").forEach((p, i) => {
+      const angle = -Math.PI / 2 + (Math.random() - 0.5) * 2.4;
+      const dist = 26 + Math.random() * 46;
+      p.style.setProperty("--cx", `${Math.cos(angle) * dist}px`);
+      p.style.setProperty("--cy", `${Math.sin(angle) * dist}px`);
+      p.style.setProperty("--crot", `${Math.round((Math.random() - 0.5) * 540)}deg`);
+      p.style.setProperty("--cdelay", `${Math.random() * 90}ms`);
+      p.style.setProperty("--cbg", tints[i % tints.length]);
+    });
+    // Toggled on the node, not via state: React batches a false/true pair in
+    // one handler into a single render, so the class never leaves the DOM and
+    // the forwards-filled animation stays parked instead of replaying.
+    root.classList.remove("is-confetti");
+    void root.offsetWidth; // reflow, or re-adding the class is a no-op
+    root.classList.add("is-confetti");
+    window.clearTimeout(confettiTimer.current);
+    confettiTimer.current = window.setTimeout(
+      () => root.classList.remove("is-confetti"),
+      1500,
+    );
+  };
+
   const doSave = () => {
     setPreviewState("cooking");
     saveAgent(agent);
     setSaved(true);
+    fireConfetti();
     setTimeout(() => setPreviewState(agent.mascot), 900);
   };
 
@@ -135,9 +168,16 @@ function Builder() {
             <PixelButton variant="ghost" onClick={() => router.push("/")}>
               ← Home
             </PixelButton>
-            <PixelButton variant="coral" onClick={doSave}>
-              {saved ? "✓ Saved" : "Save agent"}
-            </PixelButton>
+            <span ref={saveRef} className="relative inline-flex">
+              <PixelButton variant="coral" onClick={doSave}>
+                {saved ? "✓ Saved" : "Save agent"}
+              </PixelButton>
+              <span className="t-confetti" aria-hidden>
+                {Array.from({ length: CONFETTI }, (_, i) => (
+                  <i key={i} />
+                ))}
+              </span>
+            </span>
           </div>
         </div>
 

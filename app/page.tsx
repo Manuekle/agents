@@ -7,14 +7,23 @@ import { Footer } from "@/components/Footer";
 import { HowItWorks } from "@/components/HowItWorks";
 import { Mascot } from "@/components/Mascot";
 import { DitherField } from "@/components/DitherField";
+import { TiltCard } from "@/components/TiltCard";
 import { Panel, PixelButton, Badge } from "@/components/ui";
 import { MASCOT_ORDER, MASCOTS } from "@/lib/mascot";
 import { useAgents, deleteAgent } from "@/lib/store";
 import { TARGETS } from "@/lib/types";
+import { clsx } from "@/lib/clsx";
 
 export default function Home() {
   const agents = useAgents();
   const [i, setI] = useState(0);
+  // Held off one frame so the lines have a "before" to transition from —
+  // applying .is-shown in the same paint would skip the reveal.
+  const [shown, setShown] = useState(false);
+  useEffect(() => {
+    const id = requestAnimationFrame(() => setShown(true));
+    return () => cancelAnimationFrame(id);
+  }, []);
 
   // cycle the hero mascot through every state
   useEffect(() => {
@@ -33,20 +42,20 @@ export default function Home() {
         {/* keep the headline legible over the dark dither lobes */}
         <div className="absolute inset-0 bg-gradient-to-r from-paper via-paper/75 to-transparent md:to-paper/0 pointer-events-none" />
         <div className="relative mx-auto max-w-6xl px-5 py-20 grid gap-10 md:grid-cols-[1.1fr_0.9fr] items-center">
-          <div>
-            <div className="mb-4">
+          <div className={clsx("t-stagger", shown && "is-shown")}>
+            <div className="mb-4 t-stagger-line t-stagger-line--1">
               <Badge tone="coral">v0.1 · pixel native</Badge>
             </div>
-            <h1 className="font-serif text-5xl md:text-6xl leading-[0.98] tracking-tight">
+            <h1 className="font-serif text-5xl md:text-6xl leading-[0.98] tracking-tight t-stagger-line t-stagger-line--2">
               Build AI agents.
               <br />
               <span className="caret">Ship your skills</span>
             </h1>
-            <p className="mt-5 max-w-md font-mono text-sm text-ink-soft bg-paper/80 inline-block px-2 py-1">
+            <p className="mt-5 max-w-md font-mono text-sm text-ink-soft bg-paper/80 inline-block px-2 py-1 t-stagger-line t-stagger-line--3">
               Scrape skills, compose agents, export to Claude Code, Codex &amp; any
               MCP model. All pixel, all custom.
             </p>
-            <div className="mt-7 flex flex-wrap items-center gap-3">
+            <div className="mt-7 flex flex-wrap items-center gap-3 t-stagger-line t-stagger-line--4">
               <Link href="/build">
                 <PixelButton variant="coral">Forge an agent →</PixelButton>
               </Link>
@@ -91,13 +100,15 @@ export default function Home() {
           { t: "Agent composer", d: "Prompt, model, temperature, mascot & skills — one editable spec.", tag: "compose" },
           { t: "Multi-target export", d: "Claude Code, Codex, Cursor, Gemini CLI or raw MCP config.", tag: "export" },
         ].map((f, idx) => (
-          <Panel key={f.t} className="p-5 pop-in">
-            <div style={{ animationDelay: `${idx * 60}ms` }}>
-              <Badge>{f.tag}</Badge>
-              <h3 className="font-sans font-bold text-lg mt-3">{f.t}</h3>
-              <p className="font-mono text-xs text-muted mt-1.5 leading-relaxed">{f.d}</p>
-            </div>
-          </Panel>
+          <TiltCard key={f.t}>
+            <Panel className="p-5 pop-in">
+              <div style={{ animationDelay: `${idx * 60}ms` }}>
+                <Badge>{f.tag}</Badge>
+                <h3 className="font-sans font-bold text-lg mt-3">{f.t}</h3>
+                <p className="font-mono text-xs text-muted mt-1.5 leading-relaxed">{f.d}</p>
+              </div>
+            </Panel>
+          </TiltCard>
         ))}
       </section>
 

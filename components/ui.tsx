@@ -127,15 +127,51 @@ export function Segmented<T extends string>({
   value: T;
   onChange: (v: T) => void;
 }) {
+  const wrapRef = useRef<HTMLDivElement>(null);
+  const markerRef = useRef<HTMLSpanElement>(null);
+  const measured = useRef(false);
+
+  // Slide a marker to the active button instead of repainting backgrounds.
+  // The first placement is written with transitions suspended, or the marker
+  // would fly in from the left edge on mount.
+  useEffect(() => {
+    const wrap = wrapRef.current;
+    const marker = markerRef.current;
+    if (!wrap || !marker) return;
+
+    const place = (animate: boolean) => {
+      const active = wrap.querySelector<HTMLElement>(`[data-seg="${value}"]`);
+      if (!active) return;
+      if (!animate) {
+        marker.style.transition = "none";
+      }
+      marker.style.transform = `translateX(${active.offsetLeft}px)`;
+      marker.style.width = `${active.offsetWidth}px`;
+      if (!animate) {
+        void marker.offsetWidth;
+        marker.style.transition = "";
+      }
+    };
+
+    place(measured.current);
+    measured.current = true;
+
+    const ro = new ResizeObserver(() => place(false));
+    ro.observe(wrap);
+    return () => ro.disconnect();
+  }, [value, options]);
+
   return (
-    <div className="inline-flex border-2 border-line flex-wrap">
+    <div ref={wrapRef} className="relative inline-flex border-2 border-line flex-wrap">
+      <span ref={markerRef} className="t-tabs-marker" aria-hidden />
       {options.map((o) => (
         <button
           key={o.id}
+          data-seg={o.id}
           onClick={() => onChange(o.id)}
           className={clsx(
-            "font-mono text-xs px-3 py-1.5 border-r-2 border-line last:border-r-0 transition-colors cursor-pointer",
-            value === o.id ? "bg-fill text-on-fill" : "bg-paper hover:bg-stone",
+            "relative z-10 font-mono text-xs px-3 py-1.5 border-r-2 border-line last:border-r-0 transition-colors cursor-pointer",
+            value === o.id ? "text-on-fill" : "hover:bg-stone",
           )}
         >
           {o.label}

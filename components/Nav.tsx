@@ -58,7 +58,11 @@ export function PoweredBy() {
   return (
     <div className="inline-flex items-center gap-1.5 font-mono text-[10px] uppercase tracking-widest text-muted">
       <span className="w-1.5 h-1.5 bg-coral rounded-full animate-pulse" />
-      powered by ai
+      {/* data-text duplicates the string so ::before can clip the sweep to
+          the same glyphs — keep the two in sync. */}
+      <span className="t-shimmer" data-text="powered by ai">
+        powered by ai
+      </span>
     </div>
   );
 }

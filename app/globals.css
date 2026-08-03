@@ -255,6 +255,258 @@
   100% { background-position: 0 0; }
 }
 
+/* ============================================================
+   MOTION — transitions.dev recipes, adapted
+   Two house rules override the originals: no border-radius
+   (the design is hard-edged throughout) and blur kept off any
+   pixel-art sprite, which resampling turns to mush.
+   ============================================================ */
+
+:root {
+  /* star burst */
+  --burst-dist: 22px;
+  --burst-size: 3px;
+  --burst-dur: 600ms;
+  --pop-dur: 350ms;
+  --pop-ease: cubic-bezier(0.34, 1.96, 0.64, 1);
+
+  /* confetti */
+  --confetti-dur: 1100ms;
+
+  /* text reveal */
+  --stagger-dur: 500ms;
+  --stagger-distance: 12px;
+  --stagger-stagger: 40ms;
+  --stagger-blur: 3px;
+  --stagger-ease: cubic-bezier(0.22, 1, 0.36, 1);
+
+  /* sliding tab marker */
+  --tabs-dur: 250ms;
+  --tabs-ease: cubic-bezier(0.22, 1, 0.36, 1);
+
+  /* shimmer */
+  --shimmer-dur: 2600ms;
+
+  /* card tilt */
+  --tilt-return: 900ms;
+  --tilt-follow: 300ms;
+  --tilt-ease: cubic-bezier(0.22, 1, 0.36, 1);
+
+  /* digit reel */
+  --reel-dur: 1200ms;
+  --reel-cell: 16px;
+  --reel-stagger: 80ms;
+  --reel-ease: cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* ---------- star burst (GitHub pill) ---------- */
+.is-bursting .t-star-icon { animation: t-star-pop var(--pop-dur) var(--pop-ease); }
+@keyframes t-star-pop {
+  0% { transform: scale(1); }
+  30% { transform: scale(0.82); }
+  100% { transform: scale(1); }
+}
+
+.t-burst {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 0;
+  height: 0;
+  pointer-events: none;
+  color: var(--coral);
+}
+/* Square particles, not dots — round confetti next to pixel art
+   reads as a different art direction. */
+.t-burst i {
+  position: absolute;
+  left: calc(var(--burst-size) * var(--psize, 1) / -2);
+  top: calc(var(--burst-size) * var(--psize, 1) / -2);
+  width: calc(var(--burst-size) * var(--psize, 1));
+  height: calc(var(--burst-size) * var(--psize, 1));
+  background: currentColor;
+  opacity: 0;
+}
+.is-bursting .t-burst i {
+  animation: t-burst var(--pdur, var(--burst-dur)) ease-out var(--pdelay, 0ms) forwards;
+}
+@keyframes t-burst {
+  0% { opacity: 0; transform: translate(0, 0) scale(0.4); }
+  20% { opacity: 1; transform: translate(calc(var(--px) * 0.25), calc(var(--py) * 0.25)) scale(1); }
+  100% { opacity: 0; transform: translate(var(--px), var(--py)) scale(var(--pend, 0.6)); }
+}
+
+/* ---------- confetti burst (save) ---------- */
+.t-confetti {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 0;
+  height: 0;
+  pointer-events: none;
+  z-index: 50;
+}
+.t-confetti i {
+  position: absolute;
+  width: 6px;
+  height: 6px;
+  margin: -3px 0 0 -3px;
+  background: var(--cbg, var(--coral));
+  opacity: 0;
+}
+.is-confetti .t-confetti i {
+  animation: t-confetti var(--confetti-dur) cubic-bezier(0.16, 1, 0.3, 1) var(--cdelay, 0ms) forwards;
+}
+/* Gravity arc: out and up fast, then fall past the origin. */
+@keyframes t-confetti {
+  0% { opacity: 0; transform: translate(0, 0) rotate(0deg) scale(0.5); }
+  12% { opacity: 1; }
+  40% { transform: translate(calc(var(--cx) * 0.7), calc(var(--cy) - 14px)) rotate(var(--crot)) scale(1); }
+  100% { opacity: 0; transform: translate(var(--cx), calc(var(--cy) + 46px)) rotate(calc(var(--crot) * 2)) scale(0.9); }
+}
+
+/* ---------- text reveal ---------- */
+.t-stagger-line {
+  display: block;
+  opacity: 0;
+  transform: translateY(var(--stagger-distance));
+  filter: blur(var(--stagger-blur));
+  transition:
+    opacity var(--stagger-dur) var(--stagger-ease),
+    transform var(--stagger-dur) var(--stagger-ease),
+    filter var(--stagger-dur) var(--stagger-ease);
+  will-change: transform, opacity, filter;
+}
+.t-stagger.is-shown .t-stagger-line {
+  opacity: 1;
+  transform: translateY(0);
+  filter: blur(0);
+}
+.t-stagger-line--2 { transition-delay: var(--stagger-stagger); }
+.t-stagger-line--3 { transition-delay: calc(var(--stagger-stagger) * 2); }
+.t-stagger-line--4 { transition-delay: calc(var(--stagger-stagger) * 3); }
+
+/* ---------- sliding tab marker ---------- */
+/* Width and transform are written inline from measurements. */
+.t-tabs-marker {
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 0;
+  background: var(--fill);
+  transform: translateX(0);
+  transition:
+    transform var(--tabs-dur) var(--tabs-ease),
+    width var(--tabs-dur) var(--tabs-ease);
+  will-change: transform, width;
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* ---------- shimmer ---------- */
+/* data-text duplicates the string so ::before can clip the
+   sweeping gradient to the same glyphs. */
+.t-shimmer {
+  position: relative;
+  display: inline-block;
+}
+.t-shimmer::before {
+  content: attr(data-text);
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background-image: linear-gradient(
+    90deg,
+    transparent 0%,
+    transparent 40%,
+    var(--ink) 50%,
+    transparent 60%,
+    transparent 100%
+  );
+  background-size: 400% 100%;
+  background-repeat: no-repeat;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  -webkit-text-fill-color: transparent;
+  animation: t-shimmer var(--shimmer-dur) linear infinite;
+}
+@keyframes t-shimmer {
+  0% { background-position: 100% 0; }
+  100% { background-position: 0% 0; }
+}
+
+/* ---------- card tilt ---------- */
+.t-tilt { touch-action: none; }
+.t-tilt-card {
+  transform:
+    perspective(900px)
+    rotateX(var(--tilt-rx, 0deg))
+    rotateY(var(--tilt-ry, 0deg));
+  transform-style: preserve-3d;
+  transition: transform var(--tilt-return) var(--tilt-ease);
+  will-change: transform;
+}
+.t-tilt-card.is-tilting { transition: transform var(--tilt-follow) var(--tilt-ease); }
+.t-tilt-glare {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0;
+  mix-blend-mode: screen;
+  background: radial-gradient(
+    circle 180px at var(--tilt-gx, 50%) var(--tilt-gy, 50%),
+    rgba(255, 255, 255, 0.22),
+    rgba(255, 255, 255, 0.04) 58%,
+    rgba(255, 255, 255, 0) 80%
+  );
+  transition: opacity 300ms var(--tilt-ease);
+}
+.t-tilt.is-hover .t-tilt-glare { opacity: 0.5; }
+
+/* ---------- digit reel ---------- */
+.t-reel {
+  display: inline-flex;
+  align-items: center;
+  height: var(--reel-cell);
+  font-variant-numeric: tabular-nums;
+}
+.t-reel-col {
+  position: relative;
+  height: var(--reel-cell);
+  overflow: hidden;
+}
+.t-reel-strip {
+  display: flex;
+  flex-direction: column;
+  will-change: transform;
+}
+.t-reel-digit {
+  height: var(--reel-cell);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .t-star-pop,
+  .is-bursting .t-burst i,
+  .is-confetti .t-confetti i,
+  .t-shimmer::before {
+    animation: none !important;
+  }
+  .t-stagger-line,
+  .t-tabs-marker,
+  .t-tilt-card,
+  .t-tilt-glare,
+  .t-reel-strip {
+    transition: none !important;
+  }
+  .t-stagger-line { opacity: 1; transform: none; filter: none; }
+  .t-tilt-card { transform: none !important; }
+}
+
 /* ---------- blinking caret ---------- */
 .caret::after {
   content: "▮";
