@@ -1,36 +1,60 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# agents
 
-## Getting Started
+Build AI agents. Ship your skills.
 
-First, run the development server:
+**Live: [agents-dev.vercel.app](https://agents-dev.vercel.app)**
+
+A pixel-native composer for AI agents: search the open [skills.sh](https://skills.sh)
+registry, pick skills, write a system prompt, choose a model — then export the
+config your tool actually reads (`CLAUDE.md`, `AGENTS.md`, `.cursorrules`,
+`GEMINI.md`, `mcp.json`) or serve the whole agent over MCP.
+
+## Layout
+
+| path | what |
+|------|------|
+| `app/` | Next.js App Router pages — `/` (home), `/build` (composer), `/skills` (registry browser), `/mcp` (MCP bridge docs) |
+| `app/api/skills/` | server proxy for the skills.sh search API, with an offline seed fallback |
+| `components/` | UI primitives (`ui.tsx`), mascot, dither canvas, skill browser |
+| `lib/` | agent types + export formats, localStorage store, mascot state machine |
+| `mcp/` | the published npm package, `@manudev.jsx/agents` — serves an exported agent over MCP |
+| `assets/mascots-raw/` | 1024² pixel-art sources (not served; `public/mascots/` holds the 256² builds) |
+| `scripts/` | one-off mascot pipeline (background removal, body-normalized sizing) used to author the raws |
+
+## Develop
 
 ```bash
+npm install
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Then open http://localhost:3000.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+```bash
+npm run build
+```
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+### Environment
 
-## Learn More
+| var | purpose |
+|-----|---------|
+| `NEXT_PUBLIC_SITE_URL` | absolute base for OG/Twitter card images. Falls back to `VERCEL_PROJECT_PRODUCTION_URL`, then `http://localhost:3000`. Set to `https://agents-dev.vercel.app` in Vercel production. |
 
-To learn more about Next.js, take a look at the following resources:
+Nothing else is required — the skills search proxies a public API and agents are
+stored in the browser's localStorage.
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## The MCP package
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+`mcp/` is published separately as [`@manudev.jsx/agents`](mcp/README.md). It reads
+an `agents-dev.agent.json` exported from the composer and exposes the persona,
+system prompt and picked skills to any MCP client.
 
-## Deploy on Vercel
+```bash
+cd mcp
+npm test        # smoke test against example.agent.json
+npm publish     # requires `npm login`; publishConfig.access is already public
+```
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+## License
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+MIT — see [`LICENSE`](LICENSE).

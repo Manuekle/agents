@@ -187,9 +187,13 @@ function Builder() {
           </div>
         </div>
 
+        {/* min-w-0 on both columns: grid items default to min-width:auto, so the
+            export <pre> and the nowrap install <code> below size the track to
+            their own max-content and push the whole page into horizontal scroll
+            on phones. */}
         <div className="grid gap-6 lg:grid-cols-[1fr_340px]">
           {/* FORM */}
-          <div className="space-y-5">
+          <div className="space-y-5 min-w-0">
             <Panel className="p-5 space-y-4">
               <div className="grid sm:grid-cols-2 gap-4">
                 <Field label="Name">
@@ -272,7 +276,7 @@ function Builder() {
             {/* MASCOT PICKER */}
             <Panel className="p-5">
               <Field label="Mascot" hint="state animation on the card">
-                <div className="grid grid-cols-6 sm:grid-cols-11 gap-2 mt-1">
+                <div className="grid grid-cols-5 sm:grid-cols-10 gap-2 mt-1">
                   {MASCOT_ORDER.map((s) => (
                     <button
                       key={s}
@@ -321,7 +325,7 @@ function Builder() {
           </div>
 
           {/* PREVIEW / EXPORT */}
-          <div className="space-y-5 lg:sticky lg:top-20 self-start">
+          <div className="space-y-5 min-w-0 lg:sticky lg:top-20 self-start">
             <Panel className="p-5 text-center">
               <div className="grain mascot-stage relative pixel-border-sm p-5 overflow-hidden">
                 <Mascot state={previewState} size={104} />

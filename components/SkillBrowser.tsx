@@ -119,6 +119,10 @@ export function SkillBrowser({
           <div className="grid sm:grid-cols-2 gap-2 max-h-[420px] overflow-auto pr-1">
             {results.map((s) => {
               const repo = s.repo ?? s.source;
+              // `npx skills add` only takes owner/repo. Anything else (a bare
+              // registry name, a docs host) would copy a command that cannot
+              // resolve, so the action is disabled instead.
+              const installable = repo.includes("/");
               const on = selectedIds.has(s.id);
               const installs = fmtInstalls(s.installs);
               return (
@@ -144,25 +148,38 @@ export function SkillBrowser({
                     {onToggle ? (
                       <button
                         onClick={() => onToggle({ id: s.id, name: s.name, repo })}
+                        disabled={!installable}
+                        title={installable ? undefined : `${repo} is not an owner/repo`}
                         className={clsx(
                           "w-full font-pixel text-[9px] uppercase py-1 border-2 border-line transition-colors",
+                          "disabled:opacity-40 disabled:pointer-events-none",
                           on ? "bg-paper text-ink" : "bg-fill text-on-fill hover:bg-coral",
                         )}
                       >
-                        {on ? "remove [x]" : "add [ ]"}
+                        {on ? "remove [x]" : installable ? "add [ ]" : "no repo"}
                       </button>
                     ) : (
                       <button
                         onClick={() => copyInstall(repo, s.id)}
-                        title={`copies "npx skills add ${repo}"`}
+                        disabled={!installable}
+                        title={
+                          installable
+                            ? `copies "npx skills add ${repo}"`
+                            : `${repo} is not an owner/repo`
+                        }
                         className={clsx(
                           "w-full font-pixel text-[9px] uppercase py-1 border-2 border-line transition-colors",
+                          "disabled:opacity-40 disabled:pointer-events-none",
                           copiedId === s.id
                             ? "bg-ok text-paper normal-case tracking-normal"
                             : "bg-fill text-on-fill hover:bg-coral",
                         )}
                       >
-                        {copiedId === s.id ? `✓ npx skills add ${repo}` : "copy install"}
+                        {copiedId === s.id
+                          ? `✓ npx skills add ${repo}`
+                          : installable
+                            ? "copy install"
+                            : "no repo"}
                       </button>
                     )}
                   </div>

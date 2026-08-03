@@ -1,11 +1,11 @@
 "use client";
 
-import { useEffect, useState } from "react";
 import Link from "next/link";
 import { PoweredBy } from "@/components/Nav";
 import { GitHubStars } from "@/components/GitHubStars";
 import { StarIcon, StarOutlineIcon, GitHubIcon } from "@/components/icons";
 import { SITE, fmtCount } from "@/lib/site";
+import { useStars } from "@/lib/stars";
 
 const COLS: { title: string; links: { label: string; href: string; external?: boolean }[] }[] = [
   {
@@ -29,20 +29,7 @@ const COLS: { title: string; links: { label: string; href: string; external?: bo
 // Real stargazer count, not a made-up rating: the filled stars reflect the
 // actual GitHub stars (capped at 5) so the footer never lies about popularity.
 function Rating() {
-  const [stars, setStars] = useState<number | null>(null);
-
-  useEffect(() => {
-    let alive = true;
-    fetch(`https://api.github.com/repos/${SITE.githubRepo}`)
-      .then((r) => (r.ok ? r.json() : null))
-      .then((d) => {
-        if (alive && d && typeof d.stargazers_count === "number") setStars(d.stargazers_count);
-      })
-      .catch(() => {});
-    return () => {
-      alive = false;
-    };
-  }, []);
+  const stars = useStars();
 
   const filled = Math.min(stars ?? 0, 5);
   return (

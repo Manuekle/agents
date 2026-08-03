@@ -35,7 +35,7 @@ export function Nav() {
                   key={l.href}
                   href={l.href}
                   className={clsx(
-                    "font-mono text-xs px-3 py-1.5 border-2 transition-colors",
+                    "font-mono text-xs px-2 sm:px-3 py-1.5 border-2 transition-colors",
                     active
                       ? "border-line bg-fill text-on-fill"
                       : "border-transparent hover:border-line hover:bg-stone",
@@ -46,7 +46,14 @@ export function Nav() {
               );
             })}
           </nav>
-          <GitHubStars className="hidden sm:inline-flex" />
+          {/* Visibility lives on the wrapper, not on GitHubStars' own className:
+              the pill's base classes already set `inline-flex`, and Tailwind
+              emits `hidden` earlier in the sheet, so a `hidden` passed through
+              className would silently lose the cascade and the pill would
+              overflow the bar on phones. */}
+          <span className="hidden sm:inline-flex">
+            <GitHubStars />
+          </span>
           <ThemeToggle />
         </div>
       </div>

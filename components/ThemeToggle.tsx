@@ -33,7 +33,15 @@ export function ThemeToggle({ className }: { className?: string }) {
         className,
       )}
     >
-      {theme === "dark" ? <SunIcon size={14} /> : <MoonIcon size={14} />}
+      {/* Both icons ship; CSS keyed off <html data-theme> picks one. `theme`
+          state only settles after hydration, so choosing in JS would paint the
+          wrong icon for a frame on every dark-mode load. */}
+      <span className="icon-when-light">
+        <MoonIcon size={14} />
+      </span>
+      <span className="icon-when-dark">
+        <SunIcon size={14} />
+      </span>
     </button>
   );
 }

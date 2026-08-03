@@ -140,6 +140,22 @@
   }
 }
 
+/* Theme-conditional icons. Driven by the [data-theme] attribute the head script
+   sets before first paint, so the toggle never paints the wrong glyph while
+   React is still hydrating. */
+.icon-when-light {
+  display: inline-flex;
+}
+.icon-when-dark {
+  display: none;
+}
+[data-theme="dark"] .icon-when-light {
+  display: none;
+}
+[data-theme="dark"] .icon-when-dark {
+  display: inline-flex;
+}
+
 /* crisp pixel rendering for pixel-art images */
 .pixelated {
   image-rendering: pixelated;
@@ -398,19 +414,21 @@
 .t-stagger-line--4 { transition-delay: calc(var(--stagger-stagger) * 3); }
 
 /* ---------- sliding tab marker ---------- */
-/* Width and transform are written inline from measurements. */
+/* Size and transform are written inline from measurements — including height,
+   because the strip wraps to two rows on narrow screens. */
 .t-tabs-marker {
   position: absolute;
   left: 0;
   top: 0;
-  bottom: 0;
   width: 0;
+  height: 0;
   background: var(--fill);
-  transform: translateX(0);
+  transform: translate(0, 0);
   transition:
     transform var(--tabs-dur) var(--tabs-ease),
-    width var(--tabs-dur) var(--tabs-ease);
-  will-change: transform, width;
+    width var(--tabs-dur) var(--tabs-ease),
+    height var(--tabs-dur) var(--tabs-ease);
+  will-change: transform, width, height;
   pointer-events: none;
   z-index: 0;
 }

@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { GitHubIcon, StarIcon } from "@/components/icons";
 import { SITE, fmtCount } from "@/lib/site";
+import { useStars } from "@/lib/stars";
 import { clsx } from "@/lib/clsx";
 
 const PARTICLES = 8;
@@ -80,24 +81,11 @@ function Count({ value }: { value: number | null }) {
 
 // "Star on GitHub" pill — live stargazer count, with a burst on click.
 export function GitHubStars({ className }: { className?: string }) {
-  const [stars, setStars] = useState<number | null>(null);
+  const stars = useStars();
   const rootRef = useRef<HTMLAnchorElement>(null);
   const timer = useRef<number | undefined>(undefined);
 
   useEffect(() => () => window.clearTimeout(timer.current), []);
-
-  useEffect(() => {
-    let alive = true;
-    fetch(`https://api.github.com/repos/${SITE.githubRepo}`)
-      .then((r) => (r.ok ? r.json() : null))
-      .then((d) => {
-        if (alive && d && typeof d.stargazers_count === "number") setStars(d.stargazers_count);
-      })
-      .catch(() => {});
-    return () => {
-      alive = false;
-    };
-  }, []);
 
   // Each particle gets its own vector so the spray reads organic rather than
   // as a rotating ring of eight identical dots.

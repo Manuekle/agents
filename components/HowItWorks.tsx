@@ -67,10 +67,12 @@ function Compose({ active }: { active: boolean }) {
   );
 }
 
+// Real owner/repo pairs — the demo prints them next to an `npx skills add`
+// line, and a made-up repo there is an install command that cannot resolve.
 const DEMO_SKILLS = [
   { name: "Vercel React Best Practices", repo: "vercel-labs/agent-skills" },
-  { name: "Security Review", repo: "anthropics/skills" },
-  { name: "Transitions", repo: "gstack/skills" },
+  { name: "Security Review", repo: "getsentry/skills" },
+  { name: "Transitions", repo: "jakubantalik/transitions-dev" },
 ];
 
 function Skills() {
@@ -115,7 +117,7 @@ function Install() {
   return (
     <div className="space-y-3">
       <div className="font-mono text-[9px] uppercase text-muted">existing project</div>
-      <CodeBlock file="terminal">npx skills add vercel-labs/agent-skills anthropics/skills</CodeBlock>
+      <CodeBlock file="terminal">npx skills add vercel-labs/agent-skills getsentry/skills</CodeBlock>
       <div className="font-mono text-[9px] uppercase text-muted">new project</div>
       <CodeBlock file="terminal">
         npx create-next-app@latest my-agent-app --yes{"\n"}  &amp;&amp; cd my-agent-app{"\n"}  &amp;&amp; npx skills add …

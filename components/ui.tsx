@@ -145,8 +145,12 @@ export function Segmented<T extends string>({
       if (!animate) {
         marker.style.transition = "none";
       }
-      marker.style.transform = `translateX(${active.offsetLeft}px)`;
+      // Track the row too, not just the column: the strip is flex-wrap, and on
+      // narrow screens it breaks onto two rows — a marker stretched top-to-bottom
+      // would then paint over both rows at once.
+      marker.style.transform = `translate(${active.offsetLeft}px, ${active.offsetTop}px)`;
       marker.style.width = `${active.offsetWidth}px`;
+      marker.style.height = `${active.offsetHeight}px`;
       if (!animate) {
         void marker.offsetWidth;
         marker.style.transition = "";

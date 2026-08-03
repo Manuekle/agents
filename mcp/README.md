@@ -1,6 +1,6 @@
 # @manudev.jsx/agents
 
-Serve an [agents.dev](https://agents.dev) agent — its system prompt and skills —
+Serve an [agents.dev](https://agents-dev.vercel.app) agent — its system prompt and skills —
 over MCP, so any MCP-capable client (Claude Desktop, Claude Code, Cursor, Codex,
 Windsurf, Cline, Gemini…) can load it.
 

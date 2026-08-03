@@ -155,7 +155,9 @@ export default function Home() {
                   <Badge tone="coral">
                     {TARGETS.find((t) => t.id === a.target)?.label ?? a.target}
                   </Badge>
-                  <Badge>{a.skills.length} skills</Badge>
+                  <Badge>
+                    {a.skills.length} skill{a.skills.length === 1 ? "" : "s"}
+                  </Badge>
                 </div>
                 <div className="flex gap-2 mt-4">
                   <Link href={`/build?id=${a.id}`} className="flex-1">
