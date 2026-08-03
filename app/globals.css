@@ -35,6 +35,7 @@
   --fill-hover: #35302a;
   --on-fill: #f7f5f0;
   --on-fill-muted: #bdb3a0;
+  --ok: #2a7a3c; /* success state — green kept out of the base palette, used on copy feedback */
 
   /* Lit pool behind a mascot sprite. The base sits a step deeper than --stone
      on purpose: a bright core needs somewhere to rise from, and on plain stone
@@ -71,6 +72,7 @@
   --fill-hover: #453e33;
   --on-fill: #efe9dc;
   --on-fill-muted: #bdb3a0;
+  --ok: #3f9d52;
 
   /* dark needs the pool warmer and the vignette deeper to read as lit */
   --stage-base: #1c1913;
@@ -98,6 +100,7 @@
   --color-fill-hover: var(--fill-hover);
   --color-on-fill: var(--on-fill);
   --color-on-fill-muted: var(--on-fill-muted);
+  --color-ok: var(--ok);
 
   --color-background: var(--background);
   --color-foreground: var(--foreground);
@@ -297,6 +300,14 @@
   --reel-cell: 16px;
   --reel-stagger: 80ms;
   --reel-ease: cubic-bezier(0.16, 1, 0.3, 1);
+
+  /* skeleton loader / reveal */
+  --pulse-dur: 1000ms;
+  --pulse-count: 1;
+  --pulse-min: 0.5;
+  --reveal-dur: 400ms;
+  --reveal-blur: 2px;
+  --reveal-ease: ease-in-out;
 }
 
 /* ---------- star burst (GitHub pill) ---------- */
@@ -465,6 +476,59 @@
 }
 .t-tilt.is-hover .t-tilt-glare { opacity: 0.5; }
 
+/* ---------- skeleton loader / reveal ---------- */
+/* transitions.dev recipe, house-adapted: no radius, and the blur only ever
+   touches plain bars/text — never pixel-art sprites, which resampling turns
+   to mush. The wrap stacks two layers on the same coordinates; the skeleton
+   owns the cold pulse + fade-out side, the content owns the fade-in side. */
+.t-skel { position: relative; min-height: 220px; }
+/* Skeleton overlays; content stays in flow so the wrap's height follows the
+   results — nothing spills past the card. The cross-fade still works because
+   the skeleton covers the exact content area while it fades out. */
+.t-skel-skeleton {
+  position: absolute;
+  inset: 0;
+}
+.t-skel-content {
+  position: relative;
+  z-index: 2;
+}
+
+.t-skel-skeleton {
+  z-index: 1;
+  opacity: 1;
+  filter: blur(0);
+  transition:
+    opacity var(--reveal-dur) var(--reveal-ease),
+    filter  var(--reveal-dur) var(--reveal-ease);
+}
+.t-skel-content {
+  z-index: 2;
+  opacity: 0;
+  filter: blur(var(--reveal-blur));
+  transition:
+    opacity var(--reveal-dur) var(--reveal-ease),
+    filter  var(--reveal-dur) var(--reveal-ease);
+}
+.t-skel.is-revealed .t-skel-skeleton {
+  opacity: 0;
+  filter: blur(var(--reveal-blur));
+}
+.t-skel.is-revealed .t-skel-content {
+  opacity: 1;
+  filter: blur(0);
+}
+
+/* Pulse rides on the bar/child cards, not on the skeleton itself, so the
+   skeleton's own opacity / filter stay free for the cross-fade above. */
+.t-skel-skeleton.is-pulsing > * {
+  animation: t-skel-pulse var(--pulse-dur) ease-in-out var(--pulse-count);
+}
+@keyframes t-skel-pulse {
+  0%, 100% { opacity: 1; }
+  50%      { opacity: var(--pulse-min); }
+}
+
 /* ---------- digit reel ---------- */
 .t-reel {
   display: inline-flex;
@@ -493,14 +557,17 @@
   .t-star-pop,
   .is-bursting .t-burst i,
   .is-confetti .t-confetti i,
-  .t-shimmer::before {
+  .t-shimmer::before,
+  .t-skel-skeleton.is-pulsing > * {
     animation: none !important;
   }
   .t-stagger-line,
   .t-tabs-marker,
   .t-tilt-card,
   .t-tilt-glare,
-  .t-reel-strip {
+  .t-reel-strip,
+  .t-skel-skeleton,
+  .t-skel-content {
     transition: none !important;
   }
   .t-stagger-line { opacity: 1; transform: none; filter: none; }

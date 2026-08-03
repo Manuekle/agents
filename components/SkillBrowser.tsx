@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Badge, PixelButton, TextInput } from "@/components/ui";
 import { clsx } from "@/lib/clsx";
+import { copyText } from "@/lib/copy";
 import type { PickedSkill, Skill } from "@/lib/types";
 
 const SUGGESTIONS = ["react", "next", "testing", "database", "security", "tailwind", "docs", "ai"];
@@ -28,6 +29,7 @@ export function SkillBrowser({
   const [loading, setLoading] = useState(false);
   const [note, setNote] = useState<string | null>(null);
   const [copiedId, setCopiedId] = useState<string | null>(null);
+  const [revealed, setRevealed] = useState(false);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const selectedIds = new Set((selected ?? []).map((s) => s.id));
@@ -35,6 +37,7 @@ export function SkillBrowser({
   const run = async (query: string) => {
     setLoading(true);
     setNote(null);
+    setRevealed(false);
     try {
       const res = await fetch(`/api/skills?q=${encodeURIComponent(query)}`);
       const data = await res.json();
@@ -52,6 +55,7 @@ export function SkillBrowser({
       setNote("search failed");
     } finally {
       setLoading(false);
+      setRevealed(true);
     }
   };
 
@@ -65,10 +69,14 @@ export function SkillBrowser({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [q]);
 
-  const copyInstall = (repo: string, id: string) => {
-    navigator.clipboard?.writeText(`npx skills add ${repo}`);
-    setCopiedId(id);
-    setTimeout(() => setCopiedId(null), 1200);
+  const copyInstall = async (repo: string, id: string) => {
+    const cmd = `npx skills add ${repo}`;
+    if (await copyText(cmd)) {
+      setCopiedId(id);
+      setTimeout(() => setCopiedId(null), 1600);
+    } else {
+      setNote(`copy failed — run ${cmd} manually`);
+    }
   };
 
   return (
@@ -97,56 +105,75 @@ export function SkillBrowser({
 
       {note && <p className="font-mono text-[10px] text-muted mb-2">{note}</p>}
 
-      <div className="grid sm:grid-cols-2 gap-2 max-h-[420px] overflow-auto pr-1">
-        {results.map((s) => {
-          const repo = s.repo ?? s.source;
-          const on = selectedIds.has(s.id);
-          const installs = fmtInstalls(s.installs);
-          return (
-            <div
-              key={s.id}
-              className={clsx(
-                "text-left p-2.5 border-2 border-line transition-all",
-                on ? "bg-fill text-on-fill" : "bg-paper",
-              )}
-            >
-              <div className="flex items-center justify-between gap-2">
-                <span className="font-mono text-xs font-bold truncate">{s.name}</span>
-                {installs && (
-                  <span className={clsx("font-mono text-[9px] shrink-0", on ? "text-on-fill-muted" : "text-muted")}>
-                    ↓{installs}
-                  </span>
-                )}
-              </div>
-              <div className={clsx("font-mono text-[10px] truncate mt-0.5", on ? "text-on-fill-muted" : "text-coral")}>
-                {repo}
-              </div>
-              <div className="mt-2">
-                {onToggle ? (
-                  <button
-                    onClick={() => onToggle({ id: s.id, name: s.name, repo })}
-                    className={clsx(
-                      "w-full font-pixel text-[9px] uppercase py-1 border-2 border-line transition-colors",
-                      on ? "bg-paper text-ink" : "bg-fill text-on-fill hover:bg-coral",
-                    )}
-                  >
-                    {on ? "remove [x]" : "add [ ]"}
-                  </button>
-                ) : (
-                  <button
-                    onClick={() => copyInstall(repo, s.id)}
-                    className="w-full font-pixel text-[9px] uppercase py-1 border-2 border-line bg-fill text-on-fill hover:bg-coral transition-colors"
-                  >
-                    {copiedId === s.id ? "copied ✓" : "copy install"}
-                  </button>
-                )}
-              </div>
+      <div key={q} className={clsx("t-skel", revealed && "is-revealed")}>
+        <div className="t-skel-skeleton is-pulsing grid sm:grid-cols-2 gap-2">
+          {Array.from({ length: 4 }).map((_, i) => (
+            <div key={i} className="p-2.5 border-2 border-line bg-paper">
+              <div className="h-3 bg-stone-deep w-2/3" />
+              <div className="h-2.5 bg-stone-deep w-1/2 mt-1.5" />
+              <div className="h-5 bg-stone-deep mt-2" />
             </div>
-          );
-        })}
-        {!loading && results.length === 0 && (
-          <p className="font-mono text-xs text-muted col-span-full py-6 text-center">no skills found</p>
-        )}
+          ))}
+        </div>
+        <div className="t-skel-content">
+          <div className="grid sm:grid-cols-2 gap-2 max-h-[420px] overflow-auto pr-1">
+            {results.map((s) => {
+              const repo = s.repo ?? s.source;
+              const on = selectedIds.has(s.id);
+              const installs = fmtInstalls(s.installs);
+              return (
+                <div
+                  key={s.id}
+                  className={clsx(
+                    "text-left p-2.5 border-2 border-line transition-all",
+                    on ? "bg-fill text-on-fill" : "bg-paper",
+                  )}
+                >
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="font-mono text-xs font-bold truncate">{s.name}</span>
+                    {installs && (
+                      <span className={clsx("font-mono text-[9px] shrink-0", on ? "text-on-fill-muted" : "text-muted")}>
+                        ↓{installs}
+                      </span>
+                    )}
+                  </div>
+                  <div className={clsx("font-mono text-[10px] truncate mt-0.5", on ? "text-on-fill-muted" : "text-coral")}>
+                    {repo}
+                  </div>
+                  <div className="mt-2">
+                    {onToggle ? (
+                      <button
+                        onClick={() => onToggle({ id: s.id, name: s.name, repo })}
+                        className={clsx(
+                          "w-full font-pixel text-[9px] uppercase py-1 border-2 border-line transition-colors",
+                          on ? "bg-paper text-ink" : "bg-fill text-on-fill hover:bg-coral",
+                        )}
+                      >
+                        {on ? "remove [x]" : "add [ ]"}
+                      </button>
+                    ) : (
+                      <button
+                        onClick={() => copyInstall(repo, s.id)}
+                        title={`copies "npx skills add ${repo}"`}
+                        className={clsx(
+                          "w-full font-pixel text-[9px] uppercase py-1 border-2 border-line transition-colors",
+                          copiedId === s.id
+                            ? "bg-ok text-paper normal-case tracking-normal"
+                            : "bg-fill text-on-fill hover:bg-coral",
+                        )}
+                      >
+                        {copiedId === s.id ? `✓ npx skills add ${repo}` : "copy install"}
+                      </button>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+            {!loading && results.length === 0 && (
+              <p className="font-mono text-xs text-muted col-span-full py-6 text-center">no skills found</p>
+            )}
+          </div>
+        </div>
       </div>
     </div>
   );

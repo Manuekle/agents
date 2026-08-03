@@ -5,8 +5,9 @@ import { Nav, PoweredBy } from "@/components/Nav";
 import { Footer } from "@/components/Footer";
 import { Mascot } from "@/components/Mascot";
 import { Panel, PixelButton, Badge } from "@/components/ui";
+import { copyText } from "@/lib/copy";
 
-// What @agents-dev/mcp exposes once connected.
+// What @manudev/agents exposes once connected.
 const PRIMITIVES = [
   { kind: "prompt", name: "activate_agent", desc: "injects the agent persona + skill context" },
   { kind: "resource", name: "agent://spec", desc: "full agent spec JSON" },
@@ -28,7 +29,7 @@ export default function McpPage() {
           mcpServers: {
             "agents-dev": {
               command: "npx",
-              args: ["-y", "@agents-dev/mcp", "--agent", "./agents-dev.agent.json"],
+              args: ["-y", "@manudev/agents", "--agent", "./agents-dev.agent.json"],
             },
           },
         },
@@ -38,10 +39,11 @@ export default function McpPage() {
     [],
   );
 
-  const copy = () => {
-    navigator.clipboard?.writeText(config);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 1200);
+  const copy = async () => {
+    if (await copyText(config)) {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1600);
+    }
   };
 
   return (
@@ -60,7 +62,7 @@ export default function McpPage() {
           <div className="space-y-5">
             <Panel className="p-5">
               <p className="font-mono text-xs text-ink-soft leading-relaxed">
-                <b>@agents-dev/mcp</b> serves an agent you composed — its system
+                <b>@manudev/agents</b> serves an agent you composed — its system
                 prompt and skills — over MCP, so <i>any</i> MCP-capable client can
                 load it. Export <b>agent.json</b> from the composer, drop it in your
                 repo, add the config, done.
@@ -104,7 +106,10 @@ export default function McpPage() {
           <Panel className="overflow-hidden self-start">
             <div className="flex items-center justify-between px-3 py-2 border-b-2 border-line bg-stone">
               <span className="font-mono text-[11px]">mcp.json</span>
-              <PixelButton onClick={copy} className="!px-2 !py-1 !text-[9px]">
+              <PixelButton
+                onClick={copy}
+                className={`!px-2 !py-1 !text-[9px] ${copied ? "!bg-ok !text-paper" : ""}`}
+              >
                 {copied ? "Copied ✓" : "Copy"}
               </PixelButton>
             </div>

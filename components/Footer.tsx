@@ -1,10 +1,11 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { PoweredBy } from "@/components/Nav";
 import { GitHubStars } from "@/components/GitHubStars";
 import { StarIcon, StarOutlineIcon, GitHubIcon } from "@/components/icons";
-import { SITE } from "@/lib/site";
+import { SITE, fmtCount } from "@/lib/site";
 
 const COLS: { title: string; links: { label: string; href: string; external?: boolean }[] }[] = [
   {
@@ -25,16 +26,39 @@ const COLS: { title: string; links: { label: string; href: string; external?: bo
   },
 ];
 
+// Real stargazer count, not a made-up rating: the filled stars reflect the
+// actual GitHub stars (capped at 5) so the footer never lies about popularity.
 function Rating() {
+  const [stars, setStars] = useState<number | null>(null);
+
+  useEffect(() => {
+    let alive = true;
+    fetch(`https://api.github.com/repos/${SITE.githubRepo}`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => {
+        if (alive && d && typeof d.stargazers_count === "number") setStars(d.stargazers_count);
+      })
+      .catch(() => {});
+    return () => {
+      alive = false;
+    };
+  }, []);
+
+  const filled = Math.min(stars ?? 0, 5);
   return (
-    <div className="inline-flex items-center gap-1.5" title="loved by builders">
+    <div className="inline-flex items-center gap-1.5">
       <span className="flex text-coral">
-        {Array.from({ length: 4 }).map((_, i) => (
-          <StarIcon key={i} size={13} />
-        ))}
-        <StarOutlineIcon size={13} className="text-ink" />
+        {Array.from({ length: 5 }).map((_, i) =>
+          i < filled ? (
+            <StarIcon key={i} size={13} />
+          ) : (
+            <StarOutlineIcon key={i} size={13} className="text-ink" />
+          ),
+        )}
       </span>
-      <span className="font-mono text-[10px] text-muted">4.8 · loved by builders</span>
+      <span className="font-mono text-[10px] text-muted">
+        {stars === null ? "—" : `${fmtCount(stars)} star${stars === 1 ? "" : "s"}`}
+      </span>
     </div>
   );
 }

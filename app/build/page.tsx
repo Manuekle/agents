@@ -36,6 +36,7 @@ import {
   agentSpecJson,
   mcpServeCommand,
 } from "@/lib/export";
+import { copyText } from "@/lib/copy";
 
 const CONFETTI = 18;
 
@@ -67,6 +68,7 @@ function Builder() {
   const confettiTimer = useRef<number | undefined>(undefined);
   // preview state driven by which field is active
   const [previewState, setPreviewState] = useState<MascotState>("working");
+  const [copiedKey, setCopiedKey] = useState<string | null>(null);
 
   useEffect(() => {
     if (editId) {
@@ -133,11 +135,15 @@ function Builder() {
     setTimeout(() => setPreviewState(agent.mascot), 900);
   };
 
-  const copy = () => copyText(output.content);
+  const copy = () => doCopy(output.content, "output");
 
-  const copyText = (text: string) => {
-    navigator.clipboard?.writeText(text);
+  // One shared handler for every Copy button; only the winning key turns
+  // green, and only when the text really landed on the clipboard.
+  const doCopy = async (text: string, key: string) => {
+    if (!(await copyText(text))) return;
+    setCopiedKey(key);
     setPreviewState("rocket");
+    setTimeout(() => setCopiedKey(null), 1600);
     setTimeout(() => setPreviewState(agent.mascot), 900);
   };
 
@@ -333,8 +339,11 @@ function Builder() {
             <Panel className="overflow-hidden">
               <div className="flex items-center justify-between px-3 py-2 border-b-2 border-line bg-stone">
                 <span className="font-mono text-[11px]">{output.filename}</span>
-                <PixelButton onClick={copy} className="!px-2 !py-1 !text-[9px]">
-                  Copy
+                <PixelButton
+                  onClick={copy}
+                  className={`!px-2 !py-1 !text-[9px] ${copiedKey === "output" ? "!bg-ok !text-paper" : ""}`}
+                >
+                  {copiedKey === "output" ? "✓ Copied" : "Copy"}
                 </PixelButton>
               </div>
               <pre className="p-3 text-[11px] font-mono leading-relaxed overflow-auto max-h-[420px] whitespace-pre-wrap">
@@ -356,11 +365,11 @@ function Builder() {
                       {install}
                     </code>
                     <PixelButton
-                      onClick={() => copyText(install)}
+                      onClick={() => doCopy(install, "install")}
                       disabled={repos.length === 0}
-                      className="!px-2 !py-1 !text-[9px] shrink-0"
+                      className={`!px-2 !py-1 !text-[9px] shrink-0 ${copiedKey === "install" ? "!bg-ok !text-paper" : ""}`}
                     >
-                      Copy
+                      {copiedKey === "install" ? "✓ Copied" : "Copy"}
                     </PixelButton>
                   </div>
                 </div>
@@ -372,10 +381,10 @@ function Builder() {
                       {newProj}
                     </code>
                     <PixelButton
-                      onClick={() => copyText(newProj)}
-                      className="!px-2 !py-1 !text-[9px] shrink-0"
+                      onClick={() => doCopy(newProj, "newproj")}
+                      className={`!px-2 !py-1 !text-[9px] shrink-0 ${copiedKey === "newproj" ? "!bg-ok !text-paper" : ""}`}
                     >
-                      Copy
+                      {copiedKey === "newproj" ? "✓ Copied" : "Copy"}
                     </PixelButton>
                   </div>
                 </div>
@@ -406,10 +415,10 @@ function Builder() {
                       {mcpServeCommand()}
                     </code>
                     <PixelButton
-                      onClick={() => copyText(mcpServeCommand())}
-                      className="!px-2 !py-1 !text-[9px] shrink-0"
+                      onClick={() => doCopy(mcpServeCommand(), "mcp")}
+                      className={`!px-2 !py-1 !text-[9px] shrink-0 ${copiedKey === "mcp" ? "!bg-ok !text-paper" : ""}`}
                     >
-                      Copy
+                      {copiedKey === "mcp" ? "✓ Copied" : "Copy"}
                     </PixelButton>
                   </div>
                   <p className="font-mono text-[9px] text-muted leading-relaxed mt-1.5">

@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// @agents-dev/mcp — serve an agents.dev agent spec over MCP (stdio).
+// @manudev/agents — serve an agents.dev agent spec over MCP (stdio).
 //
 // Reads an agent spec JSON (exported from agents.dev) and exposes it to any
 // MCP-capable client (Claude Desktop, Cursor, …) as:
@@ -32,7 +32,7 @@ function loadSpec() {
     raw = readFileSync(path, "utf8");
   } catch {
     process.stderr.write(
-      `[agents-dev/mcp] agent spec not found at ${path}\n` +
+      `[manudev/agents] agent spec not found at ${path}\n` +
         `  pass --agent <file>, set AGENTS_DEV_AGENT, or add ./agents-dev.agent.json\n`,
     );
     process.exit(1);
@@ -48,7 +48,7 @@ function loadSpec() {
       skills: Array.isArray(spec.skills) ? spec.skills : [],
     };
   } catch (e) {
-    process.stderr.write(`[agents-dev/mcp] invalid JSON: ${e.message}\n`);
+    process.stderr.write(`[manudev/agents] invalid JSON: ${e.message}\n`);
     process.exit(1);
   }
 }
@@ -70,7 +70,7 @@ function personaText(a) {
 }
 
 const agent = loadSpec();
-const server = new McpServer({ name: "agents-dev", version: "0.1.0" });
+const server = new McpServer({ name: "agents", version: "0.1.0" });
 
 // ---- prompt: activate the agent persona ----
 server.registerPrompt(
@@ -148,4 +148,4 @@ server.registerTool(
 
 const transport = new StdioServerTransport();
 await server.connect(transport);
-process.stderr.write(`[agents-dev/mcp] serving "${agent.name}" (${agent.skills.length} skills)\n`);
+process.stderr.write(`[manudev/agents] serving "${agent.name}" (${agent.skills.length} skills)\n`);
