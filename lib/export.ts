@@ -16,7 +16,7 @@ export function newProjectCommand(agent: Agent, scaffold = "npx create-next-app@
   return `${scaffold} && cd my-agent-app${add}`;
 }
 
-// The agent spec consumed by @manudev/agents (agents-dev.agent.json).
+// The agent spec consumed by @manudev.jsx/agents (agents-dev.agent.json).
 export function agentSpecJson(agent: Agent): string {
   return JSON.stringify(
     {
@@ -34,7 +34,7 @@ export function agentSpecJson(agent: Agent): string {
 
 // Command that serves this agent over MCP to any MCP client.
 export function mcpServeCommand(): string {
-  return "npx -y @manudev/agents --agent ./agents-dev.agent.json";
+  return "npx -y @manudev.jsx/agents --agent ./agents-dev.agent.json";
 }
 
 // A reproducible manifest of the picks (drop in repo, share, re-install).
@@ -141,7 +141,7 @@ Install: ${install}
             mcpServers: {
               "agents-dev": {
                 command: "npx",
-                args: ["-y", "@manudev/agents", "--agent", "./agents-dev.agent.json"],
+                args: ["-y", "@manudev.jsx/agents", "--agent", "./agents-dev.agent.json"],
               },
             },
           },

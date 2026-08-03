@@ -7,7 +7,7 @@ import { Mascot } from "@/components/Mascot";
 import { Panel, PixelButton, Badge } from "@/components/ui";
 import { copyText } from "@/lib/copy";
 
-// What @manudev/agents exposes once connected.
+// What @manudev.jsx/agents exposes once connected.
 const PRIMITIVES = [
   { kind: "prompt", name: "activate_agent", desc: "injects the agent persona + skill context" },
   { kind: "resource", name: "agent://spec", desc: "full agent spec JSON" },
@@ -29,7 +29,7 @@ export default function McpPage() {
           mcpServers: {
             "agents-dev": {
               command: "npx",
-              args: ["-y", "@manudev/agents", "--agent", "./agents-dev.agent.json"],
+              args: ["-y", "@manudev.jsx/agents", "--agent", "./agents-dev.agent.json"],
             },
           },
         },
@@ -62,7 +62,7 @@ export default function McpPage() {
           <div className="space-y-5">
             <Panel className="p-5">
               <p className="font-mono text-xs text-ink-soft leading-relaxed">
-                <b>@manudev/agents</b> serves an agent you composed — its system
+                <b>@manudev.jsx/agents</b> serves an agent you composed — its system
                 prompt and skills — over MCP, so <i>any</i> MCP-capable client can
                 load it. Export <b>agent.json</b> from the composer, drop it in your
                 repo, add the config, done.

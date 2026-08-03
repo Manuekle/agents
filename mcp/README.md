@@ -1,4 +1,4 @@
-# @manudev/agents
+# @manudev.jsx/agents
 
 Serve an [agents.dev](https://agents.dev) agent — its system prompt and skills —
 over MCP, so any MCP-capable client (Claude Desktop, Claude Code, Cursor, Codex,
@@ -15,7 +15,7 @@ Windsurf, Cline, Gemini…) can load it.
   "mcpServers": {
     "agents-dev": {
       "command": "npx",
-      "args": ["-y", "@manudev/agents", "--agent", "./agents-dev.agent.json"]
+      "args": ["-y", "@manudev.jsx/agents", "--agent", "./agents-dev.agent.json"]
     }
   }
 }
@@ -52,6 +52,6 @@ Spec resolution order: `--agent <file>` → `$AGENTS_DEV_AGENT` → `./agents-de
 ## Dev
 
 ```bash
-npm install @manudev/agents
+npm install @manudev.jsx/agents
 node test.mjs   # smoke test against example.agent.json
 ```

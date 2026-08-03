@@ -137,7 +137,7 @@ function Mcp() {
   "mcpServers": {
     "agents-dev": {
       "command": "npx",
-      "args": ["-y", "@manudev/agents",
+      "args": ["-y", "@manudev.jsx/agents",
                "--agent", "./agents-dev.agent.json"]
     }
   }
