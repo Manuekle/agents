@@ -192,10 +192,10 @@
 }
 
 /* ---------- scrollbar (page only) ----------
-   Square and coral, and deliberately only on the page. Inner panes — the
-   export preview, the skill list, the code blocks — keep the platform
-   scrollbar: a 12px coral bar inside a 340px card reads as a bug, not a
-   flourish.
+   Exactly one visible scrollbar in the whole app: the page's. Inner panes —
+   the export preview, the skill list, the code blocks — scroll with no bar at
+   all, because a 12px coral bar inside a 340px card read as a bug rather than
+   a flourish.
    Both colours are theme aliases, so light and dark follow the toggle without
    a second rule set. `scrollbar-color` is the standard property Firefox
    reads; the -webkit- pseudo-elements cover Chromium and Safari, where the
@@ -207,12 +207,22 @@ html {
   scrollbar-width: thin;
 }
 
-/* `scrollbar-color` inherits, so leaving it unset on descendants is not
-   enough — every inner pane would still pick up the coral. It has to be
-   handed back to the platform explicitly, one level down from the root. */
-body {
-  scrollbar-color: auto;
-  scrollbar-width: auto;
+/* Inner panes scroll with no visible bar at all.
+   `scrollbar-width` does NOT inherit — unlike `scrollbar-color` — so it has
+   to be set on the elements themselves, not just on body. Everything below
+   the root is covered; `html` above keeps its own value.
+   Chromium ignores `::-webkit-scrollbar` on any element using the standard
+   properties, so the standard one has to do the work and the webkit rule is
+   only a fallback for Safari, which still lacks `scrollbar-width`.
+   None of this disables scrolling — wheel, trackpad, drag and keyboard all
+   still work. */
+body,
+body * {
+  scrollbar-width: none;
+}
+body::-webkit-scrollbar,
+body *::-webkit-scrollbar {
+  display: none;
 }
 
 /* Scoped to `html`: the root element's scrollbar is the one the viewport
