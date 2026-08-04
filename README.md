@@ -70,11 +70,14 @@ public API and agents are stored in the browser's localStorage. See
 
 That route spends real money per call, so it is not left open:
 
-- **Rate limit** — 5 drafts per minute per IP, fixed window. It lives in process
-  memory, which Fluid Compute reuses across requests, so it reliably stops one
-  client hammering the form. It is not a distributed guarantee; traffic spread
-  across instances gets a proportionally higher ceiling. Swap in a durable store
-  (KV/Redis) if this ever sees real volume.
+- **Rate limit** — 5 drafts per minute per IP, fixed window, held in process
+  memory. Measured on production: 12 rapid requests return `400 ×5` then
+  `429 ×7`, so it does stop a client hammering the endpoint. The gap is that
+  a *draft* call occupies its instance for several seconds, and Vercel routes
+  the next request to a different instance with its own counter — so a patient
+  attacker pacing real drafts gets 5 per instance rather than 5 overall. It
+  caps the cheap flood, not the total spend. A durable store (KV/Redis) is the
+  upgrade for a hard ceiling.
 - **Input caps** — every field is truncated before it reaches the model
   (`purpose` 600 chars, `domain` 200, `tone` 40, `teamName` 120), and `target`
   must be one of the known tool ids. An unbounded prompt is an unbounded bill.
