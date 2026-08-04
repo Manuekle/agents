@@ -1,7 +1,12 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Badge, PixelButton, TextInput } from "@/components/ui";
+import { BarChart } from "@/components/dither-kit/bar-chart";
+import { Bar } from "@/components/dither-kit/bar";
+import { XAxis } from "@/components/dither-kit/x-axis";
+import { YAxis } from "@/components/dither-kit/y-axis";
+import { Tooltip } from "@/components/dither-kit/tooltip";
 import { clsx } from "@/lib/clsx";
 import { copyText } from "@/lib/copy";
 import type { PickedSkill, Skill } from "@/lib/types";
@@ -14,15 +19,85 @@ function fmtInstalls(n?: number) {
   return String(n);
 }
 
+// Orange is the closest thing the dither palette has to the coral the rest of
+// the site is built on.
+const INSTALLS_CONFIG = { installs: { label: "Installs", color: "orange" as const } };
+
+// Registry names share long vendor prefixes — "Vercel React Best Practices",
+// "Vercel React Native Skills", "Vercel React View Transitions" all collapse to
+// the same string if you just take the first N characters. The tail is what
+// actually tells them apart.
+function axisLabel(name: string, max: number) {
+  const words = name.split(/\s+/);
+  const tail = words.length > 2 ? words.slice(-2).join(" ") : name;
+  return tail.length > max ? `${tail.slice(0, max - 1)}…` : tail;
+}
+
+// Six skill names side by side collapse into unreadable mush on a phone, so
+// the axis drops to every other bar there. Nothing is lost — the tooltip
+// still names whichever bar is under the pointer.
+function useNarrow() {
+  const [narrow, setNarrow] = useState(false);
+  useEffect(() => {
+    const mq = window.matchMedia("(max-width: 639px)");
+    const sync = () => setNarrow(mq.matches);
+    sync();
+    mq.addEventListener("change", sync);
+    return () => mq.removeEventListener("change", sync);
+  }, []);
+  return narrow;
+}
+
+// Relative popularity of the current results. skills.sh returns `installs`;
+// the offline seed catalog deliberately does not, so with fewer than two
+// counted skills there is nothing honest to plot and this renders nothing
+// rather than a row of zeroes.
+function InstallsChart({ skills }: { skills: Skill[] }) {
+  const narrow = useNarrow();
+  const top = useMemo(
+    () =>
+      skills
+        .filter((s): s is Skill & { installs: number } => typeof s.installs === "number" && s.installs > 0)
+        .sort((a, b) => b.installs - a.installs)
+        .slice(0, 6)
+        .map((s) => ({ skill: s.name, installs: s.installs })),
+    [skills],
+  );
+
+  if (top.length < 2) return null;
+
+  return (
+    <div className="mb-3 p-3 border-2 border-line bg-paper">
+      <div className="flex items-baseline justify-between mb-1">
+        <span className="font-pixel text-[10px] uppercase">Top by installs</span>
+        <span className="font-mono text-[10px] text-muted">{top.length} of {skills.length}</span>
+      </div>
+      <BarChart data={top} config={INSTALLS_CONFIG} bloom="low" className="h-44">
+        <XAxis
+          dataKey="skill"
+          maxTicks={narrow ? 3 : 6}
+          tickFormatter={(v) => axisLabel(String(v), narrow ? 11 : 14)}
+        />
+        <YAxis tickFormatter={(n) => fmtInstalls(n) ?? "0"} />
+        <Tooltip labelKey="skill" valueFormatter={(n) => `${fmtInstalls(n) ?? n} installs`} />
+        <Bar dataKey="installs" variant="gradient" />
+      </BarChart>
+    </div>
+  );
+}
+
 export function SkillBrowser({
   selected,
   onToggle,
   initialQuery = "react",
+  showChart = false,
 }: {
   // present -> selectable mode (composer); absent -> browse/copy mode
   selected?: PickedSkill[];
   onToggle?: (s: PickedSkill) => void;
   initialQuery?: string;
+  // Opt-in so the composer's sidebar stays a picker, not a dashboard.
+  showChart?: boolean;
 }) {
   const [q, setQ] = useState(initialQuery);
   const [results, setResults] = useState<Skill[]>([]);
@@ -116,6 +191,9 @@ export function SkillBrowser({
           ))}
         </div>
         <div className="t-skel-content">
+          {/* Inside t-skel-content so it reveals with the results rather than
+              sitting there showing the previous query's numbers. */}
+          {showChart && <InstallsChart skills={results} />}
           <div className="grid sm:grid-cols-2 gap-2 max-h-[420px] overflow-auto pr-1">
             {results.map((s) => {
               const repo = s.repo ?? s.source;

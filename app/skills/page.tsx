@@ -35,7 +35,7 @@ export default function SkillsPage() {
         </Panel>
 
         <Panel className="p-5">
-          <SkillBrowser />
+          <SkillBrowser showChart />
         </Panel>
 
         <div className="mt-6 text-center">
