@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { GeistSans } from "geist/font/sans";
 import { GeistMono } from "geist/font/mono";
 import { Habibi, Silkscreen } from "next/font/google";
@@ -43,6 +43,15 @@ export const metadata: Metadata = {
     title: TITLE,
     description: DESCRIPTION,
   },
+};
+
+// Tints the mobile browser chrome to match whichever theme is showing, so the
+// status bar doesn't sit on a colour the page never uses.
+export const viewport: Viewport = {
+  themeColor: [
+    { media: "(prefers-color-scheme: light)", color: "#f7f5f0" },
+    { media: "(prefers-color-scheme: dark)", color: "#17150f" },
+  ],
 };
 
 export default function RootLayout({

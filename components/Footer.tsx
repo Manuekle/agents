@@ -58,7 +58,14 @@ export function Footer() {
       <div className="mx-auto max-w-6xl px-5 py-12 grid gap-10 md:grid-cols-[1.4fr_1fr_1fr]">
         {/* brand */}
         <div>
-          <Link href="/" className="group inline-flex items-center">
+          <Link href="/" className="group inline-flex items-center gap-2">
+            <img
+              src="/logo-mark.png"
+              alt=""
+              width={28}
+              height={28}
+              className="pixelated shrink-0"
+            />
             <span className="font-serif text-2xl leading-none lowercase group-hover:text-coral transition-colors">
               {SITE.name}
             </span>

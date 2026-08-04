@@ -1,11 +1,12 @@
 import { ImageResponse } from "next/og";
-import { BRAND, habibiFont } from "@/lib/brand";
+import { BRAND, habibiFont, logoDataUri } from "@/lib/brand";
 
 export const size = { width: 1200, height: 630 };
 export const contentType = "image/png";
 export const alt = "agents — build AI agents, powered by ai";
 
 export default async function OpengraphImage() {
+  const logo = await logoDataUri();
   return new ImageResponse(
     (
       <div
@@ -22,8 +23,12 @@ export default async function OpengraphImage() {
           borderBottom: `18px solid ${BRAND.coral}`,
         }}
       >
-        <div style={{ display: "flex", fontFamily: "Habibi", fontSize: 60 }}>
-          agents
+        <div style={{ display: "flex", alignItems: "center", gap: 20 }}>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={logo} width={72} height={72} alt="" />
+          <div style={{ display: "flex", fontFamily: "Habibi", fontSize: 60 }}>
+            agents
+          </div>
         </div>
 
         <div style={{ display: "flex", flexDirection: "column" }}>

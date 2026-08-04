@@ -33,10 +33,12 @@ onboarding wizard is just a way to seed it, not a separate product.
 | `app/api/onboarding/` | server-side route that calls Azure AI Foundry to draft a persona — the API key never reaches the browser, and the route is rate-limited and token-capped |
 | `app/sitemap.ts`, `app/robots.ts` | generated `sitemap.xml` and `robots.txt` (crawlers are kept off `/api/`) |
 | `app/opengraph-image.tsx`, `app/twitter-image.tsx` | 1200×630 social cards rendered at the edge from the brand tokens in `lib/brand.ts` |
+| `app/icon.png`, `app/apple-icon.png`, `app/manifest.ts` | app icon surfaces — browser tab, iOS home screen, Android manifest. All cut from `assets/logo-raw.png` |
 | `components/` | UI primitives (`ui.tsx`), mascot, dither canvas, skill browser |
 | `lib/` | agent types + export formats, localStorage store, mascot state machine |
 | `mcp/` | the published npm package, `@manudev.jsx/agents` — serves an exported agent over MCP |
 | `assets/mascots-raw/` | 1024² pixel-art sources (not served; `public/mascots/` holds the 256² builds) |
+| `assets/logo-raw.png` | full-bleed logo source, kept out of `public/` so the 2 MB original is never served. `assets/logo-mark.png` is the 256² copy the OG card inlines as a data URI |
 | `scripts/` | one-off mascot pipeline (background removal, body-normalized sizing) used to author the raws |
 
 ## Develop

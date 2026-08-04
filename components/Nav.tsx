@@ -45,7 +45,16 @@ export function Nav() {
   return (
     <header className="sticky top-0 z-40 border-b-2 border-line bg-paper/95 backdrop-blur">
       <div className="mx-auto max-w-6xl px-5 h-14 flex items-center justify-between">
-        <Link href="/" className="group flex items-center">
+        <Link href="/" className="group flex items-center gap-2">
+          {/* The mark is pixel art, so it scales with nearest-neighbour rather
+              than being resampled into mush. */}
+          <img
+            src="/logo-mark.png"
+            alt=""
+            width={28}
+            height={28}
+            className="pixelated shrink-0"
+          />
           {/* Habibi wordmark as live text — scales at any DPI and inherits the
               theme colour, which a rasterised logo could not. */}
           <span className="font-serif text-2xl leading-none lowercase group-hover:text-coral transition-colors">

@@ -16,6 +16,18 @@ export async function habibiFont() {
   };
 }
 
+// Satori has no filesystem and won't fetch a relative URL, so the mark has to
+// be inlined as a data URI. Vendored next to the font for the same reason:
+// both are read off disk at render time. Cached per process.
+let logoPromise: Promise<string> | null = null;
+
+export async function logoDataUri() {
+  logoPromise ??= readFile(join(process.cwd(), "assets/logo-mark.png")).then(
+    (buf) => `data:image/png;base64,${buf.toString("base64")}`,
+  );
+  return logoPromise;
+}
+
 // Mirrors the light-theme tokens in app/globals.css. Generated images can't
 // read CSS vars, and they always render on the light ground.
 export const BRAND = {
