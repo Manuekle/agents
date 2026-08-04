@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { GeistSans } from "geist/font/sans";
 import { GeistMono } from "geist/font/mono";
-import { Habibi } from "next/font/google";
+import { Habibi, Silkscreen } from "next/font/google";
 import { InlineScript } from "@/components/InlineScript";
 import { SITE_URL } from "@/lib/site";
 import "./globals.css";
@@ -9,6 +9,15 @@ import "./globals.css";
 const serif = Habibi({
   variable: "--font-serif-stack",
   weight: ["400"],
+  subsets: ["latin"],
+});
+
+// A real bitmap face for the label role — the site is pixel-art throughout and
+// `.font-pixel` used to be Geist Mono in disguise. Silkscreen is drawn on an
+// 8px grid, so it stays crisp at the 10-11px the labels actually render at.
+const pixel = Silkscreen({
+  variable: "--font-pixel-stack",
+  weight: ["400", "700"],
   subsets: ["latin"],
 });
 
@@ -44,7 +53,7 @@ export default function RootLayout({
       lang="en"
       data-theme="light"
       suppressHydrationWarning
-      className={`${GeistSans.variable} ${GeistMono.variable} ${serif.variable} h-full antialiased`}
+      className={`${GeistSans.variable} ${GeistMono.variable} ${serif.variable} ${pixel.variable} h-full antialiased`}
     >
       <head>
         <InlineScript

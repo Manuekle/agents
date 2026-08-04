@@ -92,7 +92,10 @@ export function PixelButton({
     <button
       {...rest}
       className={clsx(
-        "font-pixel text-[11px] uppercase tracking-wide px-4 py-2 pixel-border-sm transition-all",
+        // No extra tracking and never wrap: Silkscreen already ships wide
+        // sidebearings, so `tracking-wide` on an uppercase label pushed short
+        // buttons like "Save agent" onto two lines.
+        "font-pixel text-[11px] uppercase px-4 py-2 pixel-border-sm transition-all whitespace-nowrap",
         "active:translate-x-[2px] active:translate-y-[2px] active:shadow-none",
         "disabled:opacity-40 disabled:pointer-events-none cursor-pointer select-none",
         variant === "solid" && "bg-fill text-on-fill hover:bg-fill-hover",
@@ -228,21 +231,44 @@ export function Segmented<T extends string>({
   }, [value, options]);
 
   return (
-    <div ref={wrapRef} className="relative inline-flex border-2 border-line flex-wrap">
+    // Below `sm` the strip is a two-up grid rather than a free-wrapping row:
+    // wrapping at natural widths left a ragged tail (three tabs, then one
+    // stranded against dead space). Each cell takes half the width and a lone
+    // last tab grows across the full row, so every row ends flush.
+    <div
+      ref={wrapRef}
+      className="relative flex sm:inline-flex flex-wrap border-2 border-line"
+    >
       <span ref={markerRef} className="t-tabs-marker" aria-hidden />
-      {options.map((o) => (
-        <button
-          key={o.id}
-          data-seg={o.id}
-          onClick={() => onChange(o.id)}
-          className={clsx(
-            "relative z-10 font-mono text-xs px-3 py-1.5 border-r-2 border-line last:border-r-0 transition-colors cursor-pointer",
-            value === o.id ? "text-on-fill" : "hover:bg-stone",
-          )}
-        >
-          {o.label}
-        </button>
-      ))}
+      {options.map((o, i) => {
+        // Borders come off the map index, never `even:`/`last:` — the marker
+        // span is the first DOM child, so every nth-child rule would be off
+        // by one against the buttons.
+        const rightColumn = i % 2 === 1;
+        const lastRowStart = Math.floor((options.length - 1) / 2) * 2;
+        return (
+          <button
+            key={o.id}
+            data-seg={o.id}
+            onClick={() => onChange(o.id)}
+            className={clsx(
+              "relative z-10 font-mono text-xs px-3 py-1.5 transition-colors cursor-pointer",
+              "grow basis-[calc(50%-2px)] sm:grow-0 sm:basis-auto",
+              // Mobile draws grid lines: a divider down the middle and one
+              // under every row but the last. Desktop reverts to a single row
+              // of right-hand dividers.
+              "border-line",
+              rightColumn ? "border-r-0" : "border-r-2",
+              i >= lastRowStart ? "border-b-0" : "border-b-2",
+              "sm:border-b-0",
+              i === options.length - 1 ? "sm:border-r-0" : "sm:border-r-2",
+              value === o.id ? "text-on-fill" : "hover:bg-stone",
+            )}
+          >
+            {o.label}
+          </button>
+        );
+      })}
     </div>
   );
 }

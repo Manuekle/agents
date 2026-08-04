@@ -120,7 +120,7 @@
 
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
-  --font-pixel: var(--font-geist-mono); /* pixel/label role uses Geist Mono */
+  --font-pixel: var(--font-pixel-stack); /* Silkscreen — real bitmap face */
   --font-serif: var(--font-serif-stack);
 }
 
@@ -146,10 +146,16 @@
     letter-spacing: 0;
     font-weight: 400;
   }
-  /* pixel/label role: Geist Mono, bold, wide tracking for the tech-label look */
+  /* pixel/label role: Silkscreen, a real bitmap face on an 8px grid.
+     Smoothing is turned off — antialiasing a bitmap font softens the very
+     edges the rest of the design is built on. Tracking stays near zero
+     because Silkscreen already ships wide sidebearings, and its regular
+     weight already reads as chunky, so no font-weight bump either. */
   .font-pixel {
-    font-weight: 700;
-    letter-spacing: 0.04em;
+    font-weight: 400;
+    letter-spacing: 0.01em;
+    -webkit-font-smoothing: none;
+    -moz-osx-font-smoothing: unset;
   }
 }
 
