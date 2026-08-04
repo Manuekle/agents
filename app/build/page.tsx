@@ -1,10 +1,11 @@
 "use client";
 
-import { Suspense, useEffect, useMemo, useRef, useState } from "react";
+import { Suspense, useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Slider } from "@heroui/react";
 import { Nav, PoweredBy } from "@/components/Nav";
 import { Footer } from "@/components/Footer";
+import { DitherConfetti } from "@/components/DitherConfetti";
 import { Mascot } from "@/components/Mascot";
 import { VendorMark } from "@/components/brands";
 import {
@@ -39,8 +40,6 @@ import {
   mcpServeCommand,
 } from "@/lib/export";
 import { copyText } from "@/lib/copy";
-
-const CONFETTI = 18;
 
 // The tick is always in the DOM — it just sits at opacity 0 until `done`, so
 // the button keeps one width and never reflows as the check draws itself in.
@@ -77,8 +76,7 @@ function Builder() {
 
   const [agent, setAgent] = useState<Agent>(newAgent);
   const [saved, setSaved] = useState(false);
-  const saveRef = useRef<HTMLSpanElement>(null);
-  const confettiTimer = useRef<number | undefined>(undefined);
+  const [confettiToken, setConfettiToken] = useState(0);
   // preview state driven by which field is active
   const [previewState, setPreviewState] = useState<MascotState>("working");
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
@@ -112,39 +110,13 @@ function Builder() {
   const newProj = useMemo(() => newProjectCommand(agent), [agent]);
   const repos = agentRepos(agent);
 
-  // Spray each piece on its own vector/rotation/tint so the burst reads as
-  // confetti rather than a symmetric starburst.
-  const fireConfetti = () => {
-    const root = saveRef.current;
-    if (!root) return;
-    const tints = ["var(--coral)", "var(--coral-deep)", "var(--ink)", "var(--stone-deep)"];
-    root.querySelectorAll<HTMLElement>(".t-confetti i").forEach((p, i) => {
-      const angle = -Math.PI / 2 + (Math.random() - 0.5) * 2.4;
-      const dist = 26 + Math.random() * 46;
-      p.style.setProperty("--cx", `${Math.cos(angle) * dist}px`);
-      p.style.setProperty("--cy", `${Math.sin(angle) * dist}px`);
-      p.style.setProperty("--crot", `${Math.round((Math.random() - 0.5) * 540)}deg`);
-      p.style.setProperty("--cdelay", `${Math.random() * 90}ms`);
-      p.style.setProperty("--cbg", tints[i % tints.length]);
-    });
-    // Toggled on the node, not via state: React batches a false/true pair in
-    // one handler into a single render, so the class never leaves the DOM and
-    // the forwards-filled animation stays parked instead of replaying.
-    root.classList.remove("is-confetti");
-    void root.offsetWidth; // reflow, or re-adding the class is a no-op
-    root.classList.add("is-confetti");
-    window.clearTimeout(confettiTimer.current);
-    confettiTimer.current = window.setTimeout(
-      () => root.classList.remove("is-confetti"),
-      1500,
-    );
-  };
-
   const doSave = () => {
     setPreviewState("cooking");
     saveAgent(agent);
     setSaved(true);
-    fireConfetti();
+    // A counter rather than a boolean: saving twice in a row has to re-fire,
+    // and a flag that is already true is not a state change.
+    setConfettiToken((n) => n + 1);
     setTimeout(() => setPreviewState(agent.mascot), 900);
   };
 
@@ -176,6 +148,7 @@ function Builder() {
 
   return (
     <div>
+      <DitherConfetti token={confettiToken} />
       <Nav />
       <div className="mx-auto max-w-6xl px-5 py-8">
         {/* Stacks below `sm`: the Silkscreen title and both buttons cannot
@@ -189,19 +162,12 @@ function Builder() {
             <PixelButton variant="ghost" onClick={() => router.push("/")}>
               ← Home
             </PixelButton>
-            <span ref={saveRef} className="relative inline-flex">
-              <PixelButton variant="coral" onClick={doSave}>
-                <span className="inline-flex items-center gap-1.5">
-                  <SuccessCheck shown={saved} size={12} />
-                  {saved ? "Saved" : "Save agent"}
-                </span>
-              </PixelButton>
-              <span className="t-confetti" aria-hidden>
-                {Array.from({ length: CONFETTI }, (_, i) => (
-                  <i key={i} />
-                ))}
+            <PixelButton variant="coral" onClick={doSave}>
+              <span className="inline-flex items-center gap-1.5">
+                <SuccessCheck shown={saved} size={12} />
+                {saved ? "Saved" : "Save agent"}
               </span>
-            </span>
+            </PixelButton>
           </div>
         </div>
 
