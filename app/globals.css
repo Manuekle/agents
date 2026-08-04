@@ -295,6 +295,11 @@
    ============================================================ */
 
 :root {
+  /* Lets `height: 0` tween to `height: auto` (mobile nav drawer,
+     .t-resize). Unsupported engines skip the height tween and snap
+     instead — the drawer's slide/fade/blur still runs either way. */
+  interpolate-size: allow-keywords;
+
   /* star burst */
   --burst-dist: 22px;
   --burst-size: 3px;
@@ -337,6 +342,41 @@
   --reveal-dur: 400ms;
   --reveal-blur: 2px;
   --reveal-ease: ease-in-out;
+
+  /* icon swap (mobile menu trigger) */
+  --icon-swap-dur: 250ms;
+  --icon-swap-blur: 2px;
+  --icon-swap-start-scale: 0.25;
+  --icon-swap-ease: ease-in-out;
+
+  /* panel reveal (mobile nav drawer) */
+  --panel-open-dur: 400ms;
+  --panel-close-dur: 350ms;
+  --panel-translate-y: -50%;
+  --panel-blur: 2px;
+  --panel-ease: cubic-bezier(0.22, 1, 0.36, 1);
+
+  /* card resize */
+  --resize-dur: 300ms;
+  --resize-ease: cubic-bezier(0.22, 1, 0.36, 1);
+
+  /* success check */
+  --check-opacity-dur: 500ms;
+  --check-rotate-dur: 500ms;
+  --check-rotate-from: 80deg;
+  --check-bob-dur: 500ms;
+  --check-y-amount: 40px;
+  --check-blur-dur: 500ms;
+  --check-blur-from: 10px;
+  --check-path-dur: 500ms;
+  --check-path-delay: 80ms;
+  /* getTotalLength() of the checkmark in <SuccessCheck>, rounded up. */
+  --check-path-len: 31;
+  --check-ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+  --check-ease-opacity: cubic-bezier(0.22, 1, 0.36, 1);
+  --check-ease-rotate: cubic-bezier(0.22, 1, 0.36, 1);
+  --check-ease-bob: cubic-bezier(0.34, 1.35, 0.64, 1);
+  --check-ease-path: cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 /* ---------- star burst (GitHub pill) ---------- */
@@ -659,6 +699,119 @@
   }
 }
 
+/* ---------- icon swap (mobile menu trigger) ---------- */
+.t-icon-swap {
+  position: relative;
+  display: inline-grid;
+}
+.t-icon-swap .t-icon {
+  grid-area: 1 / 1;
+  transition:
+    opacity   var(--icon-swap-dur) var(--icon-swap-ease),
+    filter    var(--icon-swap-dur) var(--icon-swap-ease),
+    transform var(--icon-swap-dur) var(--icon-swap-ease);
+  will-change: opacity, filter, transform;
+}
+.t-icon-swap[data-state="a"] .t-icon[data-icon="a"],
+.t-icon-swap[data-state="b"] .t-icon[data-icon="b"] {
+  opacity: 1;
+  filter: blur(0);
+  transform: scale(1);
+}
+.t-icon-swap[data-state="a"] .t-icon[data-icon="b"],
+.t-icon-swap[data-state="b"] .t-icon[data-icon="a"] {
+  opacity: 0;
+  filter: blur(var(--icon-swap-blur));
+  transform: scale(var(--icon-swap-start-scale));
+}
+
+/* ---------- panel reveal (mobile nav drawer) ----------
+   --panel-translate-y is a percentage here so the closed state
+   is always half the drawer's own height, whatever the link
+   count. The wrapper owns `overflow: hidden` so the closed
+   panel is clipped rather than bleeding over the page. */
+.t-panel-slide {
+  transform: translateY(var(--panel-translate-y));
+  opacity: 0;
+  filter: blur(var(--panel-blur));
+  pointer-events: none;
+  transition:
+    transform var(--panel-close-dur) var(--panel-ease),
+    opacity   var(--panel-close-dur) var(--panel-ease),
+    filter    var(--panel-close-dur) var(--panel-ease);
+  will-change: transform, opacity, filter;
+}
+.t-panel-slide[data-open="true"] {
+  transform: translateY(0);
+  opacity: 1;
+  filter: blur(0);
+  pointer-events: auto;
+  transition:
+    transform var(--panel-open-dur) var(--panel-ease),
+    opacity   var(--panel-open-dur) var(--panel-ease),
+    filter    var(--panel-open-dur) var(--panel-ease);
+}
+/* The clip wrapper tweens its own height so the page below is
+   pushed down in step with the drawer instead of jumping. */
+.t-panel-clip {
+  overflow: hidden;
+  height: 0;
+  transition: height var(--panel-close-dur) var(--panel-ease);
+}
+.t-panel-clip[data-open="true"] {
+  height: auto;
+  transition: height var(--panel-open-dur) var(--panel-ease);
+}
+
+/* ---------- card resize ---------- */
+.t-resize {
+  transition:
+    width  var(--resize-dur) var(--resize-ease),
+    height var(--resize-dur) var(--resize-ease);
+  will-change: width, height;
+}
+
+/* ---------- success check ---------- */
+.t-success-check {
+  display: inline-block;
+  transform-origin: center;
+  opacity: 0;
+  will-change: transform, opacity, filter;
+}
+/* overflow: visible keeps the stroke from clipping while it
+   draws; display: block kills the inline whitespace under SVGs. */
+.t-success-check svg { display: block; overflow: visible; }
+.t-success-check svg path {
+  stroke-dasharray: var(--check-path-len);
+  stroke-dashoffset: var(--check-path-len);
+}
+
+.t-success-check[data-state="in"] {
+  animation:
+    t-check-fade   var(--check-opacity-dur) var(--check-ease-opacity) forwards,
+    t-check-rotate var(--check-rotate-dur)  var(--check-ease-rotate)  forwards,
+    t-check-blur   var(--check-blur-dur)    var(--check-ease-out)     forwards,
+    t-check-bob    var(--check-bob-dur)     var(--check-ease-bob)     forwards;
+}
+.t-success-check[data-state="in"] svg path {
+  animation: t-check-draw var(--check-path-dur) var(--check-ease-path) var(--check-path-delay, 0ms) forwards;
+}
+
+@keyframes t-check-fade { from { opacity: 0; } to { opacity: 1; } }
+@keyframes t-check-rotate {
+  from { transform: rotate(var(--check-rotate-from)); }
+  to   { transform: rotate(0deg); }
+}
+@keyframes t-check-blur {
+  from { filter: blur(var(--check-blur-from)); }
+  to   { filter: blur(0); }
+}
+@keyframes t-check-bob {
+  from { translate: 0 var(--check-y-amount); }
+  to   { translate: 0 0; }
+}
+@keyframes t-check-draw { to { stroke-dashoffset: 0; } }
+
 @media (prefers-reduced-motion: reduce) {
   .t-star-pop,
   .is-bursting .t-burst i,
@@ -667,6 +820,14 @@
   .t-skel-skeleton.is-pulsing > * {
     animation: none !important;
   }
+  .t-icon-swap .t-icon,
+  .t-panel-slide,
+  .t-panel-clip,
+  .t-resize {
+    transition: none !important;
+  }
+  .t-success-check { animation: none !important; opacity: 1; }
+  .t-success-check svg path { animation: none !important; stroke-dashoffset: 0 !important; }
   .t-stagger-line,
   .t-tabs-marker,
   .t-tilt-card,

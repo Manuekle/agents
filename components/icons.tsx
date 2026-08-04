@@ -59,3 +59,45 @@ export function MoonIcon({ size = 16, className }: IconProps) {
     </svg>
   );
 }
+
+export function MenuIcon({ size = 16, className }: IconProps) {
+  return (
+    <svg {...base(size)} className={className}>
+      <rect x="3" y="5" width="18" height="2" />
+      <rect x="3" y="11" width="18" height="2" />
+      <rect x="3" y="17" width="18" height="2" />
+    </svg>
+  );
+}
+
+export function CloseIcon({ size = 16, className }: IconProps) {
+  return (
+    <svg {...base(size)} className={className}>
+      <polygon points="19 6 17 4 12 9 7 4 5 6 10 11 5 16 7 18 12 13 17 18 19 16 14 11 19 6" />
+    </svg>
+  );
+}
+
+// Stroked, not filled — the success-check animation draws this path with
+// stroke-dashoffset, which a filled polygon cannot do. Square caps keep it
+// in the hard-edged house style; --check-path-len in globals.css is this
+// path's getTotalLength() rounded up.
+export function CheckIcon({ size = 16, className }: IconProps) {
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 48 48"
+      xmlns="http://www.w3.org/2000/svg"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={6}
+      strokeLinecap="square"
+      strokeLinejoin="miter"
+      aria-hidden
+      className={className}
+    >
+      <path d="M14 25 L21 32 L34 17" />
+    </svg>
+  );
+}

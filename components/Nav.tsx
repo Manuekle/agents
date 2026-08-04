@@ -2,18 +2,17 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useEffect, useState } from "react";
 import { clsx } from "@/lib/clsx";
 import { GitHubStars } from "@/components/GitHubStars";
 import { ThemeToggle } from "@/components/ThemeToggle";
+import { MenuIcon, CloseIcon } from "@/components/icons";
 
 // `match` lists the extra path prefixes that should light the tab — the
 // onboarding wizard is part of the New flow, so it must not leave the nav
 // with nothing highlighted.
-//
-// Five tabs overflow a 375px viewport, so Home drops out below `sm`: the
-// wordmark to its left already links home, making it the one redundant item.
-const LINKS: { href: string; label: string; match?: string[]; desktopOnly?: boolean }[] = [
-  { href: "/", label: "Home", desktopOnly: true },
+const LINKS: { href: string; label: string; match?: string[] }[] = [
+  { href: "/", label: "Home" },
   { href: "/new", label: "New", match: ["/onboarding"] },
   { href: "/build", label: "Build" },
   { href: "/skills", label: "Skills" },
@@ -28,6 +27,21 @@ function isActive(path: string, link: (typeof LINKS)[number]): boolean {
 
 export function Nav() {
   const path = usePathname();
+  const [open, setOpen] = useState(false);
+
+  // Navigating with the drawer open would otherwise leave it hanging over the
+  // page it just moved to.
+  useEffect(() => setOpen(false), [path]);
+
+  useEffect(() => {
+    if (!open) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setOpen(false);
+    };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [open]);
+
   return (
     <header className="sticky top-0 z-40 border-b-2 border-line bg-paper/95 backdrop-blur">
       <div className="mx-auto max-w-6xl px-5 h-14 flex items-center justify-between">
@@ -40,26 +54,25 @@ export function Nav() {
         </Link>
 
         <div className="flex items-center gap-2">
-          <nav className="flex items-center gap-1">
-            {LINKS.map((l) => {
-              const active = isActive(path, l);
-              return (
-                <Link
-                  key={l.href}
-                  href={l.href}
-                  className={clsx(
-                    "font-mono text-xs px-2 sm:px-3 py-1.5 border-2 transition-colors",
-                    l.desktopOnly && "hidden sm:block",
-                    active
-                      ? "border-line bg-fill text-on-fill"
-                      : "border-transparent hover:border-line hover:bg-stone",
-                  )}
-                >
-                  {l.label}
-                </Link>
-              );
-            })}
+          {/* Five tabs overflow a 375px viewport, so below `sm` the whole set
+              moves into the drawer and this bar keeps only the trigger. */}
+          <nav className="hidden sm:flex items-center gap-1">
+            {LINKS.map((l) => (
+              <Link
+                key={l.href}
+                href={l.href}
+                className={clsx(
+                  "font-mono text-xs px-2 sm:px-3 py-1.5 border-2 transition-colors",
+                  isActive(path, l)
+                    ? "border-line bg-fill text-on-fill"
+                    : "border-transparent hover:border-line hover:bg-stone",
+                )}
+              >
+                {l.label}
+              </Link>
+            ))}
           </nav>
+
           {/* Visibility lives on the wrapper, not on GitHubStars' own className:
               the pill's base classes already set `inline-flex`, and Tailwind
               emits `hidden` earlier in the sheet, so a `hidden` passed through
@@ -69,6 +82,53 @@ export function Nav() {
             <GitHubStars />
           </span>
           <ThemeToggle />
+
+          <button
+            type="button"
+            onClick={() => setOpen((v) => !v)}
+            aria-expanded={open}
+            aria-controls="nav-drawer"
+            aria-label={open ? "Close menu" : "Open menu"}
+            className="sm:hidden grid place-items-center w-9 h-9 border-2 border-line bg-paper hover:bg-stone transition-colors cursor-pointer"
+          >
+            {/* Both icons occupy the same grid cell; only their opacity, blur
+                and scale change, so the button never reflows mid-swap. */}
+            <span className="t-icon-swap" data-state={open ? "b" : "a"}>
+              <span className="t-icon" data-icon="a">
+                <MenuIcon size={16} />
+              </span>
+              <span className="t-icon" data-icon="b">
+                <CloseIcon size={16} />
+              </span>
+            </span>
+          </button>
+        </div>
+      </div>
+
+      {/* MOBILE DRAWER — the clip wrapper tweens height so the page below is
+          pushed down in step with the panel instead of jumping. */}
+      <div id="nav-drawer" className="sm:hidden t-panel-clip" data-open={open}>
+        <div className="t-panel-slide border-t-2 border-line" data-open={open}>
+          <nav className="mx-auto max-w-6xl px-5 py-3 flex flex-col gap-1">
+            {LINKS.map((l) => (
+              <Link
+                key={l.href}
+                href={l.href}
+                tabIndex={open ? undefined : -1}
+                className={clsx(
+                  "font-mono text-xs px-3 py-2 border-2 transition-colors",
+                  isActive(path, l)
+                    ? "border-line bg-fill text-on-fill"
+                    : "border-transparent hover:border-line hover:bg-stone",
+                )}
+              >
+                {l.label}
+              </Link>
+            ))}
+            <div className="pt-2 mt-1 border-t-2 border-line">
+              <GitHubStars />
+            </div>
+          </nav>
         </div>
       </div>
     </header>

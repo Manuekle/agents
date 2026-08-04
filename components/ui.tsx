@@ -1,8 +1,70 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { clsx } from "@/lib/clsx";
+import { CheckIcon } from "@/components/icons";
 import type { ButtonHTMLAttributes, ReactNode } from "react";
+
+// Animated confirmation tick. `shown` false keeps it at opacity 0 with the
+// stroke undrawn; flipping it to true runs fade + rotate + blur + Y-bob while
+// the checkmark draws itself.
+export function SuccessCheck({
+  shown,
+  size = 12,
+  className,
+}: {
+  shown: boolean;
+  size?: number;
+  className?: string;
+}) {
+  return (
+    <span
+      className={clsx("t-success-check", className)}
+      data-state={shown ? "in" : "out"}
+      aria-hidden
+    >
+      <CheckIcon size={size} />
+    </span>
+  );
+}
+
+// Tween a box to its content's natural height. CSS cannot transition
+// `auto` -> `auto`, so the content is measured and the pixel value written
+// back to the wrapper — without this, swapping a long CLAUDE.md for a short
+// mcp.json makes the sidebar jump. `max` caps the box and lets it scroll.
+export function ResizeBox({
+  children,
+  max,
+  className,
+}: {
+  children: ReactNode;
+  max: number;
+  className?: string;
+}) {
+  const inner = useRef<HTMLDivElement>(null);
+  const [height, setHeight] = useState<number | null>(null);
+
+  useLayoutEffect(() => {
+    const el = inner.current;
+    if (!el) return;
+    // Observing the inner element, never the wrapper we resize — observing
+    // the wrapper would feed its own height back in as a new measurement.
+    const measure = () => setHeight(el.scrollHeight);
+    measure();
+    const ro = new ResizeObserver(measure);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+
+  return (
+    <div
+      className={clsx("t-resize overflow-auto", className)}
+      style={height === null ? undefined : { height: Math.min(height, max) }}
+    >
+      <div ref={inner}>{children}</div>
+    </div>
+  );
+}
 
 export function Panel({
   children,

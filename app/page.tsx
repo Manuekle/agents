@@ -140,9 +140,12 @@ export default function Home() {
           </Panel>
         ) : (
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {/* min-w-0 on the card: grid items default to min-width:auto, so a
+                long agent role sizes the track to its own max-content and the
+                card overflows the viewport instead of truncating. */}
             {agents.map((a) => (
-              <Panel key={a.id} className="p-4">
-                <div className="flex items-start gap-3">
+              <Panel key={a.id} className="p-4 min-w-0">
+                <div className="flex items-start gap-3 min-w-0">
                   <div className="mascot-stage relative overflow-hidden pixel-border-sm p-1.5 shrink-0">
                     <Mascot state={a.mascot} size={48} />
                   </div>

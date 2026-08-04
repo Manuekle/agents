@@ -16,6 +16,8 @@ import {
   TextArea,
   Segmented,
   Select,
+  SuccessCheck,
+  ResizeBox,
 } from "@/components/ui";
 import { MASCOT_ORDER, MASCOTS, type MascotState } from "@/lib/mascot";
 import { SkillBrowser } from "@/components/SkillBrowser";
@@ -39,6 +41,17 @@ import {
 import { copyText } from "@/lib/copy";
 
 const CONFETTI = 18;
+
+// The tick is always in the DOM — it just sits at opacity 0 until `done`, so
+// the button keeps one width and never reflows as the check draws itself in.
+function CopyLabel({ done }: { done: boolean }) {
+  return (
+    <span className="inline-flex items-center gap-1">
+      <SuccessCheck shown={done} size={10} />
+      {done ? "Copied" : "Copy"}
+    </span>
+  );
+}
 
 function newAgent(): Agent {
   return {
@@ -176,7 +189,10 @@ function Builder() {
             </PixelButton>
             <span ref={saveRef} className="relative inline-flex">
               <PixelButton variant="coral" onClick={doSave}>
-                {saved ? "✓ Saved" : "Save agent"}
+                <span className="inline-flex items-center gap-1.5">
+                  <SuccessCheck shown={saved} size={12} />
+                  {saved ? "Saved" : "Save agent"}
+                </span>
               </PixelButton>
               <span className="t-confetti" aria-hidden>
                 {Array.from({ length: CONFETTI }, (_, i) => (
@@ -347,12 +363,16 @@ function Builder() {
                   onClick={copy}
                   className={`!px-2 !py-1 !text-[9px] ${copiedKey === "output" ? "!bg-ok !text-paper" : ""}`}
                 >
-                  {copiedKey === "output" ? "✓ Copied" : "Copy"}
+                  <CopyLabel done={copiedKey === "output"} />
                 </PixelButton>
               </div>
-              <pre className="p-3 text-[11px] font-mono leading-relaxed overflow-auto max-h-[420px] whitespace-pre-wrap">
-                {output.content}
-              </pre>
+              {/* Switching target tool swaps a long CLAUDE.md for a short
+                  mcp.json — tweening the box keeps the sidebar from jumping. */}
+              <ResizeBox max={420}>
+                <pre className="p-3 text-[11px] font-mono leading-relaxed whitespace-pre-wrap">
+                  {output.content}
+                </pre>
+              </ResizeBox>
             </Panel>
 
             {/* INSTALL — wraps the official skills CLI */}
@@ -373,7 +393,7 @@ function Builder() {
                       disabled={repos.length === 0}
                       className={`!px-2 !py-1 !text-[9px] shrink-0 ${copiedKey === "install" ? "!bg-ok !text-paper" : ""}`}
                     >
-                      {copiedKey === "install" ? "✓ Copied" : "Copy"}
+                      <CopyLabel done={copiedKey === "install"} />
                     </PixelButton>
                   </div>
                 </div>
@@ -388,7 +408,7 @@ function Builder() {
                       onClick={() => doCopy(newProj, "newproj")}
                       className={`!px-2 !py-1 !text-[9px] shrink-0 ${copiedKey === "newproj" ? "!bg-ok !text-paper" : ""}`}
                     >
-                      {copiedKey === "newproj" ? "✓ Copied" : "Copy"}
+                      <CopyLabel done={copiedKey === "newproj"} />
                     </PixelButton>
                   </div>
                 </div>
@@ -422,7 +442,7 @@ function Builder() {
                       onClick={() => doCopy(mcpServeCommand(), "mcp")}
                       className={`!px-2 !py-1 !text-[9px] shrink-0 ${copiedKey === "mcp" ? "!bg-ok !text-paper" : ""}`}
                     >
-                      {copiedKey === "mcp" ? "✓ Copied" : "Copy"}
+                      <CopyLabel done={copiedKey === "mcp"} />
                     </PixelButton>
                   </div>
                   <p className="font-mono text-[9px] text-muted leading-relaxed mt-1.5">
