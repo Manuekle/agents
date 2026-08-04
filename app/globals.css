@@ -191,35 +191,50 @@
   box-shadow: 2px 2px 0 0 var(--shadow);
 }
 
-/* ---------- scrollbars ----------
-   Square and coral, page and inner panes alike. Both colours are theme
-   aliases, so light and dark follow the toggle without a second rule set.
-   `scrollbar-color` is the standard property Firefox reads; the -webkit-
-   pseudo-elements cover Chromium and Safari, where the track border and the
-   inset on the thumb are what keep it reading as a pixel block instead of a
-   floating pill. Nothing here is rounded — the design has no radii. */
-:root {
+/* ---------- scrollbar (page only) ----------
+   Square and coral, and deliberately only on the page. Inner panes — the
+   export preview, the skill list, the code blocks — keep the platform
+   scrollbar: a 12px coral bar inside a 340px card reads as a bug, not a
+   flourish.
+   Both colours are theme aliases, so light and dark follow the toggle without
+   a second rule set. `scrollbar-color` is the standard property Firefox
+   reads; the -webkit- pseudo-elements cover Chromium and Safari, where the
+   track border and the inset on the thumb are what keep it reading as a pixel
+   block instead of a floating pill. Nothing here is rounded — the design has
+   no radii. */
+html {
   scrollbar-color: var(--coral) var(--stone);
   scrollbar-width: thin;
 }
 
-::-webkit-scrollbar {
+/* `scrollbar-color` inherits, so leaving it unset on descendants is not
+   enough — every inner pane would still pick up the coral. It has to be
+   handed back to the platform explicitly, one level down from the root. */
+body {
+  scrollbar-color: auto;
+  scrollbar-width: auto;
+}
+
+/* Scoped to `html`: the root element's scrollbar is the one the viewport
+   paints, so this styles the page bar without reaching inner scrollers the
+   way a bare `::-webkit-scrollbar` would. */
+html::-webkit-scrollbar {
   width: 12px;
   height: 12px;
 }
-::-webkit-scrollbar-track {
+html::-webkit-scrollbar-track {
   background: var(--stone);
   border: 2px solid var(--line);
 }
-::-webkit-scrollbar-thumb {
+html::-webkit-scrollbar-thumb {
   background: var(--coral);
   border: 2px solid var(--stone);
   border-radius: 0;
 }
-::-webkit-scrollbar-thumb:hover {
+html::-webkit-scrollbar-thumb:hover {
   background: var(--coral-deep);
 }
-::-webkit-scrollbar-corner {
+html::-webkit-scrollbar-corner {
   background: var(--stone);
 }
 
