@@ -11,6 +11,8 @@ const COLS: { title: string; links: { label: string; href: string; external?: bo
   {
     title: "Build",
     links: [
+      { label: "New agent", href: "/new" },
+      { label: "Onboarding", href: "/onboarding" },
       { label: "Composer", href: "/build" },
       { label: "Skills", href: "/skills" },
       { label: "MCP bridge", href: "/mcp" },

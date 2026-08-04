@@ -3,6 +3,7 @@ import type { Metadata } from "next";
 export const metadata: Metadata = {
   title: "Skills",
   description: "Search the skills.sh registry and pick skills for your agent.",
+  alternates: { canonical: "/skills" },
 };
 
 export default function SkillsLayout({ children }: { children: React.ReactNode }) {

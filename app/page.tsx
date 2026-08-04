@@ -97,7 +97,7 @@ export default function Home() {
       <section className="mx-auto max-w-6xl px-5 py-14 grid gap-4 md:grid-cols-3">
         {[
           { t: "Skill scraping", d: "Pull skills from any registry, README or JSON feed into one catalog.", tag: "scrape" },
-          { t: "Agent composer", d: "Prompt, model, temperature, mascot & skills — one editable spec.", tag: "compose" },
+          { t: "Guided or manual", d: "Let AI draft the persona from a few answers, or write every field yourself.", tag: "compose" },
           { t: "Multi-target export", d: "Claude Code, Codex, Cursor, Gemini CLI or raw MCP config.", tag: "export" },
         ].map((f, idx) => (
           <TiltCard key={f.t}>

@@ -6,12 +6,25 @@ import { clsx } from "@/lib/clsx";
 import { GitHubStars } from "@/components/GitHubStars";
 import { ThemeToggle } from "@/components/ThemeToggle";
 
-const LINKS = [
-  { href: "/", label: "Home" },
+// `match` lists the extra path prefixes that should light the tab — the
+// onboarding wizard is part of the New flow, so it must not leave the nav
+// with nothing highlighted.
+//
+// Five tabs overflow a 375px viewport, so Home drops out below `sm`: the
+// wordmark to its left already links home, making it the one redundant item.
+const LINKS: { href: string; label: string; match?: string[]; desktopOnly?: boolean }[] = [
+  { href: "/", label: "Home", desktopOnly: true },
+  { href: "/new", label: "New", match: ["/onboarding"] },
   { href: "/build", label: "Build" },
   { href: "/skills", label: "Skills" },
   { href: "/mcp", label: "MCP" },
 ];
+
+function isActive(path: string, link: (typeof LINKS)[number]): boolean {
+  if (link.href === "/") return path === "/";
+  if (path.startsWith(link.href)) return true;
+  return link.match?.some((m) => path.startsWith(m)) ?? false;
+}
 
 export function Nav() {
   const path = usePathname();
@@ -29,13 +42,14 @@ export function Nav() {
         <div className="flex items-center gap-2">
           <nav className="flex items-center gap-1">
             {LINKS.map((l) => {
-              const active = l.href === "/" ? path === "/" : path.startsWith(l.href);
+              const active = isActive(path, l);
               return (
                 <Link
                   key={l.href}
                   href={l.href}
                   className={clsx(
                     "font-mono text-xs px-2 sm:px-3 py-1.5 border-2 transition-colors",
+                    l.desktopOnly && "hidden sm:block",
                     active
                       ? "border-line bg-fill text-on-fill"
                       : "border-transparent hover:border-line hover:bg-stone",

@@ -30,7 +30,9 @@ onboarding wizard is just a way to seed it, not a separate product.
 |------|------|
 | `app/` | Next.js App Router pages — `/` (home), `/new` (create — choose onboarding or manual), `/onboarding` (AI-assisted wizard), `/build` (composer), `/skills` (registry browser), `/mcp` (MCP bridge docs) |
 | `app/api/skills/` | server proxy for the skills.sh search API, with an offline seed fallback |
-| `app/api/onboarding/` | server-side route that calls Azure AI Foundry to draft a persona — the API key never reaches the browser |
+| `app/api/onboarding/` | server-side route that calls Azure AI Foundry to draft a persona — the API key never reaches the browser, and the route is rate-limited and token-capped |
+| `app/sitemap.ts`, `app/robots.ts` | generated `sitemap.xml` and `robots.txt` (crawlers are kept off `/api/`) |
+| `app/opengraph-image.tsx`, `app/twitter-image.tsx` | 1200×630 social cards rendered at the edge from the brand tokens in `lib/brand.ts` |
 | `components/` | UI primitives (`ui.tsx`), mascot, dither canvas, skill browser |
 | `lib/` | agent types + export formats, localStorage store, mascot state machine |
 | `mcp/` | the published npm package, `@manudev.jsx/agents` — serves an exported agent over MCP |
@@ -63,6 +65,24 @@ None of the three Foundry vars are required to run the site — only `/onboardin
 needs them. Everything else works with zero config: the skills search proxies a
 public API and agents are stored in the browser's localStorage. See
 [`.env.example`](.env.example).
+
+### Cost guardrails on `/api/onboarding`
+
+That route spends real money per call, so it is not left open:
+
+- **Rate limit** — 5 drafts per minute per IP, fixed window. It lives in process
+  memory, which Fluid Compute reuses across requests, so it reliably stops one
+  client hammering the form. It is not a distributed guarantee; traffic spread
+  across instances gets a proportionally higher ceiling. Swap in a durable store
+  (KV/Redis) if this ever sees real volume.
+- **Input caps** — every field is truncated before it reaches the model
+  (`purpose` 600 chars, `domain` 200, `tone` 40, `teamName` 120), and `target`
+  must be one of the known tool ids. An unbounded prompt is an unbounded bill.
+- **Output caps** — `max_output_tokens: 500`, and `reasoning.effort: "none"`
+  because drafting a persona is formatting, not deduction.
+- **Structured Outputs** — the model is constrained to the response schema, so
+  the reply parses on the first call instead of costing a retry.
+- `robots.txt` disallows `/api/` so crawlers never trip any of this.
 
 ## The MCP package
 
