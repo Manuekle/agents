@@ -56,7 +56,7 @@ export default function Home() {
               MCP model. All pixel, all custom.
             </p>
             <div className="mt-7 flex flex-wrap items-center gap-3 t-stagger-line t-stagger-line--4">
-              <Link href="/build">
+              <Link href="/new">
                 <PixelButton variant="coral">Forge an agent →</PixelButton>
               </Link>
               <Link href="/skills">
@@ -125,7 +125,7 @@ export default function Home() {
       <section className="mx-auto max-w-6xl px-5 pb-20">
         <div className="flex items-center justify-between mb-4">
           <h2 className="font-pixel text-sm">YOUR_AGENTS</h2>
-          <Link href="/build">
+          <Link href="/new">
             <PixelButton>+ New</PixelButton>
           </Link>
         </div>
@@ -134,7 +134,7 @@ export default function Home() {
           <Panel className="p-10 text-center dither-stone">
             <Mascot state="sleeping" size={72} className="mx-auto" />
             <p className="font-mono text-sm mt-3">No agents yet — the forge is cold.</p>
-            <Link href="/build" className="inline-block mt-4">
+            <Link href="/new" className="inline-block mt-4">
               <PixelButton variant="coral">Forge your first →</PixelButton>
             </Link>
           </Panel>
