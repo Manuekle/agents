@@ -27,8 +27,9 @@ export default function NewAgentPage() {
               <h2 className="font-sans font-bold text-lg">Onboarding</h2>
               <p className="font-mono text-xs text-muted mt-1.5 leading-relaxed flex-1">
                 Answer a few questions, an Azure AI Foundry model drafts the
-                name, role &amp; system prompt. You land in the composer to
-                review, pick skills and save.
+                name, role &amp; system prompt, then searches skills.sh and
+                picks the skills that fit. You land in the composer to review
+                and save.
               </p>
               <PixelButton variant="coral" className="mt-4 w-full group-hover:brightness-95">
                 Start onboarding →

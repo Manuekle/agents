@@ -6,7 +6,13 @@ import { Nav, PoweredBy } from "@/components/Nav";
 import { Footer } from "@/components/Footer";
 import { Mascot } from "@/components/Mascot";
 import { Panel, PixelButton, Badge, Field, TextInput, TextArea, Segmented } from "@/components/ui";
-import { TARGETS, modelsFor, type Agent, type AgentTarget } from "@/lib/types";
+import {
+  TARGETS,
+  modelsFor,
+  type Agent,
+  type AgentTarget,
+  type PickedSkill,
+} from "@/lib/types";
 import { saveAgent } from "@/lib/store";
 
 const TONES = ["Direct", "Friendly", "Formal", "Playful"] as const;
@@ -16,6 +22,10 @@ interface Drafted {
   name: string;
   role: string;
   systemPrompt: string;
+  // Picked by the model out of live skills.sh results, so every repo here
+  // resolves. Can legitimately be empty — the registry may have nothing that
+  // fits, and padding the list would be worse than leaving it to the composer.
+  skills: PickedSkill[];
 }
 
 export default function OnboardingPage() {
@@ -63,7 +73,7 @@ export default function OnboardingPage() {
       target,
       model: modelsFor(target)[0].id,
       temperature: 0.7,
-      skills: [],
+      skills: drafted.skills ?? [],
       mascot: "wizard",
       accent: "#f95c4b",
       createdAt: Date.now(),
@@ -79,7 +89,8 @@ export default function OnboardingPage() {
         <h1 className="font-pixel text-sm mb-1">ONBOARDING</h1>
         <PoweredBy />
         <p className="mt-4 font-mono text-sm text-ink-soft">
-          Answer a few questions — an Azure AI Foundry model drafts the persona.
+          Answer a few questions — an Azure AI Foundry model drafts the persona,
+          then searches skills.sh and picks the skills that fit it.
         </p>
 
         <Panel className="p-5 mt-6 space-y-4">
@@ -131,7 +142,9 @@ export default function OnboardingPage() {
           )}
 
           <PixelButton variant="coral" onClick={draft} disabled={loading} className="w-full">
-            {loading ? "Drafting…" : "Draft with Foundry →"}
+            {/* Named the slow half: this now drafts, searches the registry and
+                picks, which runs ~9s. "Drafting…" alone read as a hang. */}
+            {loading ? "Drafting + picking skills…" : "Draft with Foundry →"}
           </PixelButton>
         </Panel>
 
@@ -159,6 +172,35 @@ export default function OnboardingPage() {
                 </p>
               </div>
             </div>
+
+            {/* Shown even when empty: silently handing over an agent with no
+                skills would read as a bug rather than a deliberate result. */}
+            <div className="mt-4 pt-4 border-t-2 border-line">
+              <div className="flex items-baseline justify-between mb-2">
+                <span className="font-pixel text-[10px] uppercase">Skills picked</span>
+                <span className="font-mono text-[10px] text-muted">
+                  {drafted.skills.length} from skills.sh
+                </span>
+              </div>
+              {drafted.skills.length > 0 ? (
+                <div className="flex flex-wrap gap-1.5">
+                  {drafted.skills.map((s) => (
+                    <span
+                      key={s.id}
+                      title={s.repo}
+                      className="inline-flex items-center gap-1 font-mono text-[10px] px-2 py-0.5 border-2 border-line bg-fill text-on-fill"
+                    >
+                      {s.name}
+                    </span>
+                  ))}
+                </div>
+              ) : (
+                <p className="font-mono text-[11px] text-muted">
+                  Nothing in the registry matched closely — pick some in the composer.
+                </p>
+              )}
+            </div>
+
             <PixelButton variant="coral" onClick={openInComposer} className="mt-4 w-full">
               Use this — open in composer →
             </PixelButton>

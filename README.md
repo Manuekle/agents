@@ -15,8 +15,16 @@ config your tool actually reads (`CLAUDE.md`, `AGENTS.md`, `.cursorrules`,
 
 - **Onboarding** (`/onboarding`) — answer a few guided questions (purpose,
   domain/stack, tone, target tool); an Azure AI Foundry model drafts the
-  name, role and system prompt for you. You land in the composer with those
-  fields pre-filled to review, pick skills, and save.
+  name, role and system prompt, then picks the agent's skills. You land in the
+  composer with all of it pre-filled to review and save.
+
+  Skill picking is two model calls around a real lookup, not one call from
+  memory: the first drafts the persona and emits a few registry search terms,
+  the server runs those against skills.sh, and the second call chooses by
+  index out of what actually came back. A model asked to name repos unprompted
+  invents plausible `owner/repo` pairs that `npx skills add` cannot resolve —
+  this way it can only ever return skills that exist. An empty list is a valid
+  answer and is shown as one.
 - **Personalizado** (`/build`) — the manual composer, straight up. Every
   field (name, role, system prompt, model, temperature, mascot, skills) is
   yours to write.
@@ -83,8 +91,11 @@ That route spends real money per call, so it is not left open:
 - **Input caps** — every field is truncated before it reaches the model
   (`purpose` 600 chars, `domain` 200, `tone` 40, `teamName` 120), and `target`
   must be one of the known tool ids. An unbounded prompt is an unbounded bill.
-- **Output caps** — `max_output_tokens: 500`, and `reasoning.effort: "none"`
-  because drafting a persona is formatting, not deduction.
+- **Output caps** — `max_output_tokens` 600 on the draft and 200 on the skill
+  pick, with `reasoning.effort: "none"` on both: drafting a persona and
+  choosing from a numbered list are formatting, not deduction.
+- **Bounded candidate list** — the pick call sees at most 30 skills, so the
+  prompt stays a shortlist rather than a catalogue dump billed by the token.
 - **Structured Outputs** — the model is constrained to the response schema, so
   the reply parses on the first call instead of costing a retry.
 - `robots.txt` disallows `/api/` so crawlers never trip any of this.
