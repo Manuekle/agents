@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { TARGETS } from "@/lib/types";
 import { FOUNDRY_ERROR, LIMITS, clamp, clientIp, foundryClient, rateLimit } from "@/lib/foundry";
+import { supabaseServer } from "@/lib/supabase/server";
 
 // Drafts the agent persona and nothing else. Skill picking lives in
 // ./skills/route.ts so the browser can render the persona at ~4s instead of
@@ -53,6 +54,33 @@ export async function POST(req: Request) {
       { error: `Too many drafts — wait ${limit.retryAfter}s and try again.` },
       { status: 429, headers: { "retry-after": String(limit.retryAfter) } },
     );
+  }
+
+  // Signed-in drafts come out of the account's monthly plan quota. Signed-out
+  // ones can't: there is no identity to attribute a month to, so they keep the
+  // per-IP rate limit above and nothing more. That does mean signing out is a
+  // way around the monthly cap — the flood ceiling still holds, and closing it
+  // properly means requiring an account to draft at all.
+  const supabase = await supabaseServer();
+  if (supabase) {
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+
+    if (user) {
+      // One statement checks and increments, so two drafts racing for the last
+      // slot cannot both be granted it.
+      const { data: allowed, error } = await supabase.rpc("consume_ai_draft");
+      if (!error && allowed === false) {
+        return NextResponse.json(
+          {
+            error:
+              "You're out of AI drafts for this month. The composer still works — or see /pricing.",
+          },
+          { status: 402 },
+        );
+      }
+    }
   }
 
   let body: unknown;

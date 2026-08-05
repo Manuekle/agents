@@ -30,7 +30,7 @@ import {
   type AgentTarget,
   type PickedSkill,
 } from "@/lib/types";
-import { saveAgent, useAgents } from "@/lib/store";
+import { saveAgent, useAgents, useStoreError } from "@/lib/store";
 import {
   exportAgent,
   installCommand,
@@ -77,6 +77,7 @@ function Builder() {
   const [agent, setAgent] = useState<Agent>(newAgent);
   const [saved, setSaved] = useState(false);
   const [confettiToken, setConfettiToken] = useState(0);
+  const storeError = useStoreError();
   // preview state driven by which field is active
   const [previewState, setPreviewState] = useState<MascotState>("working");
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
@@ -170,6 +171,14 @@ function Builder() {
             </PixelButton>
           </div>
         </div>
+
+        {/* A rejected write has already been rolled back in the store, so this
+            is the only thing telling the user their save did not stick. */}
+        {storeError && (
+          <p className="mb-5 font-mono text-xs text-coral-deep border-2 border-coral-deep px-3 py-2">
+            {storeError}
+          </p>
+        )}
 
         {/* min-w-0 on both columns: grid items default to min-width:auto, so the
             export <pre> and the nowrap install <code> below size the track to

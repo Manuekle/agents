@@ -18,6 +18,7 @@ const LINKS: { href: string; label: string; match?: string[] }[] = [
   { href: "/build", label: "Build" },
   { href: "/skills", label: "Skills" },
   { href: "/mcp", label: "MCP" },
+  { href: "/pricing", label: "Pricing" },
 ];
 
 function isActive(path: string, link: (typeof LINKS)[number]): boolean {

@@ -16,6 +16,7 @@ const COLS: { title: string; links: { label: string; href: string; external?: bo
       { label: "Composer", href: "/build" },
       { label: "Skills", href: "/skills" },
       { label: "MCP bridge", href: "/mcp" },
+      { label: "Pricing", href: "/pricing" },
     ],
   },
   {

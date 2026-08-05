@@ -21,9 +21,16 @@ let cache: Agent[] | null = null;
 let userId: string | null = null;
 let loading = false;
 let started = false;
+let lastError: string | null = null;
 
 function emit() {
   for (const l of listeners) l();
+}
+
+function setError(message: string | null) {
+  if (lastError === message) return;
+  lastError = message;
+  emit();
 }
 
 // ---- row mapping ----------------------------------------------------------
@@ -170,18 +177,46 @@ export function saveAgent(agent: Agent) {
   const idx = list.findIndex((a) => a.id === agent.id);
   const next = idx >= 0 ? list.map((a) => (a.id === agent.id ? agent : a)) : [agent, ...list];
   persist(next);
+  setError(null);
 
   const sb = userId ? supabaseBrowser() : null;
-  // Fire-and-forget: the cache already reflects the change, so awaiting here
-  // would only make the button feel slow.
-  if (sb && userId) void sb.from("agents").upsert(toRow(agent, userId));
+  if (!sb || !userId) return;
+
+  // Optimistic, but not blindly so: the plan's agent cap is a database
+  // trigger, so a save can be refused after the cache already showed it
+  // saved. Rolling back is the difference between "you hit your limit" and
+  // an agent that quietly disappears on the next reload.
+  void sb
+    .from("agents")
+    .upsert(toRow(agent, userId))
+    .then(({ error }) => {
+      if (!error) return;
+      persist(list);
+      setError(
+        error.message.includes("agent limit")
+          ? "You've reached your plan's agent limit — see /pricing."
+          : "Couldn't save to your account. Your changes are still here.",
+      );
+    });
 }
 
 export function deleteAgent(id: string) {
-  persist(read().filter((a) => a.id !== id));
+  const list = read();
+  persist(list.filter((a) => a.id !== id));
 
   const sb = userId ? supabaseBrowser() : null;
-  if (sb && userId) void sb.from("agents").delete().eq("id", id);
+  if (!sb || !userId) return;
+
+  void sb
+    .from("agents")
+    .delete()
+    .eq("id", id)
+    .then(({ error }) => {
+      if (error) {
+        persist(list);
+        setError("Couldn't delete from your account.");
+      }
+    });
 }
 
 // Hoisted so their identity is stable across renders — an inline subscribe
@@ -208,5 +243,14 @@ export function useAgentsLoading(): boolean {
     subscribe,
     () => loading,
     () => false,
+  );
+}
+
+/** Last write failure, e.g. hitting the plan's agent cap. */
+export function useStoreError(): string | null {
+  return useSyncExternalStore(
+    subscribe,
+    () => lastError,
+    () => null,
   );
 }
