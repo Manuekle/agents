@@ -2,6 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { ThinkingOrb } from "thinking-orbs";
 import { Nav, PoweredBy } from "@/components/Nav";
 import { Footer } from "@/components/Footer";
 import { Mascot } from "@/components/Mascot";
@@ -166,7 +167,17 @@ export default function OnboardingPage() {
           )}
 
           <PixelButton variant="coral" onClick={draft} disabled={loading} className="w-full">
-            {loading ? "Drafting…" : "Draft with Foundry →"}
+            {loading ? (
+              <span className="inline-flex items-center gap-2">
+                {/* theme pinned, not `auto`: the orb sits on the coral button,
+                    which carries light text in both themes, so letting it
+                    resolve from data-theme would paint dark ink on coral. */}
+                <ThinkingOrb state="composing" size={20} theme="dark" aria-label="" />
+                Drafting…
+              </span>
+            ) : (
+              "Draft with Foundry →"
+            )}
           </PixelButton>
         </Panel>
 
@@ -198,12 +209,21 @@ export default function OnboardingPage() {
             {/* Shown even when empty: silently handing over an agent with no
                 skills would read as a bug rather than a deliberate result. */}
             <div className="mt-4 pt-4 border-t-2 border-line">
-              <div className="flex items-baseline justify-between mb-2">
+              {/* items-center, not items-baseline: the orb is a canvas with no
+                  text baseline to align to, so it would hang below the label. */}
+              <div className="flex items-center justify-between gap-2 mb-2">
                 <span className="font-pixel text-[10px] uppercase">Skills picked</span>
-                <span className="font-mono text-[10px] text-muted">
-                  {drafted.skills === null
-                    ? "searching skills.sh…"
-                    : `${drafted.skills.length} from skills.sh`}
+                <span className="font-mono text-[10px] text-muted inline-flex items-center gap-1.5">
+                  {drafted.skills === null ? (
+                    <>
+                      {/* `auto` here — this sits on the panel, so it should
+                          follow the theme toggle like everything else. */}
+                      <ThinkingOrb state="searching" size={20} aria-label="" />
+                      searching skills.sh…
+                    </>
+                  ) : (
+                    `${drafted.skills.length} from skills.sh`
+                  )}
                 </span>
               </div>
               {drafted.skills === null ? (
