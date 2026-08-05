@@ -10,12 +10,13 @@ import { DitherField } from "@/components/DitherField";
 import { TiltCard } from "@/components/TiltCard";
 import { Panel, PixelButton, Badge } from "@/components/ui";
 import { MASCOT_ORDER, MASCOTS } from "@/lib/mascot";
-import { useAgents, deleteAgent } from "@/lib/store";
+import { useAgents, useAgentsLoading, deleteAgent } from "@/lib/store";
 import { TARGETS } from "@/lib/types";
 import { clsx } from "@/lib/clsx";
 
 export default function Home() {
   const agents = useAgents();
+  const agentsLoading = useAgentsLoading();
   const [i, setI] = useState(0);
   // Held off one frame so the lines have a "before" to transition from —
   // applying .is-shown in the same paint would skip the reveal.
@@ -130,7 +131,14 @@ export default function Home() {
           </Link>
         </div>
 
-        {agents.length === 0 ? (
+        {agentsLoading ? (
+          // Signing in fetches the account's agents; showing "the forge is
+          // cold" in the meantime tells a signed-in user their work is gone.
+          <Panel className="p-10 text-center dither-stone">
+            <Mascot state="coffee" size={72} className="mx-auto" />
+            <p className="font-mono text-sm mt-3">Loading your agents…</p>
+          </Panel>
+        ) : agents.length === 0 ? (
           <Panel className="p-10 text-center dither-stone">
             <Mascot state="sleeping" size={72} className="mx-auto" />
             <p className="font-mono text-sm mt-3">No agents yet — the forge is cold.</p>

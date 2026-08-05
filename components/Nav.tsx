@@ -7,6 +7,7 @@ import { clsx } from "@/lib/clsx";
 import { GitHubStars } from "@/components/GitHubStars";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { MenuIcon, CloseIcon } from "@/components/icons";
+import { AuthButton } from "@/components/AuthButton";
 
 // `match` lists the extra path prefixes that should light the tab — the
 // onboarding wizard is part of the New flow, so it must not leave the nav
@@ -90,6 +91,9 @@ export function Nav() {
           <span className="hidden sm:inline-flex">
             <GitHubStars />
           </span>
+          <span className="hidden sm:inline-flex">
+            <AuthButton />
+          </span>
           <ThemeToggle />
 
           <button
@@ -134,8 +138,9 @@ export function Nav() {
                 {l.label}
               </Link>
             ))}
-            <div className="pt-2 mt-1 border-t-2 border-line">
+            <div className="pt-2 mt-1 border-t-2 border-line flex flex-wrap items-center gap-2">
               <GitHubStars />
+              <AuthButton compact />
             </div>
           </nav>
         </div>
