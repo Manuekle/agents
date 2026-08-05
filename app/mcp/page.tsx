@@ -86,7 +86,7 @@ export default function McpPage() {
                     <span
                       className={`font-pixel text-[8px] uppercase px-1.5 py-0.5 border-2 border-line shrink-0 ${
                         p.kind === "tool"
-                          ? "bg-coral text-paper"
+                          ? "bg-coral-text text-paper"
                           : p.kind === "prompt"
                             ? "bg-fill text-on-fill"
                             : "bg-stone text-ink"

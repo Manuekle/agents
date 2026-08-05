@@ -158,7 +158,7 @@ export function McpTokens() {
                   </span>
                   <button
                     onClick={() => revoke(t.id)}
-                    className="font-mono text-[10px] px-2 py-1 border-2 border-line hover:bg-coral hover:text-paper transition-colors shrink-0 cursor-pointer"
+                    className="font-mono text-[10px] px-2 py-1 border-2 border-line hover:bg-coral-text hover:text-paper transition-colors shrink-0 cursor-pointer"
                   >
                     Revoke
                   </button>

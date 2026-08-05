@@ -191,7 +191,11 @@ function Builder() {
             <h1 className="font-pixel text-xs sm:text-sm mb-1">AGENT_COMPOSER</h1>
             <PoweredBy />
           </div>
-          <div className="flex gap-2">
+          {/* Wraps because the three buttons are `whitespace-nowrap` and need
+              335px — more than a 320px viewport has once the page gutters are
+              taken out, which pushed "Save agent" off-screen and gave the whole
+              page a horizontal scrollbar. */}
+          <div className="flex flex-wrap gap-2">
             <PixelButton variant="ghost" onClick={() => router.push("/")}>
               ← Home
             </PixelButton>
@@ -361,7 +365,7 @@ function Builder() {
                       key={s.id}
                       onClick={() => toggleSkill(s)}
                       title={`remove ${s.repo ?? componentId(s.installArg) ?? s.name}`}
-                      className="inline-flex items-center gap-1 font-mono text-[10px] px-2 py-0.5 border-2 border-line bg-fill text-on-fill hover:bg-coral transition-colors"
+                      className="inline-flex items-center gap-1 font-mono text-[10px] px-2 py-0.5 border-2 border-line bg-fill text-on-fill hover:bg-coral-text transition-colors"
                     >
                       {s.name} <span className="opacity-70">✕</span>
                     </button>
@@ -410,7 +414,7 @@ function Builder() {
 
             {/* INSTALL — wraps the official skills CLI */}
             <Panel className="overflow-hidden">
-              <div className="flex items-center justify-between px-3 py-2 border-b-2 border-line bg-coral text-paper">
+              <div className="flex items-center justify-between px-3 py-2 border-b-2 border-line bg-coral-text text-paper">
                 <span className="font-pixel text-[10px] uppercase">Install</span>
                 <Badge tone="ink">{repos.length} repos</Badge>
               </div>

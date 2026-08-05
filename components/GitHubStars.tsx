@@ -130,7 +130,7 @@ export function GitHubStars({ className }: { className?: string }) {
         <GitHubIcon size={14} />
         <span className="font-pixel text-[10px] uppercase">Star</span>
       </span>
-      <span className="relative flex items-center gap-1 px-2.5 py-1.5 bg-fill text-on-fill group-hover:bg-coral transition-colors">
+      <span className="relative flex items-center gap-1 px-2.5 py-1.5 bg-fill text-on-fill group-hover:bg-coral-text transition-colors">
         {/* pop rides the same class toggle, scoped from the root */}
         <span className="inline-flex t-star-icon">
           <StarIcon size={12} className="text-coral group-hover:text-paper" />

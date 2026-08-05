@@ -89,6 +89,7 @@ export function CommandPalette() {
   const [toast, setToast] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
+  const overlayRef = useRef<HTMLDivElement>(null);
   // Every search increments this; a response whose token is stale is dropped.
   // Without it a slow "re" can land after a fast "react" and replace it.
   const token = useRef(0);
@@ -113,17 +114,61 @@ export function CommandPalette() {
 
   useEffect(() => {
     if (!open) return;
+
+    // Remember who opened it, so focus can go back there on close. Without
+    // this, Escape drops focus to <body> and a keyboard user restarts from
+    // the top of the document.
+    const opener = document.activeElement as HTMLElement | null;
+
     // Autofocus fires before the dialog paints on some browsers, so focus is
     // taken here instead.
     inputRef.current?.focus();
     inputRef.current?.select();
+
+    // `aria-modal="true"` promises the rest of the page does not exist while
+    // this is open. `inert` is what actually delivers it: without it, Tab
+    // walks straight out of the panel into the nav behind, and assistive tech
+    // has been told that content is not there.
+    const roots = [...document.body.children].filter(
+      (el): el is HTMLElement => el instanceof HTMLElement && !el.contains(overlayRef.current),
+    );
+    for (const el of roots) el.inert = true;
+
     // The page behind must not scroll while the overlay owns the viewport.
-    const prev = document.body.style.overflow;
+    const prevOverflow = document.body.style.overflow;
     document.body.style.overflow = "hidden";
+
     return () => {
-      document.body.style.overflow = prev;
+      for (const el of roots) el.inert = false;
+      document.body.style.overflow = prevOverflow;
+      // Only pull focus back if it is still loose in the overlay. Choosing a
+      // page row navigates, and stealing focus back to the trigger afterwards
+      // would fight the new route.
+      if (!document.activeElement || document.activeElement === document.body) {
+        opener?.focus?.();
+      }
     };
   }, [open]);
+
+  // Cycle Tab within the panel. `inert` already stops focus escaping into the
+  // page, but without this the browser would park it on the URL bar instead of
+  // returning to the top of the list.
+  const trapTab = (e: React.KeyboardEvent) => {
+    if (e.key !== "Tab") return;
+    const focusables = overlayRef.current?.querySelectorAll<HTMLElement>(
+      'input, button:not([disabled]), [href], [tabindex]:not([tabindex="-1"])',
+    );
+    if (!focusables?.length) return;
+    const first = focusables[0];
+    const last = focusables[focusables.length - 1];
+    if (e.shiftKey && document.activeElement === first) {
+      e.preventDefault();
+      last.focus();
+    } else if (!e.shiftKey && document.activeElement === last) {
+      e.preventDefault();
+      first.focus();
+    }
+  };
 
   // ---- search -------------------------------------------------------------
 
@@ -212,6 +257,7 @@ export function CommandPalette() {
 
   const onKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === "Escape") return close();
+    trapTab(e);
     if (e.key === "ArrowDown" || (e.key === "n" && e.ctrlKey)) {
       e.preventDefault();
       setActive((i) => (rows.length ? (i + 1) % rows.length : 0));
@@ -232,29 +278,40 @@ export function CommandPalette() {
     }
   };
 
-  if (!open) {
-    return toast ? (
-      <div
-        role="status"
-        className="fixed bottom-4 left-1/2 -translate-x-1/2 z-50 font-mono text-[10px] px-3 py-2 border-2 border-line bg-paper"
-      >
-        {toast}
-      </div>
-    ) : null;
-  }
+  // The status region is mounted whether or not the palette is open and
+  // whether or not it has anything to say. A region inserted at the same
+  // moment its text appears announces unreliably across screen readers; a
+  // stable one that gets written into does not.
+  const status = (
+    <div
+      role="status"
+      aria-live="polite"
+      className={clsx(
+        "fixed bottom-4 left-1/2 -translate-x-1/2 z-50 font-mono text-[10px] px-3 py-2 border-2 border-line bg-paper",
+        !toast && "sr-only",
+      )}
+    >
+      {toast ?? ""}
+    </div>
+  );
+
+  if (!open) return status;
 
   return (
-    <div
-      role="dialog"
-      aria-modal="true"
-      aria-label="Command palette"
-      className="fixed inset-0 z-50 flex items-start justify-center pt-[12vh] px-4 bg-ink/40 backdrop-blur-sm"
-      onMouseDown={(e) => {
-        // mousedown, not click: a drag that starts inside the panel and ends
-        // on the backdrop would otherwise close it mid-selection.
-        if (e.target === e.currentTarget) close();
-      }}
-    >
+    <>
+      {status}
+      <div
+        ref={overlayRef}
+        role="dialog"
+        aria-modal="true"
+        aria-label="Command palette"
+        className="fixed inset-0 z-50 flex items-start justify-center pt-[12vh] px-4 bg-ink/40 backdrop-blur-sm overscroll-contain"
+        onMouseDown={(e) => {
+          // mousedown, not click: a drag that starts inside the panel and ends
+          // on the backdrop would otherwise close it mid-selection.
+          if (e.target === e.currentTarget) close();
+        }}
+      >
       <div className="w-full max-w-xl border-2 border-line bg-paper" onKeyDown={onKeyDown}>
         <div className="flex items-center gap-2 border-b-2 border-line px-3">
           <span className="font-mono text-[10px] text-muted shrink-0">›</span>
@@ -297,7 +354,7 @@ export function CommandPalette() {
               <span
                 className={clsx(
                   "font-mono text-[10px] truncate",
-                  i === active ? "text-on-fill-muted" : "text-coral",
+                  i === active ? "text-on-fill-muted" : "text-coral-text",
                 )}
               >
                 {row.detail}
@@ -313,7 +370,9 @@ export function CommandPalette() {
             </button>
           ))}
           {!busy && rows.length === 0 && (
-            <p className="font-mono text-xs text-muted py-8 text-center">nothing found</p>
+            <p className="font-mono text-xs text-muted py-8 px-3 text-center">
+              No matches for “{q}”. Try a shorter term.
+            </p>
           )}
         </div>
 
@@ -322,6 +381,7 @@ export function CommandPalette() {
           <span>⏎ open / copy install</span>
         </div>
       </div>
-    </div>
+      </div>
+    </>
   );
 }

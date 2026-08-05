@@ -200,7 +200,7 @@ export function HowItWorks() {
               <span
                 className={clsx(
                   "w-4 h-4 grid place-items-center font-pixel text-[9px] border-2 border-line shrink-0",
-                  i === step ? "bg-coral text-paper" : "bg-paper",
+                  i === step ? "bg-coral-text text-paper" : "bg-paper",
                 )}
               >
                 {i + 1}

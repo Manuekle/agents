@@ -104,7 +104,7 @@ export function Footer() {
                       href={l.href}
                       target="_blank"
                       rel="noreferrer noopener"
-                      className="font-mono text-xs text-ink-soft hover:text-coral transition-colors inline-flex items-center gap-1"
+                      className="font-mono text-xs text-ink-soft hover:text-coral-text transition-colors inline-flex items-center gap-1"
                     >
                       {l.label === "GitHub" && <GitHubIcon size={12} />}
                       {l.label} <span className="text-muted">↗</span>
@@ -112,7 +112,7 @@ export function Footer() {
                   ) : (
                     <Link
                       href={l.href}
-                      className="font-mono text-xs text-ink-soft hover:text-coral transition-colors"
+                      className="font-mono text-xs text-ink-soft hover:text-coral-text transition-colors"
                     >
                       {l.label}
                     </Link>

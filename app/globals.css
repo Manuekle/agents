@@ -31,9 +31,17 @@
   --stone-deep: #d9d2c2;
   --coral: var(--coral-light);
   --coral-deep: #d44430;
+  /* Coral as *text* needs its own value. --coral is tuned to be a fill you
+     put white on; as ink on paper it measures 3.06:1, and it carries the
+     owner/repo line on every result card — the string that says what you are
+     about to install. This one is 5.35:1 on paper, 4.6:1 on stone. Fills and
+     borders keep using --coral; only type uses this. */
+  --coral-text: #b8371f;
   --ink: #17150f; /* warm near-black — pure #000 read too harsh on cream */
   --ink-soft: #3c3629;
-  --muted: #7e776a;
+  /* Was #7e776a: 4.07:1 on paper and 3.50:1 on stone, both under AA, on 10px
+     labels. 5.80:1 / 4.99:1 now. */
+  --muted: #665f52;
 
   /* Both themes keep the outline ~1.5:1 against their own paper, so light and
      dark read with the same weight. A near-black line here was ~14:1 and made
@@ -73,9 +81,13 @@
   --stone-deep: #322c23;
   --coral: var(--coral-dark);
   --coral-deep: #ff8a76;
+  /* Dark mode never had the light theme's problem — coral on dark paper is
+     already 6.47:1 — so the text role is just the fill colour here. */
+  --coral-text: var(--coral-dark);
   --ink: #e9e3d6;
   --ink-soft: #bdb6a6;
-  --muted: #8a8271;
+  /* Was #8a8271, a marginal 4.31:1 on --stone. 5.96:1 / 5.28:1 now. */
+  --muted: #9a9182;
 
   --line: #3b352b; /* dim warm outline — never the text colour */
   --shadow: rgba(0, 0, 0, 0.55); /* shadows stay dark in dark mode */
@@ -105,6 +117,7 @@
   --color-stone-deep: var(--stone-deep);
   --color-coral: var(--coral);
   --color-coral-deep: var(--coral-deep);
+  --color-coral-text: var(--coral-text);
   --color-ink: var(--ink);
   --color-ink-soft: var(--ink-soft);
   --color-muted: var(--muted);

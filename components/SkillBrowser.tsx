@@ -194,21 +194,24 @@ export function SkillBrowser({
       setResults((prev) => (offset > 0 ? [...prev, ...batch] : batch));
       setHasMore(Boolean(data.hasMore));
       if (Array.isArray(data.categories)) setCategories(data.categories);
+      // The raw `data.error` stays out of these strings — it is an exception
+      // message the reader cannot act on. What they need is which catalog they
+      // are looking at now.
       setNote(
         data.source === "skills.sh"
           ? `${data.count} results from skills.sh`
           : data.source === "aitmpl"
             ? data.error
-              ? `aitmpl unavailable (${data.error})`
+              ? "aitmpl is unavailable — try skills.sh"
               : `${data.count} of ${data.total} ${knd}${cat ? ` in ${cat}` : ""}`
             : data.source === "seed"
               ? "seed catalog — type to search skills.sh"
               : data.error
-                ? `skills.sh error — showing seed (${data.error})`
+                ? "skills.sh is unavailable — showing the offline catalog"
                 : null,
       );
     } catch {
-      setNote("search failed");
+      setNote("Search failed. Check your connection and try again.");
     } finally {
       setLoading(false);
       setRevealed(true);
@@ -263,6 +266,9 @@ export function SkillBrowser({
         <TextInput
           value={q}
           onChange={(e) => setQ(e.target.value)}
+          // The placeholder cannot do this job: it disappears the moment
+          // someone types, and this is the page's primary control.
+          aria-label={source === "aitmpl" ? `Filter ${kind}` : "Search skills.sh"}
           placeholder={source === "aitmpl" ? `filter ${kind}…` : "search skills.sh…"}
           className="flex-1 min-w-[200px]"
         />
@@ -270,7 +276,8 @@ export function SkillBrowser({
           value={sort}
           onChange={(e) => setSort(e.target.value as SortId)}
           aria-label="Sort results"
-          className="font-mono text-[10px] px-2 py-1.5 border-2 border-line bg-paper"
+          // 16px below `sm` so tapping it does not zoom the page on iOS.
+          className="font-mono text-base sm:text-[10px] px-2 py-1.5 border-2 border-line bg-paper"
         >
           {SORTS.map((s) => (
             <option key={s.id} value={s.id}>
@@ -353,7 +360,14 @@ export function SkillBrowser({
         )}
       </div>
 
-      {note && <p className="font-mono text-[10px] text-muted mb-2">{note}</p>}
+      {/* Always mounted, even with nothing to say. Results arrive
+          asynchronously, so this line is the only thing that tells a
+          screen-reader user the list under it changed and how many hits it
+          holds — and a region inserted at the same moment its text appears
+          announces unreliably. `min-h` keeps the layout from jumping. */}
+      <p role="status" aria-live="polite" className="font-mono text-[10px] text-muted mb-2 min-h-4">
+        {note ?? ""}
+      </p>
 
       <div
         key={`${source}:${kind}:${q}:${category}`}
@@ -381,7 +395,7 @@ export function SkillBrowser({
                 <div
                   key={s.id}
                   className={clsx(
-                    "text-left p-2.5 border-2 border-line transition-all",
+                    "text-left p-2.5 border-2 border-line transition-colors",
                     on ? "bg-fill text-on-fill" : "bg-paper",
                   )}
                 >
@@ -393,7 +407,7 @@ export function SkillBrowser({
                       </span>
                     )}
                   </div>
-                  <div className={clsx("font-mono text-[10px] truncate mt-0.5", on ? "text-on-fill-muted" : "text-coral")}>
+                  <div className={clsx("font-mono text-[10px] truncate mt-0.5", on ? "text-on-fill-muted" : "text-coral-text")}>
                     {targetLabel(s)}
                   </div>
                   {s.description && (
@@ -415,7 +429,7 @@ export function SkillBrowser({
                         className={clsx(
                           "w-full font-pixel text-[9px] uppercase py-1 border-2 border-line transition-colors",
                           "disabled:opacity-40 disabled:pointer-events-none",
-                          on ? "bg-paper text-ink" : "bg-fill text-on-fill hover:bg-coral",
+                          on ? "bg-paper text-ink" : "bg-fill text-on-fill hover:bg-coral-text",
                         )}
                       >
                         {on ? "remove [x]" : cmd ? "add [ ]" : "no target"}
@@ -430,7 +444,7 @@ export function SkillBrowser({
                           "disabled:opacity-40 disabled:pointer-events-none",
                           copiedId === s.id
                             ? "bg-ok text-paper normal-case tracking-normal"
-                            : "bg-fill text-on-fill hover:bg-coral",
+                            : "bg-fill text-on-fill hover:bg-coral-text",
                         )}
                       >
                         {copiedId === s.id ? "✓ copied" : cmd ? "copy install" : "no target"}
@@ -440,10 +454,33 @@ export function SkillBrowser({
                 </div>
               );
             })}
+            {/* Names the query and offers the way out, so a typo is
+                distinguishable from an empty category or a dead registry. */}
             {!loading && results.length === 0 && (
-              <p className="font-mono text-xs text-muted col-span-full py-6 text-center">
-                nothing found
-              </p>
+              <div className="col-span-full py-8 px-3 text-center">
+                <p className="font-mono text-xs">
+                  {q ? <>No matches for “{q}”</> : "Nothing here yet"}
+                  {category && <> in {category}</>}.
+                </p>
+                <div className="mt-3 flex flex-wrap gap-2 justify-center">
+                  {q && (
+                    <button
+                      onClick={() => setQ("")}
+                      className="font-pixel text-[9px] uppercase px-3 py-1 border-2 border-line bg-paper hover:bg-stone transition-colors"
+                    >
+                      clear search
+                    </button>
+                  )}
+                  {category && (
+                    <button
+                      onClick={() => setCategory(null)}
+                      className="font-pixel text-[9px] uppercase px-3 py-1 border-2 border-line bg-paper hover:bg-stone transition-colors"
+                    >
+                      all categories
+                    </button>
+                  )}
+                </div>
+              </div>
             )}
             {hasMore && (
               <button

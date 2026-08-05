@@ -28,7 +28,7 @@ export default function SkillsPage() {
               <strong>aitmpl</strong> browses skills, subagents, slash commands, MCP
               servers, hooks and settings by category, with the descriptions skills.sh
               does not publish. Copy an install, or compose an agent in{" "}
-              <Link href="/build" className="text-coral underline">Build</Link> to bundle
+              <Link href="/build" className="text-coral-text underline">Build</Link> to bundle
               several.
             </p>
             <div className="flex flex-wrap gap-2 mt-2">

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useEffect, useId, useLayoutEffect, useRef, useState } from "react";
 import { clsx } from "@/lib/clsx";
 import { CheckIcon } from "@/components/icons";
 import type { ButtonHTMLAttributes, ReactNode } from "react";
@@ -95,11 +95,18 @@ export function PixelButton({
         // No extra tracking and never wrap: Silkscreen already ships wide
         // sidebearings, so `tracking-wide` on an uppercase label pushed short
         // buttons like "Save agent" onto two lines.
-        "font-pixel text-[11px] uppercase px-4 py-2 pixel-border-sm transition-all whitespace-nowrap",
+        // Named properties, not `transition-all`: this is the app's button
+        // primitive, and `all` animates layout properties too.
+        "font-pixel text-[11px] uppercase px-4 py-2 pixel-border-sm whitespace-nowrap",
+        "transition-[background-color,color,box-shadow,translate] duration-150",
         "active:translate-x-[2px] active:translate-y-[2px] active:shadow-none",
         "disabled:opacity-40 disabled:pointer-events-none cursor-pointer select-none",
         variant === "solid" && "bg-fill text-on-fill hover:bg-fill-hover",
-        variant === "coral" && "bg-coral text-paper hover:bg-coral-deep",
+        // `bg-coral-text`, not `bg-coral`: paper on the lighter coral is
+        // 3.06:1, and this is the primary CTA at 11px. The darker value is
+        // 5.35:1 and reads as the same colour. Dark mode aliases the two, so
+        // the button is unchanged there.
+        variant === "coral" && "bg-coral-text text-paper hover:bg-coral-deep",
         variant === "ghost" && "bg-paper text-ink hover:bg-stone",
         className,
       )}
@@ -123,7 +130,9 @@ export function Badge({
       className={clsx(
         "inline-flex items-center gap-1 font-mono text-[10px] uppercase tracking-wider px-2 py-0.5 border-2 border-line",
         tone === "stone" && "bg-stone text-ink",
-        tone === "coral" && "bg-coral text-paper",
+        // Same reason as the coral PixelButton: paper on the lighter coral is
+        // 3.06:1, and badges run at 10px.
+        tone === "coral" && "bg-coral-text text-paper",
         tone === "ink" && "bg-fill text-on-fill",
         className,
       )}
@@ -160,7 +169,9 @@ export function TextInput(
     <input
       {...props}
       className={clsx(
-        "w-full bg-paper border-2 border-line px-3 py-2 font-mono text-sm outline-none",
+        // 16px below `sm`: iOS Safari zooms the whole page in when an input's
+        // text is smaller than that, and the user has to pinch back out.
+        "w-full bg-paper border-2 border-line px-3 py-2 font-mono text-base sm:text-sm outline-none",
         "focus:shadow-[2px_2px_0_0_var(--coral)] focus:border-coral transition-shadow",
         props.className,
       )}
@@ -175,7 +186,8 @@ export function TextArea(
     <textarea
       {...props}
       className={clsx(
-        "w-full bg-paper border-2 border-line px-3 py-2 font-mono text-sm outline-none resize-y",
+        // 16px below `sm` for the same iOS zoom reason as TextInput.
+        "w-full bg-paper border-2 border-line px-3 py-2 font-mono text-base sm:text-sm outline-none resize-y",
         "focus:shadow-[2px_2px_0_0_var(--coral)] focus:border-coral transition-shadow",
         props.className,
       )}
@@ -287,32 +299,84 @@ export function Select<T extends string>({
   className?: string;
 }) {
   const [open, setOpen] = useState(false);
+  // The visually highlighted option. Focus never leaves the trigger — the
+  // listbox is driven by `aria-activedescendant`, which is the APG pattern and
+  // the reason arrow keys work at all.
+  const [activeIndex, setActiveIndex] = useState(() =>
+    Math.max(0, options.findIndex((o) => o.id === value)),
+  );
   const ref = useRef<HTMLDivElement>(null);
+  const listRef = useRef<HTMLDivElement>(null);
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const baseId = useId();
   const current = options.find((o) => o.id === value);
 
   useEffect(() => {
     if (!open) return;
+    // Reopening always starts from the current value, not from wherever the
+    // highlight was left last time.
+    setActiveIndex(Math.max(0, options.findIndex((o) => o.id === value)));
     const onDoc = (e: MouseEvent) => {
       if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
     };
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setOpen(false);
-    };
     document.addEventListener("mousedown", onDoc);
-    document.addEventListener("keydown", onKey);
-    return () => {
-      document.removeEventListener("mousedown", onDoc);
-      document.removeEventListener("keydown", onKey);
-    };
+    return () => document.removeEventListener("mousedown", onDoc);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
+
+  // Keep the highlighted option in view when arrowing past the scroll edge.
+  useEffect(() => {
+    if (!open) return;
+    listRef.current
+      ?.querySelector<HTMLElement>(`[data-idx="${activeIndex}"]`)
+      ?.scrollIntoView({ block: "nearest" });
+  }, [activeIndex, open]);
+
+  const commit = (i: number) => {
+    const opt = options[i];
+    if (!opt) return;
+    onChange(opt.id);
+    setOpen(false);
+    triggerRef.current?.focus();
+  };
+
+  // Full APG listbox keyboard contract, handled on the trigger because that is
+  // where focus stays.
+  const onKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === "Escape") {
+      if (open) {
+        e.stopPropagation();
+        setOpen(false);
+      }
+      return;
+    }
+    if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+      e.preventDefault();
+      if (!open) return setOpen(true);
+      const step = e.key === "ArrowDown" ? 1 : -1;
+      setActiveIndex((i) => (i + step + options.length) % options.length);
+    } else if (e.key === "Home" || e.key === "End") {
+      if (!open) return;
+      e.preventDefault();
+      setActiveIndex(e.key === "Home" ? 0 : options.length - 1);
+    } else if (e.key === "Enter" || e.key === " ") {
+      e.preventDefault();
+      if (open) commit(activeIndex);
+      else setOpen(true);
+    }
+  };
 
   return (
     <div ref={ref} className={clsx("relative", className)}>
       <button
         type="button"
         onClick={() => setOpen((o) => !o)}
+        ref={triggerRef}
+        onKeyDown={onKeyDown}
         aria-haspopup="listbox"
         aria-expanded={open}
+        aria-controls={open ? `${baseId}-list` : undefined}
+        aria-activedescendant={open ? `${baseId}-opt-${activeIndex}` : undefined}
         className={clsx(
           "w-full flex items-center justify-between gap-2 bg-paper border-2 border-line px-3 py-2 font-mono text-sm cursor-pointer transition-shadow",
           open ? "shadow-[2px_2px_0_0_var(--coral)] border-coral" : "hover:bg-stone",
@@ -332,24 +396,30 @@ export function Select<T extends string>({
 
       {open && (
         <div
+          ref={listRef}
+          id={`${baseId}-list`}
           role="listbox"
           className="absolute z-50 left-0 right-0 mt-1 bg-paper border-2 border-line pixel-border-sm max-h-60 overflow-auto"
         >
-          {options.map((o) => {
+          {options.map((o, i) => {
             const sel = o.id === value;
+            const activeOpt = i === activeIndex;
             return (
-              <button
+              // A div, not a button: options are not separately focusable in a
+              // listbox — the trigger keeps focus and points at the active one
+              // with aria-activedescendant. Tabbable options would put every
+              // model in the page's tab order.
+              <div
                 key={o.id}
-                type="button"
+                id={`${baseId}-opt-${i}`}
+                data-idx={i}
                 role="option"
                 aria-selected={sel}
-                onClick={() => {
-                  onChange(o.id);
-                  setOpen(false);
-                }}
+                onMouseEnter={() => setActiveIndex(i)}
+                onClick={() => commit(i)}
                 className={clsx(
                   "w-full text-left px-3 py-2 font-mono text-sm flex items-center justify-between gap-2 border-b-2 border-line last:border-b-0 transition-colors cursor-pointer",
-                  sel ? "bg-fill text-on-fill" : "hover:bg-stone",
+                  sel ? "bg-fill text-on-fill" : activeOpt ? "bg-stone" : "",
                 )}
               >
                 <span className="flex items-center gap-2 min-w-0">
@@ -361,7 +431,7 @@ export function Select<T extends string>({
                     {o.hint}
                   </span>
                 )}
-              </button>
+              </div>
             );
           })}
         </div>

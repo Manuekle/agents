@@ -78,8 +78,8 @@ export default function LoginPage() {
               <Badge tone="coral">Not configured</Badge>
               <p className="font-mono text-[11px] text-muted mt-2 leading-relaxed">
                 Accounts are off on this deploy — set{" "}
-                <code className="text-coral">NEXT_PUBLIC_SUPABASE_URL</code> and{" "}
-                <code className="text-coral">NEXT_PUBLIC_SUPABASE_ANON_KEY</code>{" "}
+                <code className="text-coral-text">NEXT_PUBLIC_SUPABASE_URL</code> and{" "}
+                <code className="text-coral-text">NEXT_PUBLIC_SUPABASE_ANON_KEY</code>{" "}
                 to switch them on. The composer works signed-out either way.
               </p>
             </div>
