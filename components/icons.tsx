@@ -60,6 +60,17 @@ export function MoonIcon({ size = 16, className }: IconProps) {
   );
 }
 
+export function SignOutIcon({ size = 16, className }: IconProps) {
+  return (
+    <svg {...base(size)} className={className}>
+      {/* door frame, open on the side the arrow leaves through */}
+      <path d="M3 3h9v2H5v14h7v2H3V3Z" />
+      {/* arrow */}
+      <polygon points="14 7 12.6 8.4 15.2 11 8 11 8 13 15.2 13 12.6 15.6 14 17 19 12 14 7" />
+    </svg>
+  );
+}
+
 export function MenuIcon({ size = 16, className }: IconProps) {
   return (
     <svg {...base(size)} className={className}>

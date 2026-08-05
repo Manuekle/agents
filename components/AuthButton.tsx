@@ -2,6 +2,8 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import { clsx } from "@/lib/clsx";
+import { SignOutIcon } from "@/components/icons";
 import { supabaseBrowser } from "@/lib/supabase/client";
 import { SUPABASE_CONFIGURED } from "@/lib/supabase/env";
 
@@ -53,13 +55,15 @@ export function AuthButton({ compact = false }: { compact?: boolean }) {
 
   // Hold the slot until we know: flashing "Sign in" at a signed-in user on
   // every navigation reads as having been logged out.
-  if (!ready) return <span className="w-16" aria-hidden />;
+  // Sized like the signed-out link so the row doesn't shift width when the
+  // real state arrives.
+  if (!ready) return <span className="w-[68px]" aria-hidden />;
 
   if (!user) {
     return (
       <Link
         href="/login"
-        className="font-mono text-xs px-2 sm:px-3 py-1.5 border-2 border-line hover:bg-stone transition-colors"
+        className="font-mono text-xs px-3 py-1.5 border-2 border-line hover:bg-stone transition-colors whitespace-nowrap"
       >
         Sign in
       </Link>
@@ -70,10 +74,7 @@ export function AuthButton({ compact = false }: { compact?: boolean }) {
 
   return (
     <form action="/auth/signout" method="post" className="inline-flex items-center gap-2">
-      <span
-        className={compact ? "inline-flex items-center gap-2" : "hidden md:inline-flex items-center gap-2"}
-        title={label}
-      >
+      <span className="inline-flex items-center gap-2 min-w-0" title={label}>
         {user.avatar && (
           // Plain <img>: the avatar host is whatever GitHub hands back, and
           // next/image would need every one of those allow-listed.
@@ -81,18 +82,39 @@ export function AuthButton({ compact = false }: { compact?: boolean }) {
           <img
             src={user.avatar}
             alt=""
-            width={20}
-            height={20}
+            width={22}
+            height={22}
             className="border-2 border-line shrink-0"
           />
         )}
-        <span className="font-mono text-xs truncate max-w-[10ch]">{label}</span>
+        {/* The handle costs ~80px and is the first thing to go: the avatar
+            already says who is signed in, and in the drawer there is room for
+            both. */}
+        <span
+          className={clsx(
+            "font-mono text-xs truncate max-w-[12ch]",
+            !compact && "hidden xl:inline",
+          )}
+        >
+          {label}
+        </span>
       </span>
+
+      {/* An icon square, matching the theme toggle, rather than a text button:
+          "Sign out" as words was 171px of bar next to an already-bordered
+          stars pill, and it overflowed the row on narrow laptops. */}
       <button
         type="submit"
-        className="font-mono text-xs px-2 py-1.5 border-2 border-line hover:bg-stone transition-colors cursor-pointer"
+        aria-label="Sign out"
+        title="Sign out"
+        className={clsx(
+          "border-2 border-line hover:bg-stone transition-colors cursor-pointer shrink-0",
+          compact
+            ? "font-mono text-xs px-2 py-1.5"
+            : "grid place-items-center w-8 h-8",
+        )}
       >
-        Sign out
+        {compact ? "Sign out" : <SignOutIcon size={14} />}
       </button>
     </form>
   );

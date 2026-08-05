@@ -65,9 +65,11 @@ export function Nav() {
         </Link>
 
         <div className="flex items-center gap-2">
-          {/* Five tabs overflow a 375px viewport, so below `sm` the whole set
-              moves into the drawer and this bar keeps only the trigger. */}
-          <nav className="hidden sm:flex items-center gap-1">
+          {/* Six tabs plus the stars pill, the account control and the theme
+              toggle need ~840px. The cutover used to be `sm` (640px), which
+              overflowed the row on every narrow laptop once signed in — the
+              whole set moves into the drawer below `lg` instead. */}
+          <nav className="hidden lg:flex items-center gap-1">
             {LINKS.map((l) => (
               <Link
                 key={l.href}
@@ -89,10 +91,10 @@ export function Nav() {
               emits `hidden` earlier in the sheet, so a `hidden` passed through
               className would silently lose the cascade and the pill would
               overflow the bar on phones. */}
-          <span className="hidden sm:inline-flex">
+          <span className="hidden lg:inline-flex">
             <GitHubStars />
           </span>
-          <span className="hidden sm:inline-flex">
+          <span className="hidden lg:inline-flex">
             <AuthButton />
           </span>
           <ThemeToggle />
@@ -103,7 +105,7 @@ export function Nav() {
             aria-expanded={open}
             aria-controls="nav-drawer"
             aria-label={open ? "Close menu" : "Open menu"}
-            className="sm:hidden grid place-items-center w-9 h-9 border-2 border-line bg-paper hover:bg-stone transition-colors cursor-pointer"
+            className="lg:hidden grid place-items-center w-9 h-9 border-2 border-line bg-paper hover:bg-stone transition-colors cursor-pointer"
           >
             {/* Both icons occupy the same grid cell; only their opacity, blur
                 and scale change, so the button never reflows mid-swap. */}
@@ -121,7 +123,7 @@ export function Nav() {
 
       {/* MOBILE DRAWER — the clip wrapper tweens height so the page below is
           pushed down in step with the panel instead of jumping. */}
-      <div id="nav-drawer" className="sm:hidden t-panel-clip" data-open={open}>
+      <div id="nav-drawer" className="lg:hidden t-panel-clip" data-open={open}>
         <div className="t-panel-slide border-t-2 border-line" data-open={open}>
           <nav className="mx-auto max-w-6xl px-5 py-3 flex flex-col gap-1">
             {LINKS.map((l) => (
