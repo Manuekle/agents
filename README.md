@@ -4,7 +4,7 @@
 
 # agents
 
-**Construye agentes de IA. Lanza tus skills al mundo.**
+**Build AI agents. Ship your skills.**
 
 [![Live](https://img.shields.io/badge/live-agents--dev.vercel.app-ef5c47?style=flat-square&logo=vercel&logoColor=white)](https://agents-dev.vercel.app)
 [![License: MIT](https://img.shields.io/badge/license-MIT-17150f?style=flat-square)](LICENSE)
@@ -19,71 +19,71 @@
 
 ---
 
-## Qué hace
+## What it does
 
-| 🪄 **Genera** | 🧭 **Compone** | 📦 **Exporta** | 🔌 **Sirve** |
+| 🪄 **Generate** | 🧭 **Compose** | 📦 **Export** | 🔌 **Serve** |
 |---|---|---|---|
-| Responde 4 preguntas y la IA redacta la persona, busca skills reales en [skills.sh](https://skills.sh) y las elige. | Lienzo visual: un orquestador, subagentes y componentes (skills, commands, MCP, hooks) cableados a mano. | `CLAUDE.md`, `AGENTS.md`, `.cursorrules`, `GEMINI.md` o `mcp.json` — el formato que tu tool lee. | El agente completo, servido sobre MCP con `@manudev.jsx/agents`. |
+| Answer 4 questions and the AI drafts the persona, searches real skills on [skills.sh](https://skills.sh) and picks them. | Visual canvas: an orchestrator, subagents and components (skills, commands, MCP, hooks) wired by hand. | `CLAUDE.md`, `AGENTS.md`, `.cursorrules`, `GEMINI.md` or `mcp.json` — whatever your tool reads. | The whole agent served over MCP with `@manudev.jsx/agents`. |
 
-## El flujo, en pantalla
+## The flow, on screen
 
-### 01 · Onboarding — la IA escribe el borrador
+### 01 · Onboarding — the AI writes the draft
 
-Responde unas preguntas: un modelo redacta nombre, rol y system prompt, busca en el registro real de skills.sh y devuelve candidatos que existen. Tú apruebas, editas y guardas.
+Answer a few questions: a model drafts name, role and system prompt, searches the live skills.sh registry and returns candidates that actually exist. You approve, edit and save.
 
-<img src="docs/screenshots/onboarding.png" alt="Onboarding — borrador asistido por IA" width="100%" />
+<img src="docs/screenshots/onboarding.png" alt="Onboarding — AI-assisted draft" width="100%" />
 
-### 02 · Composer — el lienzo
+### 02 · Composer — the canvas
 
-Arrastra el puerto ▾ de un agente para cablearlo con otro. Lo que cada especialista lleva consigo se ve, se mueve y se duplica como un grafo, no como una lista.
+Drag the ▾ port out of an agent to wire it to another. What each specialist carries is seen, moved and duplicated as a graph, not a list.
 
-<img src="docs/screenshots/build.png" alt="Composer — grafo orquestador y subagentes" width="100%" />
+<img src="docs/screenshots/build.png" alt="Composer — orchestrator and subagent graph" width="100%" />
 
-### 03 · Lienzo a pantalla completa
+### 03 · Canvas, fullscreen
 
-Expande el grafo al modo fullscreen: pan con espacio, zoom con ⌘scroll, tidy para re-ordenar el árbol.
+Expand the graph to fullscreen mode: pan with space, zoom with ⌘scroll, tidy to re-lay the tree.
 
-<img src="docs/screenshots/canvas.png" alt="Lienzo a pantalla completa" width="100%" />
+<img src="docs/screenshots/canvas.png" alt="Fullscreen canvas" width="100%" />
 
-### 04 · Demo — el flujo completo, sin cuenta
+### 04 · Demo — the whole flow, no account
 
-Brief → draft → skills → delegación → export, con datos reales. No es un trial: el mismo `lib/graph.ts` y `lib/export.ts` que corre el composer.
+Brief → draft → skills → delegation → export, on real data. Not a trial: the same `lib/graph.ts` and `lib/export.ts` the composer runs.
 
-<img src="docs/screenshots/demo.png" alt="Demo — el flujo completo" width="100%" />
+<img src="docs/screenshots/demo.png" alt="Demo — the full flow" width="100%" />
 
-### 05 · Skills — dos registros abiertos
+### 05 · Skills — two open registries
 
-[skills.sh](https://skills.sh) se busca en vivo; aitmpl navega skills, subagentes, slash commands, MCP servers, hooks y settings por categoría. Copia un install sin cuenta.
+[skills.sh](https://skills.sh) is searched live; aitmpl browses skills, subagents, slash commands, MCP servers, hooks and settings by category. Copy an install, no account needed.
 
-<img src="docs/screenshots/skills.png" alt="Registro de skills" width="100%" />
+<img src="docs/screenshots/skills.png" alt="Skills registry" width="100%" />
 
-### 06 · Puente MCP
+### 06 · MCP bridge
 
-El agente exportado como un paquete npm que expone la persona, el system prompt y las skills a cualquier cliente MCP.
+The exported agent as an npm package that exposes the persona, system prompt and picked skills to any MCP client.
 
-<img src="docs/screenshots/mcp.png" alt="Puente MCP" width="100%" />
+<img src="docs/screenshots/mcp.png" alt="MCP bridge" width="100%" />
 
-### 07 · Planes
+### 07 · Plans
 
-Gratis para componer, Pro para guardar y borradores, Max para servir sobre MCP. Trae tu propia API key: Claude, ChatGPT, Kimi, DeepSeek, Gemini, Groq u Ollama local.
+Free to compose, Pro for saved agents and drafts, Max to serve over MCP. Bring your own API key: Claude, ChatGPT, Kimi, DeepSeek, Gemini, Groq or local Ollama.
 
-<img src="docs/screenshots/pricing.png" alt="Planes" width="100%" />
+<img src="docs/screenshots/pricing.png" alt="Plans" width="100%" />
 
-## Empieza
+## Quick start
 
 ```bash
 npm install
 npm run dev
 ```
 
-Abre **http://localhost:3000**. Sin Supabase configurado nada está bloqueado: los agentes viven en `localStorage` y puedes probar el flujo entero en `/demo`.
+Open **http://localhost:3000**. Without Supabase configured nothing is gated: agents live in `localStorage` and you can try the whole flow on `/demo`.
 
 ## Stack
 
-**Next.js 16** · **React 19** · **TypeScript** · **Tailwind v4** · **Supabase** · **motion** · **d3** · **MCP** — todo pixel, todo custom.
+**Next.js 16** · **React 19** · **TypeScript** · **Tailwind v4** · **Supabase** · **motion** · **d3** · **MCP** — all pixel, all custom.
 
-Detalles para devs: [`mcp/README.md`](mcp/README.md) · [`.env.example`](.env.example) · [skills.sh](https://skills.sh) · [npx skills](https://www.npmjs.com/package/skills)
+Details for devs: [`mcp/README.md`](mcp/README.md) · [`.env.example`](.env.example) · [skills.sh](https://skills.sh) · [npx skills](https://www.npmjs.com/package/skills)
 
 ## License
 
-MIT — ver [`LICENSE`](LICENSE).
+MIT — see [`LICENSE`](LICENSE).
