@@ -27,7 +27,10 @@ function mapItem(it: SkillShItem): Skill {
     id: it.id,
     name: prettify(it.name || it.skillId),
     slug: it.skillId,
-    description: `Skill from ${it.source}`,
+    // skills.sh publishes no description on any endpoint, so this stays empty
+    // and the card renders nothing rather than a line that only repeats the
+    // repo shown directly above it. `enrich` fills in what it can.
+    description: "",
     category: it.source.split("/")[0] ?? "skills.sh",
     source: "skills.sh",
     repo: it.source,

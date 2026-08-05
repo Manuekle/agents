@@ -10,16 +10,21 @@ export interface Skill {
   category: string;
   source: string; // registry/host it came from
   repo?: string; // owner/repo — the `npx skills add` target
+  // The claude-code-templates CLI flag pair, e.g. `--skill web-data/search`.
+  // aitmpl entries carry this instead of a repo; the flags compose into one
+  // command, so several picks cost one line. See lib/aitmpl.ts.
+  installArg?: string;
   tags: string[];
   installs?: number;
 }
 
-// A skill the user picked into an agent. `repo` (owner/repo) is what the
-// official `skills` CLI installs.
+// A skill the user picked into an agent. Exactly one install channel is set:
+// `repo` (owner/repo) for skills.sh, `installArg` for aitmpl.
 export interface PickedSkill {
   id: string;
   name: string;
-  repo: string;
+  repo?: string;
+  installArg?: string;
 }
 
 export interface Agent {
@@ -38,7 +43,23 @@ export interface Agent {
 
 // Unique owner/repo install targets for an agent's picked skills.
 export function agentRepos(agent: Agent): string[] {
-  return Array.from(new Set(agent.skills.map((s) => s.repo).filter(Boolean)));
+  return Array.from(
+    new Set(agent.skills.map((s) => s.repo).filter((r): r is string => Boolean(r))),
+  );
+}
+
+// Unique claude-code-templates flag pairs for the picks that install that way.
+export function agentInstallArgs(agent: Agent): string[] {
+  return Array.from(
+    new Set(
+      agent.skills
+        // A pick with a repo already installs through `npx skills add`;
+        // listing it twice would install it twice.
+        .filter((s) => !s.repo)
+        .map((s) => s.installArg)
+        .filter((a): a is string => Boolean(a)),
+    ),
+  );
 }
 
 export const TARGETS: { id: AgentTarget; label: string; hint: string }[] = [

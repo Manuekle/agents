@@ -40,6 +40,8 @@ import {
   mcpServeCommand,
 } from "@/lib/export";
 import { copyText } from "@/lib/copy";
+import { componentId } from "@/lib/aitmpl";
+import { decodeAgent, encodeAgent, shareUrl } from "@/lib/share";
 
 // The tick is always in the DOM — it just sits at opacity 0 until `done`, so
 // the button keeps one width and never reflows as the check draws itself in.
@@ -81,6 +83,7 @@ function Builder() {
   // preview state driven by which field is active
   const [previewState, setPreviewState] = useState<MascotState>("working");
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
+  const [fromShare, setFromShare] = useState(false);
 
   useEffect(() => {
     if (editId) {
@@ -89,6 +92,23 @@ function Builder() {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [editId, agents.length]);
+
+  // A `?s=` payload is a shared agent. It loses to `?id=`, which names an
+  // agent the user already owns — opening your own agent should never be
+  // hijacked by a stale query string.
+  const shared = params.get("s");
+  useEffect(() => {
+    if (editId || !shared) return;
+    const decoded = decodeAgent(shared);
+    if (!decoded) return;
+    setAgent(decoded);
+    setFromShare(true);
+    setPreviewState("wizard");
+    // Once the spec is in state the payload is noise in the address bar, and
+    // leaving it there would re-apply on every back-navigation.
+    router.replace("/build");
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [shared, editId]);
 
   const set = <K extends keyof Agent>(k: K, v: Agent[K]) => {
     setAgent((a) => ({ ...a, [k]: v }));
@@ -147,6 +167,18 @@ function Builder() {
   const downloadManifest = () => download("agents-dev.skills.json", skillsManifest(agent));
   const downloadAgent = () => download("agents-dev.agent.json", agentSpecJson(agent));
 
+  // Built on the client so the link carries whatever origin the user is
+  // actually on — localhost while developing, the deploy URL in production.
+  const copyShareLink = async () => {
+    const url = shareUrl(agent, window.location.origin);
+    if (!url) {
+      setPreviewState("sherlock");
+      return;
+    }
+    await doCopy(url, "share");
+  };
+  const shareable = useMemo(() => encodeAgent(agent) !== null, [agent]);
+
   return (
     <div>
       <DitherConfetti token={confettiToken} />
@@ -163,6 +195,21 @@ function Builder() {
             <PixelButton variant="ghost" onClick={() => router.push("/")}>
               ← Home
             </PixelButton>
+            <PixelButton
+              variant="ghost"
+              onClick={copyShareLink}
+              disabled={!shareable}
+              title={
+                shareable
+                  ? "Copy a link that rebuilds this agent"
+                  : "System prompt is too long to fit in a link — export the file instead"
+              }
+            >
+              <span className="inline-flex items-center gap-1.5">
+                <SuccessCheck shown={copiedKey === "share"} size={12} />
+                {copiedKey === "share" ? "Link copied" : "Share"}
+              </span>
+            </PixelButton>
             <PixelButton variant="coral" onClick={doSave}>
               <span className="inline-flex items-center gap-1.5">
                 <SuccessCheck shown={saved} size={12} />
@@ -171,6 +218,15 @@ function Builder() {
             </PixelButton>
           </div>
         </div>
+
+        {/* Nothing is stored yet — a shared agent lives in this tab until the
+            recipient saves it, and saying so avoids them closing it. */}
+        {fromShare && (
+          <p className="mb-5 font-mono text-xs border-2 border-line bg-stone px-3 py-2">
+            Opened from a shared link. Edit anything you like — it is not saved
+            to your account until you press <strong>Save agent</strong>.
+          </p>
+        )}
 
         {/* A rejected write has already been rolled back in the store, so this
             is the only thing telling the user their save did not stick. */}
@@ -291,10 +347,10 @@ function Builder() {
               </Field>
             </Panel>
 
-            {/* SKILLS — live search of skills.sh */}
+            {/* COMPONENTS — live search of skills.sh + the aitmpl catalog */}
             <Panel className="p-5">
               <div className="flex items-center justify-between mb-3">
-                <span className="font-pixel text-[10px] uppercase">Skills · skills.sh</span>
+                <span className="font-pixel text-[10px] uppercase">Components</span>
                 <Badge tone="coral">{agent.skills.length} selected</Badge>
               </div>
 
@@ -304,7 +360,7 @@ function Builder() {
                     <button
                       key={s.id}
                       onClick={() => toggleSkill(s)}
-                      title={`remove ${s.repo}`}
+                      title={`remove ${s.repo ?? componentId(s.installArg) ?? s.name}`}
                       className="inline-flex items-center gap-1 font-mono text-[10px] px-2 py-0.5 border-2 border-line bg-fill text-on-fill hover:bg-coral transition-colors"
                     >
                       {s.name} <span className="opacity-70">✕</span>

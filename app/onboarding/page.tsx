@@ -15,6 +15,7 @@ import {
   type PickedSkill,
 } from "@/lib/types";
 import { saveAgent } from "@/lib/store";
+import { componentId } from "@/lib/aitmpl";
 
 const TONES = ["Direct", "Friendly", "Formal", "Playful"] as const;
 type Tone = (typeof TONES)[number];
@@ -244,7 +245,7 @@ export default function OnboardingPage() {
                   {drafted.skills.map((s) => (
                     <span
                       key={s.id}
-                      title={s.repo}
+                      title={s.repo ?? componentId(s.installArg)}
                       className="inline-flex items-center gap-1 font-mono text-[10px] px-2 py-0.5 border-2 border-line bg-fill text-on-fill"
                     >
                       {s.name}

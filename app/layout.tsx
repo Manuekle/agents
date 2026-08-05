@@ -4,6 +4,7 @@ import { GeistMono } from "geist/font/mono";
 import { Habibi, Silkscreen } from "next/font/google";
 import { Analytics } from "@vercel/analytics/next";
 import { InlineScript } from "@/components/InlineScript";
+import { CommandPalette } from "@/components/CommandPalette";
 import { SITE_URL } from "@/lib/site";
 import "./globals.css";
 
@@ -72,6 +73,9 @@ export default function RootLayout({
       </head>
       <body className="min-h-full bg-paper text-ink">
         {children}
+        {/* Global so ⌘K reaches every route, including the ones with no
+            SkillBrowser on them. Renders nothing until opened. */}
+        <CommandPalette />
         {/* Last child of body so it never delays first paint. Injects nothing
             outside Vercel, so local dev and any other host stay untouched. */}
         <Analytics />

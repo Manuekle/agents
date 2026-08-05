@@ -1,18 +1,30 @@
-import { agentRepos, type Agent } from "./types";
+import { agentInstallArgs, agentRepos, type Agent, type PickedSkill } from "./types";
+import { KIND_META, componentId, kindOfArg, type AitmplKind } from "./aitmpl";
 
-// The official `skills` CLI install command for an agent's picked skills.
-// Works in any existing project — it detects the agent and writes the skills
-// into the right config dir (.claude/skills, .agents/skills, …).
-export function installCommand(agent: Agent): string {
+// The two registries install through different CLIs, so an agent that mixes
+// them needs both lines. Each CLI takes all of its targets at once.
+function installLines(agent: Agent): string[] {
+  const lines: string[] = [];
   const repos = agentRepos(agent);
-  if (repos.length === 0) return "# pick some skills first";
-  return `npx skills add ${repos.join(" ")}`;
+  if (repos.length) lines.push(`npx skills add ${repos.join(" ")}`);
+  const args = agentInstallArgs(agent);
+  if (args.length) lines.push(`npx claude-code-templates@latest ${args.join(" ")} --yes`);
+  return lines;
+}
+
+// Install command(s) for an agent's picked skills. Works in any existing
+// project — both CLIs detect the agent and write into the right config dir
+// (.claude/skills, .agents/skills, …).
+export function installCommand(agent: Agent): string {
+  const lines = installLines(agent);
+  return lines.length ? lines.join("\n") : "# pick some skills first";
 }
 
 // Bootstrap a brand-new project, then add the skills.
 export function newProjectCommand(agent: Agent, scaffold = "npx create-next-app@latest my-agent-app --yes"): string {
-  const repos = agentRepos(agent);
-  const add = repos.length ? ` && npx skills add ${repos.join(" ")}` : "";
+  const add = installLines(agent)
+    .map((l) => ` && ${l}`)
+    .join("");
   return `${scaffold} && cd my-agent-app${add}`;
 }
 
@@ -25,7 +37,7 @@ export function agentSpecJson(agent: Agent): string {
       model: agent.model,
       temperature: agent.temperature,
       system: agent.systemPrompt,
-      skills: agent.skills.map((s) => ({ name: s.name, repo: s.repo })),
+      skills: agent.skills.map(skillRef),
     },
     null,
     2,
@@ -44,18 +56,54 @@ export function skillsManifest(agent: Agent): string {
       agent: agent.name,
       target: agent.target,
       model: agent.model,
-      skills: agent.skills.map((s) => ({ name: s.name, repo: s.repo })),
+      skills: agent.skills.map(skillRef),
       repos: agentRepos(agent),
+      templates: agentInstallArgs(agent),
     },
     null,
     2,
   );
 }
 
+// An agent is not only skills any more — it can carry subagents, slash
+// commands, MCP servers, hooks and settings, each with its own CLI flag.
+function kindOf(s: PickedSkill): AitmplKind {
+  // A skills.sh pick has a repo and no flag to read, and is always a skill.
+  return s.repo ? "skills" : (kindOfArg(s.installArg) ?? "skills");
+}
+
+// How a picked component identifies itself in an export: its owner/repo, or
+// the CLI component id it installs by when it has no repo.
+function skillRef(s: PickedSkill): {
+  name: string;
+  kind: AitmplKind;
+  repo?: string;
+  component?: string;
+} {
+  return s.repo
+    ? { name: s.name, kind: "skills", repo: s.repo }
+    : { name: s.name, kind: kindOf(s), component: componentId(s.installArg) };
+}
+
+// The picks as markdown, one `### ` section per kind that is actually present.
+// A flat list stopped carrying enough once hooks and MCP servers could sit in
+// it next to skills.
+function componentSections(agent: Agent): string {
+  const sections = KIND_META.map((meta) => {
+    const items = agent.skills.filter((s) => kindOf(s) === meta.id);
+    if (items.length === 0) return null;
+    const lines = items
+      .map((s) => `- **${s.name}** — \`${s.repo ?? componentId(s.installArg) ?? "?"}\``)
+      .join("\n");
+    return `### ${meta.title}\n\n${lines}`;
+  }).filter((s): s is string => s !== null);
+
+  return sections.length ? sections.join("\n\n") : "- (none)";
+}
+
 // Turn an agent spec into the config file its target tool expects.
 export function exportAgent(agent: Agent): { filename: string; lang: string; content: string } {
-  const skillList =
-    agent.skills.map((s) => `- **${s.name}** — \`${s.repo}\``).join("\n") || "- (none)";
+  const components = componentSections(agent);
   const install = installCommand(agent);
 
   switch (agent.target) {
@@ -72,9 +120,9 @@ export function exportAgent(agent: Agent): { filename: string; lang: string; con
 
 ${agent.systemPrompt}
 
-## Skills
+## Components
 
-${skillList}
+${components}
 
 ## Install
 
@@ -97,8 +145,9 @@ Model: ${agent.model}
 
 ${agent.systemPrompt}
 
-## Skills
-${skillList}
+## Components
+
+${components}
 
 ## Install
 \`\`\`bash
@@ -115,8 +164,9 @@ ${install}
 
 ${agent.systemPrompt}
 
-Skills in scope:
-${skillList}
+Components in scope:
+
+${components}
 
 Install: ${install}
 `,
@@ -126,7 +176,7 @@ Install: ${install}
       return {
         filename: "GEMINI.md",
         lang: "markdown",
-        content: `# ${agent.name}\n\n${agent.systemPrompt}\n\n## Skills\n${skillList}\n\n## Install\n\`\`\`bash\n${install}\n\`\`\`\n`,
+        content: `# ${agent.name}\n\n${agent.systemPrompt}\n\n## Components\n\n${components}\n\n## Install\n\`\`\`bash\n${install}\n\`\`\`\n`,
       };
 
     case "generic-mcp":

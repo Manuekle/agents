@@ -8,6 +8,7 @@ import { GitHubStars } from "@/components/GitHubStars";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { MenuIcon, CloseIcon } from "@/components/icons";
 import { AuthButton } from "@/components/AuthButton";
+import { openCommandPalette } from "@/lib/palette";
 
 // `match` lists the extra path prefixes that should light the tab — the
 // onboarding wizard is part of the New flow, so it must not leave the nav
@@ -91,6 +92,19 @@ export function Nav() {
               emits `hidden` earlier in the sheet, so a `hidden` passed through
               className would silently lose the cascade and the pill would
               overflow the bar on phones. */}
+          {/* The shortcut works everywhere; this is the discoverable half of
+              it. Hidden below `lg` for the same reason the tabs are — the row
+              has no space for it, and a phone has no ⌘K to advertise. */}
+          <button
+            type="button"
+            onClick={openCommandPalette}
+            aria-label="Search (Command K)"
+            className="hidden lg:inline-flex items-center gap-1.5 font-mono text-[10px] px-2 py-1.5 border-2 border-line bg-paper hover:bg-stone transition-colors cursor-pointer"
+          >
+            <span className="text-muted">Search</span>
+            <kbd className="text-muted">⌘K</kbd>
+          </button>
+
           <span className="hidden lg:inline-flex">
             <GitHubStars />
           </span>

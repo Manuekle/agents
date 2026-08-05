@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import type { PickedSkill, Skill } from "@/lib/types";
 import { searchSkillsMany } from "@/lib/skills-search";
+import { enrich } from "@/lib/aitmpl";
 import { FOUNDRY_ERROR, clientIp, foundryClient, rateLimit } from "@/lib/foundry";
 
 // Second half of the onboarding draft: search skills.sh with the model's own
@@ -66,13 +67,19 @@ export async function POST(req: Request) {
 
   let candidates: Skill[];
   try {
-    candidates = (await searchSkillsMany(terms)).slice(0, MAX_CANDIDATES);
+    // Enriched because skills.sh returns no description at all, and a name plus
+    // an owner/repo is thin evidence to choose on. The aitmpl overlay only
+    // covers about one candidate in nine, but a described candidate is the one
+    // the model can actually judge.
+    candidates = (await enrich(await searchSkillsMany(terms))).slice(0, MAX_CANDIDATES);
   } catch {
     return NextResponse.json({ skills: [] });
   }
   if (candidates.length === 0) return NextResponse.json({ skills: [] });
 
-  const list = candidates.map((s, i) => `${i}. ${s.name} — ${s.repo}`).join("\n");
+  const list = candidates
+    .map((s, i) => `${i}. ${s.name} — ${s.repo}${s.description ? ` — ${s.description}` : ""}`)
+    .join("\n");
 
   try {
     const response = await foundry.client.responses.create({

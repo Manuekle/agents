@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Badge, PixelButton, TextInput } from "@/components/ui";
+import { TextInput } from "@/components/ui";
 import { BarChart } from "@/components/dither-kit/bar-chart";
 import { Bar } from "@/components/dither-kit/bar";
 import { XAxis } from "@/components/dither-kit/x-axis";
@@ -9,14 +9,64 @@ import { YAxis } from "@/components/dither-kit/y-axis";
 import { Tooltip } from "@/components/dither-kit/tooltip";
 import { clsx } from "@/lib/clsx";
 import { copyText } from "@/lib/copy";
+import { KIND_META, type AitmplKind } from "@/lib/aitmpl";
 import type { PickedSkill, Skill } from "@/lib/types";
 
 const SUGGESTIONS = ["react", "next", "testing", "database", "security", "tailwind", "docs", "ai"];
+
+// The two catalogs are browsed, not blended: they install through different
+// CLIs and only ~11% of their entries overlap. skills.sh is the installable,
+// composable one; aitmpl is the one with real descriptions and categories.
+const SOURCES = [
+  { id: "skills.sh", label: "skills.sh", hint: "installable via npx skills add" },
+  { id: "aitmpl", label: "aitmpl", hint: "skills, subagents, commands, MCP, hooks, settings" },
+] as const;
+
+type SourceId = (typeof SOURCES)[number]["id"];
+
+const SORTS = [
+  { id: "relevance", label: "Relevance" },
+  { id: "installs", label: "Most installed" },
+  { id: "alpha", label: "A–Z" },
+] as const;
+
+type SortId = (typeof SORTS)[number]["id"];
+
+interface Category {
+  name: string;
+  count: number;
+}
 
 function fmtInstalls(n?: number) {
   if (!n) return null;
   if (n >= 1000) return `${(n / 1000).toFixed(n >= 10000 ? 0 : 1)}k`;
   return String(n);
+}
+
+// The command that actually installs a given result, or null when neither
+// channel can resolve it (a bare registry name, a docs host).
+function installFor(s: Skill): string | null {
+  const repo = s.repo ?? s.source;
+  if (repo.includes("/")) return `npx skills add ${repo}`;
+  if (s.installArg) return `npx claude-code-templates@latest ${s.installArg} --yes`;
+  return null;
+}
+
+// Exactly one install channel is carried into the agent, so an export never
+// installs the same skill through both CLIs.
+function pick(s: Skill): PickedSkill {
+  const repo = s.repo ?? s.source;
+  return repo.includes("/")
+    ? { id: s.id, name: s.name, repo }
+    : { id: s.id, name: s.name, installArg: s.installArg };
+}
+
+// What the card shows under the name: the owner/repo for skills.sh, the CLI
+// component id for aitmpl.
+function targetLabel(s: Skill): string {
+  if (s.repo) return s.repo;
+  if (s.installArg) return s.installArg.split(" ").slice(1).join(" ");
+  return s.source;
 }
 
 // Orange is the closest thing the dither palette has to the coral the rest of
@@ -48,10 +98,10 @@ function useNarrow() {
   return narrow;
 }
 
-// Relative popularity of the current results. skills.sh returns `installs`;
-// the offline seed catalog deliberately does not, so with fewer than two
-// counted skills there is nothing honest to plot and this renders nothing
-// rather than a row of zeroes.
+// Relative popularity of the current results. skills.sh returns `installs` and
+// aitmpl returns download counts; the offline seed catalog deliberately does
+// not, so with fewer than two counted skills there is nothing honest to plot
+// and this renders nothing rather than a row of zeroes.
 function InstallsChart({ skills }: { skills: Skill[] }) {
   const narrow = useNarrow();
   const top = useMemo(
@@ -100,7 +150,13 @@ export function SkillBrowser({
   showChart?: boolean;
 }) {
   const [q, setQ] = useState(initialQuery);
+  const [source, setSource] = useState<SourceId>("skills.sh");
+  const [kind, setKind] = useState<AitmplKind>("skills");
+  const [sort, setSort] = useState<SortId>("relevance");
+  const [category, setCategory] = useState<string | null>(null);
+  const [categories, setCategories] = useState<Category[]>([]);
   const [results, setResults] = useState<Skill[]>([]);
+  const [hasMore, setHasMore] = useState(false);
   const [loading, setLoading] = useState(false);
   const [note, setNote] = useState<string | null>(null);
   const [copiedId, setCopiedId] = useState<string | null>(null);
@@ -109,22 +165,47 @@ export function SkillBrowser({
 
   const selectedIds = new Set((selected ?? []).map((s) => s.id));
 
-  const run = async (query: string) => {
+  // `offset > 0` is a "load more": results append and the skeleton stays out
+  // of the way, since the list the user is reading has not been replaced.
+  const run = async (
+    query: string,
+    src: SourceId,
+    srt: SortId,
+    cat: string | null,
+    knd: AitmplKind,
+    offset = 0,
+  ) => {
     setLoading(true);
-    setNote(null);
-    setRevealed(false);
+    if (offset === 0) {
+      setNote(null);
+      setRevealed(false);
+    }
+    const params = new URLSearchParams({ q: query, sort: srt });
+    if (src === "aitmpl") {
+      params.set("source", "aitmpl");
+      params.set("kind", knd);
+      if (cat) params.set("category", cat);
+      if (offset) params.set("offset", String(offset));
+    }
     try {
-      const res = await fetch(`/api/skills?q=${encodeURIComponent(query)}`);
+      const res = await fetch(`/api/skills?${params}`);
       const data = await res.json();
-      setResults(data.skills ?? []);
+      const batch: Skill[] = data.skills ?? [];
+      setResults((prev) => (offset > 0 ? [...prev, ...batch] : batch));
+      setHasMore(Boolean(data.hasMore));
+      if (Array.isArray(data.categories)) setCategories(data.categories);
       setNote(
         data.source === "skills.sh"
           ? `${data.count} results from skills.sh`
-          : data.source === "seed"
-            ? "seed catalog — type to search skills.sh"
-            : data.error
-              ? `skills.sh error — showing seed (${data.error})`
-              : null,
+          : data.source === "aitmpl"
+            ? data.error
+              ? `aitmpl unavailable (${data.error})`
+              : `${data.count} of ${data.total} ${knd}${cat ? ` in ${cat}` : ""}`
+            : data.source === "seed"
+              ? "seed catalog — type to search skills.sh"
+              : data.error
+                ? `skills.sh error — showing seed (${data.error})`
+                : null,
       );
     } catch {
       setNote("search failed");
@@ -134,18 +215,40 @@ export function SkillBrowser({
     }
   };
 
-  // debounced search on query change
+  // debounced search on any control change. Always starts a fresh page —
+  // an appended list from the previous filter would be nonsense.
   useEffect(() => {
     if (timer.current) clearTimeout(timer.current);
-    timer.current = setTimeout(() => run(q), 300);
+    timer.current = setTimeout(() => run(q, source, sort, category, kind), 300);
     return () => {
       if (timer.current) clearTimeout(timer.current);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [q]);
+  }, [q, source, sort, category, kind]);
 
-  const copyInstall = async (repo: string, id: string) => {
-    const cmd = `npx skills add ${repo}`;
+  // Moving between catalogs (or between kinds within aitmpl) resets the
+  // filters, query included. A term typed to find a skill almost never matches
+  // a hook or a setting, and a silent "0 of 62" reads as a broken tab rather
+  // than as a filter that is still applied.
+  const resetFilters = () => {
+    setQ("");
+    setCategory(null);
+    setCategories([]);
+  };
+
+  const switchSource = (next: SourceId) => {
+    if (next === source) return;
+    resetFilters();
+    setSource(next);
+  };
+
+  const switchKind = (next: AitmplKind) => {
+    if (next === kind) return;
+    resetFilters();
+    setKind(next);
+  };
+
+  const copyInstall = async (cmd: string, id: string) => {
     if (await copyText(cmd)) {
       setCopiedId(id);
       setTimeout(() => setCopiedId(null), 1600);
@@ -160,27 +263,102 @@ export function SkillBrowser({
         <TextInput
           value={q}
           onChange={(e) => setQ(e.target.value)}
-          placeholder="search skills.sh…"
+          placeholder={source === "aitmpl" ? `filter ${kind}…` : "search skills.sh…"}
           className="flex-1 min-w-[200px]"
         />
+        <select
+          value={sort}
+          onChange={(e) => setSort(e.target.value as SortId)}
+          aria-label="Sort results"
+          className="font-mono text-[10px] px-2 py-1.5 border-2 border-line bg-paper"
+        >
+          {SORTS.map((s) => (
+            <option key={s.id} value={s.id}>
+              {s.label}
+            </option>
+          ))}
+        </select>
         {loading && <span className="font-mono text-[10px] text-muted">searching…</span>}
       </div>
 
       <div className="flex flex-wrap gap-1.5 mb-3">
-        {SUGGESTIONS.map((s) => (
+        {SOURCES.map((s) => (
           <button
-            key={s}
-            onClick={() => setQ(s)}
-            className="font-mono text-[10px] px-2 py-0.5 border-2 border-line bg-paper hover:bg-stone transition-colors"
+            key={s.id}
+            onClick={() => switchSource(s.id)}
+            title={s.hint}
+            className={clsx(
+              "font-pixel text-[9px] uppercase px-2 py-1 border-2 border-line transition-colors",
+              source === s.id ? "bg-fill text-on-fill" : "bg-paper hover:bg-stone",
+            )}
           >
-            #{s}
+            {s.label}
           </button>
         ))}
       </div>
 
+      {source === "aitmpl" && (
+        <div className="flex flex-wrap gap-1.5 mb-3">
+          {KIND_META.map((k) => (
+            <button
+              key={k.id}
+              onClick={() => switchKind(k.id)}
+              title={k.blurb}
+              className={clsx(
+                "font-mono text-[10px] px-2 py-0.5 border-2 border-line transition-colors",
+                kind === k.id ? "bg-ink text-paper" : "bg-paper hover:bg-stone",
+              )}
+            >
+              {k.label}
+            </button>
+          ))}
+        </div>
+      )}
+
+      <div className="flex flex-wrap gap-1.5 mb-3">
+        {source === "aitmpl" ? (
+          <>
+            <button
+              onClick={() => setCategory(null)}
+              className={clsx(
+                "font-mono text-[10px] px-2 py-0.5 border-2 border-line transition-colors",
+                category === null ? "bg-fill text-on-fill" : "bg-paper hover:bg-stone",
+              )}
+            >
+              all
+            </button>
+            {categories.map((c) => (
+              <button
+                key={c.name}
+                onClick={() => setCategory(c.name === category ? null : c.name)}
+                className={clsx(
+                  "font-mono text-[10px] px-2 py-0.5 border-2 border-line transition-colors",
+                  category === c.name ? "bg-fill text-on-fill" : "bg-paper hover:bg-stone",
+                )}
+              >
+                {c.name} <span className="opacity-60">{c.count}</span>
+              </button>
+            ))}
+          </>
+        ) : (
+          SUGGESTIONS.map((s) => (
+            <button
+              key={s}
+              onClick={() => setQ(s)}
+              className="font-mono text-[10px] px-2 py-0.5 border-2 border-line bg-paper hover:bg-stone transition-colors"
+            >
+              #{s}
+            </button>
+          ))
+        )}
+      </div>
+
       {note && <p className="font-mono text-[10px] text-muted mb-2">{note}</p>}
 
-      <div key={q} className={clsx("t-skel", revealed && "is-revealed")}>
+      <div
+        key={`${source}:${kind}:${q}:${category}`}
+        className={clsx("t-skel", revealed && "is-revealed")}
+      >
         <div className="t-skel-skeleton is-pulsing grid sm:grid-cols-2 gap-2">
           {Array.from({ length: 4 }).map((_, i) => (
             <div key={i} className="p-2.5 border-2 border-line bg-paper">
@@ -196,11 +374,7 @@ export function SkillBrowser({
           {showChart && <InstallsChart skills={results} />}
           <div className="grid sm:grid-cols-2 gap-2 max-h-[420px] overflow-auto pr-1">
             {results.map((s) => {
-              const repo = s.repo ?? s.source;
-              // `npx skills add` only takes owner/repo. Anything else (a bare
-              // registry name, a docs host) would copy a command that cannot
-              // resolve, so the action is disabled instead.
-              const installable = repo.includes("/");
+              const cmd = installFor(s);
               const on = selectedIds.has(s.id);
               const installs = fmtInstalls(s.installs);
               return (
@@ -220,31 +394,37 @@ export function SkillBrowser({
                     )}
                   </div>
                   <div className={clsx("font-mono text-[10px] truncate mt-0.5", on ? "text-on-fill-muted" : "text-coral")}>
-                    {repo}
+                    {targetLabel(s)}
                   </div>
+                  {s.description && (
+                    <p
+                      className={clsx(
+                        "font-mono text-[10px] leading-snug mt-1 line-clamp-2",
+                        on ? "text-on-fill-muted" : "text-muted",
+                      )}
+                    >
+                      {s.description}
+                    </p>
+                  )}
                   <div className="mt-2">
                     {onToggle ? (
                       <button
-                        onClick={() => onToggle({ id: s.id, name: s.name, repo })}
-                        disabled={!installable}
-                        title={installable ? undefined : `${repo} is not an owner/repo`}
+                        onClick={() => onToggle(pick(s))}
+                        disabled={!cmd}
+                        title={cmd ?? `${s.source} has no install target`}
                         className={clsx(
                           "w-full font-pixel text-[9px] uppercase py-1 border-2 border-line transition-colors",
                           "disabled:opacity-40 disabled:pointer-events-none",
                           on ? "bg-paper text-ink" : "bg-fill text-on-fill hover:bg-coral",
                         )}
                       >
-                        {on ? "remove [x]" : installable ? "add [ ]" : "no repo"}
+                        {on ? "remove [x]" : cmd ? "add [ ]" : "no target"}
                       </button>
                     ) : (
                       <button
-                        onClick={() => copyInstall(repo, s.id)}
-                        disabled={!installable}
-                        title={
-                          installable
-                            ? `copies "npx skills add ${repo}"`
-                            : `${repo} is not an owner/repo`
-                        }
+                        onClick={() => cmd && copyInstall(cmd, s.id)}
+                        disabled={!cmd}
+                        title={cmd ? `copies "${cmd}"` : `${s.source} has no install target`}
                         className={clsx(
                           "w-full font-pixel text-[9px] uppercase py-1 border-2 border-line transition-colors",
                           "disabled:opacity-40 disabled:pointer-events-none",
@@ -253,11 +433,7 @@ export function SkillBrowser({
                             : "bg-fill text-on-fill hover:bg-coral",
                         )}
                       >
-                        {copiedId === s.id
-                          ? `✓ npx skills add ${repo}`
-                          : installable
-                            ? "copy install"
-                            : "no repo"}
+                        {copiedId === s.id ? "✓ copied" : cmd ? "copy install" : "no target"}
                       </button>
                     )}
                   </div>
@@ -265,7 +441,21 @@ export function SkillBrowser({
               );
             })}
             {!loading && results.length === 0 && (
-              <p className="font-mono text-xs text-muted col-span-full py-6 text-center">no skills found</p>
+              <p className="font-mono text-xs text-muted col-span-full py-6 text-center">
+                nothing found
+              </p>
+            )}
+            {hasMore && (
+              <button
+                onClick={() => run(q, source, sort, category, kind, results.length)}
+                disabled={loading}
+                className={clsx(
+                  "col-span-full font-pixel text-[9px] uppercase py-2 border-2 border-line",
+                  "bg-paper hover:bg-stone transition-colors disabled:opacity-40",
+                )}
+              >
+                {loading ? "loading…" : "load more"}
+              </button>
             )}
           </div>
         </div>
