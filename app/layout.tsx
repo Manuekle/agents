@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { GeistSans } from "geist/font/sans";
 import { GeistMono } from "geist/font/mono";
 import { Habibi, Silkscreen } from "next/font/google";
+import { Analytics } from "@vercel/analytics/next";
 import { InlineScript } from "@/components/InlineScript";
 import { SITE_URL } from "@/lib/site";
 import "./globals.css";
@@ -69,7 +70,12 @@ export default function RootLayout({
           html={`(function(){try{var t=localStorage.getItem("theme");if(!t)t=window.matchMedia("(prefers-color-scheme: dark)").matches?"dark":"light";document.documentElement.setAttribute("data-theme",t)}catch(e){}})()`}
         />
       </head>
-      <body className="min-h-full bg-paper text-ink">{children}</body>
+      <body className="min-h-full bg-paper text-ink">
+        {children}
+        {/* Last child of body so it never delays first paint. Injects nothing
+            outside Vercel, so local dev and any other host stay untouched. */}
+        <Analytics />
+      </body>
     </html>
   );
 }
