@@ -43,7 +43,7 @@ export default function NewAgentPage() {
               <div className="grain mascot-stage relative pixel-border-sm p-6 my-4 self-center">
                 <Mascot state="working" size={96} />
               </div>
-              <h2 className="font-sans font-bold text-lg">Personalizado</h2>
+              <h2 className="font-sans font-bold text-lg">Custom</h2>
               <p className="font-mono text-xs text-muted mt-1.5 leading-relaxed flex-1">
                 Go straight to the composer — write the name, role, system
                 prompt, model &amp; skills yourself, field by field.
