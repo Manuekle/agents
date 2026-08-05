@@ -54,7 +54,11 @@ export default function PricingPage() {
                 <ul className="mt-4 space-y-1.5 flex-1">
                   {plan.features.map((f) => (
                     <li key={f} className="font-mono text-xs text-ink-soft flex gap-2">
-                      <span className="text-coral shrink-0">▸</span>
+                      {/* Decorative: the feature text beside it carries the
+                          meaning, so it stays out of the accessibility tree. */}
+                      <span aria-hidden="true" className="text-coral-text shrink-0">
+                        ▸
+                      </span>
                       {f}
                     </li>
                   ))}

@@ -338,7 +338,7 @@ function Builder() {
                         set("mascot", s);
                         setPreviewState(s);
                       }}
-                      className={`mascot-stage relative overflow-hidden aspect-square grid place-items-center border-2 transition-all ${
+                      className={`mascot-stage relative overflow-hidden aspect-square grid place-items-center border-2 transition-[border-color,box-shadow] duration-150 ${
                         agent.mascot === s
                           ? "border-coral shadow-[0_0_0_2px_var(--coral)]"
                           : "border-line hover:border-ink-soft"
