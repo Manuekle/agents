@@ -18,6 +18,8 @@ export const SITE = {
   githubUrl: "https://github.com/Manuekle/agents",
   // upstream CLI this builds on, linked separately in the footer
   upstreamUrl: "https://github.com/vercel-labs/skills",
+  // GitHub Sponsors profile — the one place the project asks for support
+  sponsorUrl: "https://github.com/sponsors/Manuekle",
   registry: "https://skills.sh",
 };
 

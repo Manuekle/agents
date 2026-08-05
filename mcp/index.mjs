@@ -3,12 +3,19 @@
 //
 // Reads an agent spec JSON (exported from agents.dev) and exposes it to any
 // MCP-capable client (Claude Desktop, Cursor, …) as:
-//   - prompt   `activate_agent`   -> injects the agent persona + skill context
-//   - resource `agent://spec`     -> the full agent JSON
-//   - resource `agent://skills`   -> the picked skills (name + owner/repo)
-//   - tool     `agent_info`       -> name / role / model / temperature
-//   - tool     `list_skills`      -> the agent's skills
-//   - tool     `system_prompt`    -> the raw system prompt
+//   - prompt   `activate_agent`     -> the orchestrator persona + its delegation roster
+//   - prompt   `activate_subagent`  -> one specialist's persona, by name
+//   - resource `agent://spec`       -> the full agent JSON
+//   - resource `agent://skills`     -> every component in the agent (flat)
+//   - resource `agent://subagents`  -> the delegation tree
+//   - tool     `agent_info`         -> name / role / model / temperature / counts
+//   - tool     `list_skills`        -> components, optionally scoped to one agent
+//   - tool     `list_subagents`     -> the specialists and what each one carries
+//   - tool     `system_prompt`      -> a raw system prompt, root or specialist
+//
+// Spec versions: v1 was one persona and a flat `skills` array. v2 adds
+// `orchestrator` and `subagents`. Both load — a v1 file simply has no
+// specialists, and `skills` means the same thing in both.
 //
 // Two ways to get the spec:
 //   - signed in: --token <api-token> [--agent-id <id>]  |  $AGENTS_DEV_TOKEN
@@ -22,6 +29,7 @@ import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
+import { z } from "zod";
 
 const API_BASE = process.env.AGENTS_DEV_API ?? "https://agents-dev.vercel.app";
 
@@ -31,15 +39,61 @@ function flag(name) {
   return i >= 0 && argv[i + 1] && !argv[i + 1].startsWith("--") ? argv[i + 1] : null;
 }
 
-function normalise(spec) {
+function componentList(raw) {
+  return Array.isArray(raw) ? raw.filter((c) => c && typeof c.name === "string") : [];
+}
+
+/** Where a component came from, in one string: `owner/repo` or the CLI id. */
+function refOf(c) {
+  return c.repo ?? c.component ?? null;
+}
+
+function normaliseSubagent(raw, root) {
   return {
+    name: typeof raw.name === "string" && raw.name ? raw.name : "Unnamed specialist",
+    role: raw.role ?? "specialist",
+    // A specialist that never overrode the model inherits the root's, so a
+    // client asking "what runs this" always gets an answer.
+    model: raw.model ?? root.model,
+    temperature: typeof raw.temperature === "number" ? raw.temperature : root.temperature,
+    system: raw.system ?? raw.systemPrompt ?? "",
+    parent: raw.parent ?? null,
+    depth: typeof raw.depth === "number" ? raw.depth : 1,
+    skills: componentList(raw.skills),
+  };
+}
+
+function normalise(spec) {
+  const root = {
     name: spec.name ?? "Untitled Agent",
     role: spec.role ?? "assistant",
     model: spec.model ?? "unspecified",
     temperature: typeof spec.temperature === "number" ? spec.temperature : 0.7,
     system: spec.system ?? spec.systemPrompt ?? "",
-    skills: Array.isArray(spec.skills) ? spec.skills : [],
+    // The flat union of every component in the agent, whichever specialist
+    // holds it. Unchanged from v1 — this is what installers read.
+    skills: componentList(spec.skills),
   };
+
+  // v2 splits the root's *own* components out of that union. A v1 spec has no
+  // `orchestrator`, and there falling back to the union is right: with no
+  // specialists to own anything, everything is the root's.
+  const own = spec.orchestrator ? componentList(spec.orchestrator.skills) : root.skills;
+
+  return {
+    ...root,
+    version: spec.version === 2 ? 2 : 1,
+    own,
+    subagents: (Array.isArray(spec.subagents) ? spec.subagents : [])
+      .filter((s) => s && typeof s === "object")
+      .map((s) => normaliseSubagent(s, root)),
+  };
+}
+
+/** Case-insensitive lookup, so a client can pass the name a human would type. */
+function findSubagent(agent, name) {
+  const needle = String(name ?? "").trim().toLowerCase();
+  return agent.subagents.find((s) => s.name.toLowerCase() === needle) ?? null;
 }
 
 function die(message) {
@@ -101,19 +155,61 @@ async function loadSpec() {
   return token ? fetchSpec(token) : loadLocalSpec();
 }
 
+function componentLines(list) {
+  if (!list.length) return "- (none)";
+  return list.map((s) => `- ${s.name}${refOf(s) ? ` (${refOf(s)})` : ""}`).join("\n");
+}
+
+/**
+ * The delegation roster. Naming the specialists *and* what each one carries is
+ * the whole point: a model told only that "Reviewer" exists will guess at what
+ * to send it, and guess wrong.
+ */
+function rosterText(a) {
+  if (!a.subagents.length) return null;
+  const rows = a.subagents.map((s) => {
+    const tools = s.skills.length
+      ? s.skills.map((c) => c.name).join(", ")
+      : "no components of its own";
+    return `- **${s.name}** — ${s.role}. Carries: ${tools}.`;
+  });
+  return [
+    "## Subagents you can delegate to",
+    "",
+    ...rows,
+    "",
+    "Hand a task to the specialist that owns the components for it rather than",
+    "doing that work yourself. Ask for a specialist's full prompt with the",
+    "`activate_subagent` prompt or the `system_prompt` tool.",
+  ].join("\n");
+}
+
 function personaText(a) {
-  const skills = a.skills.length
-    ? a.skills.map((s) => `- ${s.name}${s.repo ? ` (${s.repo})` : ""}`).join("\n")
-    : "- (none)";
+  const roster = rosterText(a);
   return [
     `You are "${a.name}", ${a.role}.`,
     "",
     a.system,
     "",
-    "## Skills in scope",
-    skills,
+    "## Components in scope",
+    componentLines(a.own),
+    ...(roster ? ["", roster] : []),
     "",
     `Preferred model: ${a.model} · temperature: ${a.temperature}`,
+  ].join("\n");
+}
+
+function subagentText(a, s) {
+  return [
+    `You are "${s.name}", ${s.role}.`,
+    `You are a specialist working under "${s.parent ?? a.name}".`,
+    "",
+    s.system || "(no system prompt was set for this specialist)",
+    "",
+    "## Components in scope",
+    componentLines(s.skills),
+    "",
+    `Preferred model: ${s.model} · temperature: ${s.temperature}`,
   ].join("\n");
 }
 
@@ -137,6 +233,38 @@ server.registerPrompt(
   }),
 );
 
+// Registered only when there is something to activate: an empty picker entry
+// in every client's prompt list is worse than no entry at all.
+if (agent.subagents.length) {
+  server.registerPrompt(
+    "activate_subagent",
+    {
+      title: "Activate a subagent",
+      description: `Load one specialist's persona. One of: ${agent.subagents.map((s) => s.name).join(", ")}`,
+      argsSchema: { name: z.string().describe("The specialist's name.") },
+    },
+    async ({ name }) => {
+      const sub = findSubagent(agent, name);
+      if (!sub) {
+        return {
+          messages: [
+            {
+              role: "user",
+              content: {
+                type: "text",
+                text: `No subagent named "${name}". Available: ${agent.subagents.map((s) => s.name).join(", ")}`,
+              },
+            },
+          ],
+        };
+      }
+      return {
+        messages: [{ role: "user", content: { type: "text", text: subagentText(agent, sub) } }],
+      };
+    },
+  );
+}
+
 // ---- resources ----
 server.registerResource(
   "agent-spec",
@@ -150,9 +278,28 @@ server.registerResource(
 server.registerResource(
   "agent-skills",
   "agent://skills",
-  { title: "Agent skills", description: "Picked skills (name + owner/repo)", mimeType: "application/json" },
+  {
+    title: "Agent skills",
+    description: "Every component in the agent (name + owner/repo), flat",
+    mimeType: "application/json",
+  },
   async (uri) => ({
     contents: [{ uri: uri.href, mimeType: "application/json", text: JSON.stringify(agent.skills, null, 2) }],
+  }),
+);
+
+server.registerResource(
+  "agent-subagents",
+  "agent://subagents",
+  {
+    title: "Subagents",
+    description: "The delegation tree: each specialist, its parent and its components",
+    mimeType: "application/json",
+  },
+  async (uri) => ({
+    contents: [
+      { uri: uri.href, mimeType: "application/json", text: JSON.stringify(agent.subagents, null, 2) },
+    ],
   }),
 );
 
@@ -169,7 +316,16 @@ server.registerTool(
       {
         type: "text",
         text: JSON.stringify(
-          { name: agent.name, role: agent.role, model: agent.model, temperature: agent.temperature, skillCount: agent.skills.length },
+          {
+            name: agent.name,
+            role: agent.role,
+            model: agent.model,
+            temperature: agent.temperature,
+            specVersion: agent.version,
+            skillCount: agent.skills.length,
+            ownSkillCount: agent.own.length,
+            subagentCount: agent.subagents.length,
+          },
           null,
           2,
         ),
@@ -180,20 +336,92 @@ server.registerTool(
 
 server.registerTool(
   "list_skills",
-  { title: "List skills", description: "The agent's skills as name + owner/repo.", inputSchema: {} },
+  {
+    title: "List skills",
+    description:
+      "Components as name + owner/repo. Pass `agent` to scope it to the orchestrator or one specialist; omit it for every component in the agent.",
+    inputSchema: {
+      agent: z
+        .string()
+        .optional()
+        .describe("Agent name to scope to. Omit for all components."),
+    },
+  },
+  async ({ agent: scope }) => {
+    if (!scope) return { content: [{ type: "text", text: JSON.stringify(agent.skills, null, 2) }] };
+    if (scope.toLowerCase() === agent.name.toLowerCase()) {
+      return { content: [{ type: "text", text: JSON.stringify(agent.own, null, 2) }] };
+    }
+    const sub = findSubagent(agent, scope);
+    if (!sub) {
+      const known = [agent.name, ...agent.subagents.map((s) => s.name)].join(", ");
+      return {
+        isError: true,
+        content: [{ type: "text", text: `No agent named "${scope}". Known: ${known}` }],
+      };
+    }
+    return { content: [{ type: "text", text: JSON.stringify(sub.skills, null, 2) }] };
+  },
+);
+
+server.registerTool(
+  "list_subagents",
+  {
+    title: "List subagents",
+    description: "The specialists this agent can delegate to, and what each one carries.",
+    inputSchema: {},
+  },
   async () => ({
-    content: [{ type: "text", text: JSON.stringify(agent.skills, null, 2) }],
+    content: [
+      {
+        type: "text",
+        text: agent.subagents.length
+          ? JSON.stringify(
+              agent.subagents.map((s) => ({
+                name: s.name,
+                role: s.role,
+                parent: s.parent,
+                depth: s.depth,
+                skills: s.skills.map((c) => ({ name: c.name, ref: refOf(c) })),
+              })),
+              null,
+              2,
+            )
+          : "[]",
+      },
+    ],
   }),
 );
 
 server.registerTool(
   "system_prompt",
-  { title: "System prompt", description: "The agent's raw system prompt.", inputSchema: {} },
-  async () => ({
-    content: [{ type: "text", text: agent.system || "(empty)" }],
-  }),
+  {
+    title: "System prompt",
+    description:
+      "A raw system prompt. Pass `agent` to get one specialist's; omit it for the orchestrator's.",
+    inputSchema: {
+      agent: z.string().optional().describe("Specialist name. Omit for the orchestrator."),
+    },
+  },
+  async ({ agent: scope }) => {
+    if (!scope || scope.toLowerCase() === agent.name.toLowerCase()) {
+      return { content: [{ type: "text", text: agent.system || "(empty)" }] };
+    }
+    const sub = findSubagent(agent, scope);
+    if (!sub) {
+      const known = [agent.name, ...agent.subagents.map((s) => s.name)].join(", ");
+      return {
+        isError: true,
+        content: [{ type: "text", text: `No agent named "${scope}". Known: ${known}` }],
+      };
+    }
+    return { content: [{ type: "text", text: sub.system || "(empty)" }] };
+  },
 );
 
 const transport = new StdioServerTransport();
 await server.connect(transport);
-process.stderr.write(`[manudev.jsx/agents] serving "${agent.name}" (${agent.skills.length} skills)\n`);
+process.stderr.write(
+  `[manudev.jsx/agents] serving "${agent.name}" — ${agent.skills.length} components, ` +
+    `${agent.subagents.length} subagents (spec v${agent.version})\n`,
+);

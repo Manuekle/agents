@@ -22,7 +22,9 @@ export default function NewAgentPage() {
             <Panel className="p-6 h-full flex flex-col">
               <Badge tone="coral">AI-assisted</Badge>
               <div className="grain mascot-stage relative pixel-border-sm p-6 my-4 self-center">
-                <Mascot state="wizard" size={96} />
+                {/* Static: the two cards are equal choices, so animating both
+                    just makes the page fidget instead of pointing anywhere. */}
+                <Mascot state="wizard" size={96} animate={false} />
               </div>
               <h2 className="font-sans font-bold text-lg">Onboarding</h2>
               <p className="font-mono text-xs text-muted mt-1.5 leading-relaxed flex-1">
@@ -41,7 +43,7 @@ export default function NewAgentPage() {
             <Panel className="p-6 h-full flex flex-col">
               <Badge>Manual</Badge>
               <div className="grain mascot-stage relative pixel-border-sm p-6 my-4 self-center">
-                <Mascot state="working" size={96} />
+                <Mascot state="working" size={96} animate={false} />
               </div>
               <h2 className="font-sans font-bold text-lg">Custom</h2>
               <p className="font-mono text-xs text-muted mt-1.5 leading-relaxed flex-1">

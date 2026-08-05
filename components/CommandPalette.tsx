@@ -6,6 +6,8 @@ import { clsx } from "@/lib/clsx";
 import { copyText } from "@/lib/copy";
 import { KIND_META, kindOfArg } from "@/lib/aitmpl";
 import { PALETTE_OPEN_EVENT } from "@/lib/palette";
+import { DEMO_PATH, requiresAccount } from "@/lib/access";
+import { useSignedIn } from "@/lib/use-auth";
 import type { Skill } from "@/lib/types";
 
 // One search box over everything the app can reach: the pages, and both
@@ -41,6 +43,7 @@ function page(id: string, label: string, href: string, detail: string): PageRow 
 
 const PAGES: PageRow[] = [
   page("p-home", "Home", "/", "landing"),
+  page("p-demo", "Demo", DEMO_PATH, "watch an agent get built"),
   page("p-new", "New agent", "/new", "choose a starting point"),
   page("p-onboarding", "Onboarding", "/onboarding", "AI-assisted draft"),
   page("p-build", "Build", "/build", "the composer"),
@@ -49,10 +52,29 @@ const PAGES: PageRow[] = [
   page("p-pricing", "Pricing", "/pricing", "plans"),
 ];
 
-function matchPages(q: string): PageRow[] {
+/**
+ * The page list as it stands for this visitor. Gated rows keep their place and
+ * their name — dropping them would make ⌘K answer "no such page" for a page
+ * that plainly exists — but they say what they need and go to the demo, the
+ * same as the nav and the footer.
+ */
+function pagesFor(guest: boolean): PageRow[] {
+  if (!guest) return PAGES;
+  return PAGES.map((p) =>
+    requiresAccount(p.href)
+      ? {
+          ...p,
+          detail: `${p.detail} · needs an account`,
+          href: `${DEMO_PATH}?from=${encodeURIComponent(p.href)}`,
+        }
+      : p,
+  );
+}
+
+function matchPages(pages: PageRow[], q: string): PageRow[] {
   const needle = q.toLowerCase();
-  if (!needle) return PAGES;
-  return PAGES.filter(
+  if (!needle) return pages;
+  return pages.filter(
     (p) => p.label.toLowerCase().includes(needle) || p.detail.toLowerCase().includes(needle),
   );
 }
@@ -75,9 +97,20 @@ function toRow(s: Skill, kindLabel: string): ComponentRow {
   };
 }
 
+// Must match --modal-close-dur. The palette stays mounted for this long after
+// close() so the exit transition has something to run on.
+const CLOSE_MS = 150;
+
 export function CommandPalette() {
   const router = useRouter();
+  const guest = useSignedIn() === false;
   const [open, setOpen] = useState(false);
+  // `open` means mounted; `shown` drives .is-open, and is flipped a frame
+  // later so the browser has a starting state to transition from. `closing`
+  // is the window between the exit starting and the unmount.
+  const [shown, setShown] = useState(false);
+  const [closing, setClosing] = useState(false);
+  const closeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [q, setQ] = useState("");
   const [rows, setRows] = useState<Row[]>(PAGES);
   // The query `rows` was computed for. Typing is debounced, so between a
@@ -96,21 +129,72 @@ export function CommandPalette() {
 
   // ---- open / close -------------------------------------------------------
 
+  // The ⌘K listener is bound once; this lets it read the live open state
+  // without re-binding on every toggle.
+  const openRef = useRef(false);
+  openRef.current = open && !closing;
+
+  // Cancels any exit in flight, so re-opening mid-close resumes rather than
+  // fighting the timer that is about to unmount the panel.
+  const openNow = useCallback(() => {
+    if (closeTimer.current) {
+      clearTimeout(closeTimer.current);
+      closeTimer.current = null;
+      setClosing(false);
+    }
+    setOpen(true);
+  }, []);
+
+  const close = useCallback(() => {
+    // Guard re-entry: Escape twice, or a backdrop click landing mid-exit,
+    // would otherwise restart the timer and strand the overlay.
+    if (closeTimer.current) return;
+    setShown(false);
+    setClosing(true);
+    closeTimer.current = setTimeout(() => {
+      closeTimer.current = null;
+      setOpen(false);
+      setClosing(false);
+      // Reset only once it is gone — clearing the query while the panel is
+      // still on screen flashes the page list during the exit.
+      setQ("");
+      setRows(PAGES);
+      setRowsQuery("");
+      setActive(0);
+    }, CLOSE_MS);
+  }, []);
+
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
         e.preventDefault();
-        setOpen((v) => !v);
+        if (openRef.current) close();
+        else openNow();
       }
     };
-    const onOpen = () => setOpen(true);
     document.addEventListener("keydown", onKey);
-    window.addEventListener(PALETTE_OPEN_EVENT, onOpen);
+    window.addEventListener(PALETTE_OPEN_EVENT, openNow);
     return () => {
       document.removeEventListener("keydown", onKey);
-      window.removeEventListener(PALETTE_OPEN_EVENT, onOpen);
+      window.removeEventListener(PALETTE_OPEN_EVENT, openNow);
     };
-  }, []);
+  }, [close, openNow]);
+
+  // Enter: mount at scale(--modal-scale)/opacity 0, then add .is-open on the
+  // next frame. Flipping both in one paint gives the browser no start state
+  // and the transition never runs.
+  useEffect(() => {
+    if (!open || closing) return;
+    const id = requestAnimationFrame(() => setShown(true));
+    return () => cancelAnimationFrame(id);
+  }, [open, closing]);
+
+  useEffect(
+    () => () => {
+      if (closeTimer.current) clearTimeout(closeTimer.current);
+    },
+    [],
+  );
 
   useEffect(() => {
     if (!open) return;
@@ -174,7 +258,7 @@ export function CommandPalette() {
 
   const search = useCallback(async (query: string) => {
     const mine = ++token.current;
-    const pages = matchPages(query);
+    const pages = matchPages(pagesFor(guest), query);
 
     if (query.trim().length < 2) {
       setRows(pages);
@@ -213,7 +297,7 @@ export function CommandPalette() {
     setRowsQuery(query);
     setActive(0);
     setBusy(false);
-  }, []);
+  }, [guest]);
 
   // True while the visible list still answers an older query.
   const stale = rowsQuery !== q;
@@ -225,14 +309,6 @@ export function CommandPalette() {
   }, [q, open, search]);
 
   // ---- activation ---------------------------------------------------------
-
-  const close = () => {
-    setOpen(false);
-    setQ("");
-    setRows(PAGES);
-    setRowsQuery("");
-    setActive(0);
-  };
 
   const choose = async (row: Row) => {
     if (row.kind === "page") {
@@ -305,14 +381,26 @@ export function CommandPalette() {
         role="dialog"
         aria-modal="true"
         aria-label="Command palette"
-        className="fixed inset-0 z-50 flex items-start justify-center pt-[12vh] px-4 bg-ink/40 backdrop-blur-sm overscroll-contain"
+        className={clsx(
+          "fixed inset-0 z-50 flex items-start justify-center pt-[12vh] px-4 overscroll-contain",
+          "t-modal-backdrop",
+          shown && "is-open",
+          closing && "is-closing",
+        )}
         onMouseDown={(e) => {
           // mousedown, not click: a drag that starts inside the panel and ends
           // on the backdrop would otherwise close it mid-selection.
           if (e.target === e.currentTarget) close();
         }}
       >
-      <div className="w-full max-w-xl border-2 border-line bg-paper" onKeyDown={onKeyDown}>
+      <div
+        className={clsx(
+          "w-full max-w-xl border-2 border-line bg-paper t-modal",
+          shown && "is-open",
+          closing && "is-closing",
+        )}
+        onKeyDown={onKeyDown}
+      >
         <div className="flex items-center gap-2 border-b-2 border-line px-3">
           <span className="font-mono text-[10px] text-muted shrink-0">›</span>
           <input

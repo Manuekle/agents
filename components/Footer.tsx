@@ -1,16 +1,23 @@
 "use client";
 
 import Link from "next/link";
-import { PoweredBy } from "@/components/Nav";
 import { GitHubStars } from "@/components/GitHubStars";
-import { StarIcon, StarOutlineIcon, GitHubIcon } from "@/components/icons";
+import { DitherGradient } from "@/components/dither-kit/gradient";
+import { StarIcon, StarOutlineIcon, GitHubIcon, HeartIcon } from "@/components/icons";
 import { SITE, fmtCount } from "@/lib/site";
 import { useStars } from "@/lib/stars";
+import { DEMO_PATH, requiresAccount } from "@/lib/access";
+import { useSignedIn } from "@/lib/use-auth";
+
+// --coral is #ef5c47; the gradient takes a hue and rebuilds the fill at fixed
+// saturation/lightness, and 8° lands on rgb(239,81,57).
+const CORAL_HUE = 8;
 
 const COLS: { title: string; links: { label: string; href: string; external?: boolean }[] }[] = [
   {
     title: "Build",
     links: [
+      { label: "Demo", href: DEMO_PATH },
       { label: "New agent", href: "/new" },
       { label: "Onboarding", href: "/onboarding" },
       { label: "Composer", href: "/build" },
@@ -25,6 +32,7 @@ const COLS: { title: string; links: { label: string; href: string; external?: bo
       { label: "skills.sh", href: SITE.registry, external: true },
       { label: "npx skills", href: SITE.upstreamUrl, external: true },
       { label: "GitHub", href: SITE.githubUrl, external: true },
+      { label: "Sponsor", href: SITE.sponsorUrl, external: true },
     ],
   },
   {
@@ -53,7 +61,9 @@ function Rating() {
           ),
         )}
       </span>
-      <span className="font-mono text-[10px] text-muted">
+      {/* ink-soft, not muted: this line sits low in the block where the dither
+          wash is near full density, and 10px muted over it measures ~4.1:1. */}
+      <span className="font-mono text-[10px] text-ink-soft">
         {stars === null ? "—" : `${fmtCount(stars)} star${stars === 1 ? "" : "s"}`}
       </span>
     </div>
@@ -61,9 +71,26 @@ function Rating() {
 }
 
 export function Footer() {
+  // Same rule as the nav: signed out, a link to a gated page goes to the demo
+  // carrying where it was pointing. `null` means auth has not resolved yet and
+  // must not read as signed out.
+  const signedIn = useSignedIn();
+  const hrefFor = (href: string) =>
+    signedIn === false && requiresAccount(href)
+      ? `${DEMO_PATH}?from=${encodeURIComponent(href)}`
+      : href;
+
   return (
-    <footer className="mt-20 border-t-2 border-line bg-stone">
-      <div className="mx-auto max-w-6xl px-5 py-12 grid gap-10 md:grid-cols-[1.4fr_1fr_1fr_1fr]">
+    <footer className="relative mt-20 border-t-2 border-line bg-stone">
+      {/* Passed as a hue rather than the pack's "orange" seed: that one is
+          rgb(255,150,50), a brighter and cooler orange than this palette
+          owns, while hue 8 resolves to rgb(239,81,57) — within a few points
+          of --coral. It dissolves to transparent, so the stone underneath
+          carries dark mode with no second set of values. */}
+      <DitherGradient from={CORAL_HUE} direction="up" cell={5} opacity={0.22} />
+      {/* `relative` is required, not cosmetic: the canvas is positioned, so
+          a static sibling paints under it whatever the DOM order. */}
+      <div className="relative mx-auto max-w-6xl px-5 py-12 grid gap-10 md:grid-cols-[1.4fr_1fr_1fr_1fr]">
         {/* brand */}
         <div>
           <Link href="/" className="group inline-flex items-center gap-2">
@@ -107,11 +134,17 @@ export function Footer() {
                       className="font-mono text-xs text-ink-soft hover:text-coral-text transition-colors inline-flex items-center gap-1"
                     >
                       {l.label === "GitHub" && <GitHubIcon size={12} />}
-                      {l.label} <span className="text-muted">↗</span>
+                      {l.label === "Sponsor" && (
+                        <HeartIcon size={12} className="text-coral-text" />
+                      )}
+                      {/* Inherits the link's ink-soft instead of --muted: over
+                          the wash the muted glyph fell under 4.5:1, and the
+                          arrow moving with the hover colour reads better. */}
+                      {l.label} <span aria-hidden>↗</span>
                     </a>
                   ) : (
                     <Link
-                      href={l.href}
+                      href={hrefFor(l.href)}
                       className="font-mono text-xs text-ink-soft hover:text-coral-text transition-colors"
                     >
                       {l.label}
@@ -122,16 +155,6 @@ export function Footer() {
             </ul>
           </nav>
         ))}
-      </div>
-
-      {/* bottom bar */}
-      <div className="border-t-2 border-line">
-        <div className="mx-auto max-w-6xl px-5 py-4 flex flex-wrap items-center justify-between gap-3">
-          <span className="font-mono text-[10px] text-muted">
-            {SITE.name} © {new Date().getFullYear()}
-          </span>
-          <PoweredBy />
-        </div>
       </div>
     </footer>
   );

@@ -60,12 +60,15 @@ export function Tooltip({
             top: chart.tooltipTop,
             left: chart.tooltipLeft,
           }}
-          exit={{ opacity: 0 }}
+          exit={{ opacity: 0, transition: { duration: 0.15, ease: "easeOut", delay: 0 } }}
           transition={{
-            type: "spring",
-            stiffness: 520,
-            damping: 38,
-            mass: 0.6,
+            // Appear is gated by an 80ms intent delay so a cursor merely
+            // crossing the plot does not flash the tooltip. The exit above
+            // opts out of the delay — a dismissal has to feel immediate.
+            opacity: { duration: 0.15, ease: "easeOut", delay: 0.08 },
+            // Position keeps its own curve: while the tooltip is already up it
+            // is tracking the cursor, which is a position change, not an open.
+            default: { duration: 0.15, ease: [0.22, 1, 0.36, 1] },
           }}
           className={cn(
             "pointer-events-none absolute z-10 rounded-md border px-2 py-1 shadow-sm",

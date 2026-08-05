@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useEffect, useMemo, useState } from "react";
+import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Slider } from "@heroui/react";
 import { Nav, PoweredBy } from "@/components/Nav";
@@ -22,6 +22,7 @@ import {
 } from "@/components/ui";
 import { MASCOT_ORDER, MASCOTS, type MascotState } from "@/lib/mascot";
 import { SkillBrowser } from "@/components/SkillBrowser";
+import { AgentCanvas } from "@/components/canvas/AgentCanvas";
 import {
   TARGETS,
   agentRepos,
@@ -30,6 +31,30 @@ import {
   type AgentTarget,
   type PickedSkill,
 } from "@/lib/types";
+import {
+  addNode,
+  agentFromGraph,
+  componentNodeFor,
+  componentPicksFor,
+  componentsOf,
+  duplicateMany,
+  graphFromAgent,
+  graphIssues,
+  isAgentKind,
+  newSubagent,
+  nodeById,
+  nodeRef,
+  normalizeGraph,
+  orchestratorOf,
+  pickToNode,
+  removeNode,
+  slotUnder,
+  subagentsOf,
+  updateNode,
+  type AgentGraph,
+  type GraphNode,
+} from "@/lib/graph";
+import { useGraphHistory } from "@/lib/use-graph-history";
 import { saveAgent, useAgents, useStoreError } from "@/lib/store";
 import {
   exportAgent,
@@ -40,22 +65,24 @@ import {
   mcpServeCommand,
 } from "@/lib/export";
 import { copyText } from "@/lib/copy";
-import { componentId } from "@/lib/aitmpl";
 import { decodeAgent, encodeAgent, shareUrl } from "@/lib/share";
+import { AngleDownIcon, AngleLeftIcon, PaperclipIcon, PlusIcon, SaveIcon, ShareIcon } from "@/components/icons";
 
 // The tick is always in the DOM — it just sits at opacity 0 until `done`, so
 // the button keeps one width and never reflows as the check draws itself in.
+// The paperclip and the check are the same size, so swapping them on success
+// keeps that width promise.
 function CopyLabel({ done }: { done: boolean }) {
   return (
     <span className="inline-flex items-center gap-1">
-      <SuccessCheck shown={done} size={10} />
+      {done ? <SuccessCheck shown size={10} /> : <PaperclipIcon size={10} />}
       {done ? "Copied" : "Copy"}
     </span>
   );
 }
 
 function newAgent(): Agent {
-  return {
+  const base: Agent = {
     id: `agent-${Date.now().toString(36)}`,
     name: "Untitled Agent",
     role: "general assistant",
@@ -68,6 +95,10 @@ function newAgent(): Agent {
     accent: "#f95c4b",
     createdAt: Date.now(),
   };
+  // Every agent in the composer has a graph from the first render. Making it
+  // optional in the type is about what is *stored*; making it optional in here
+  // would mean every canvas handler has to cope with there being no canvas.
+  return { ...base, graph: graphFromAgent(base) };
 }
 
 function Builder() {
@@ -84,12 +115,48 @@ function Builder() {
   const [previewState, setPreviewState] = useState<MascotState>("working");
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
   const [fromShare, setFromShare] = useState(false);
+  // Multi-select: the canvas can move, duplicate and delete several nodes at
+  // once. The first entry is the one the inspector below the canvas edits.
+  const [selection, setSelection] = useState<string[]>([]);
+  const selectedId = selection[0] ?? null;
+  const selectOne = useCallback((id: string | null) => setSelection(id ? [id] : []), []);
+  // Frozen graph: no moving, wiring, adding or deleting. Held here rather than
+  // inside the canvas so this page's own buttons grey out with it.
+  const [locked, setLocked] = useState(false);
+
+  // ---- graph ---------------------------------------------------------------
+
+  // `graph` is never absent here — newAgent, the store and the share decoder
+  // all normalize one in — but the field is optional on the record, so this is
+  // the single place that resolves it instead of a `!` at every use.
+  const graph: AgentGraph = agent.graph ?? graphFromAgent(agent);
+  const root = orchestratorOf(graph);
+
+  // The `Agent` record owns the graph, so the undo stack cannot: it snapshots
+  // either side of every canvas edit and hands the winner back through here.
+  // agentFromGraph is the only writer of name/prompt/model/skills — it mirrors
+  // the orchestrator node onto the record so the exports, the preview card and
+  // the share payload never read a stale copy of the same fields.
+  const applyGraph = useCallback((next: AgentGraph) => {
+    setAgent((a) => agentFromGraph(a, next));
+    setSaved(false);
+  }, []);
+  const history = useGraphHistory(graph, applyGraph);
+  const setGraph = history.commit;
+
+  // ---- loading -------------------------------------------------------------
 
   useEffect(() => {
-    if (editId) {
-      const found = agents.find((a) => a.id === editId);
-      if (found) setAgent(found);
-    }
+    if (!editId) return;
+    const found = agents.find((a) => a.id === editId);
+    // A stored agent may predate the canvas; normalizeGraph is what
+    // guarantees the rest of this component always has one to edit.
+    if (!found) return;
+    setAgent({ ...found, graph: normalizeGraph(found.graph, found) });
+    // A different agent is a different document. Its undo stack is not this
+    // one's, and ⌘Z must not walk backwards into the agent you just left.
+    history.reset();
+    setSelection([]);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [editId, agents.length]);
 
@@ -104,27 +171,98 @@ function Builder() {
     setAgent(decoded);
     setFromShare(true);
     setPreviewState("wizard");
+    history.reset();
+    setSelection([]);
     // Once the spec is in state the payload is noise in the address bar, and
     // leaving it there would re-apply on every back-navigation.
     router.replace("/build");
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [shared, editId]);
 
-  const set = <K extends keyof Agent>(k: K, v: Agent[K]) => {
-    setAgent((a) => ({ ...a, [k]: v }));
-    setSaved(false);
+  /**
+   * Which agent node the inspector and the component browser are pointed at.
+   * Selecting a component node keeps the panel on that component's owner, so
+   * clicking a skill to inspect it does not silently retarget where the next
+   * pick will land.
+   */
+  const activeAgentId = useMemo(() => {
+    const selected = nodeById(graph, selectedId);
+    if (selected && isAgentKind(selected.kind)) return selected.id;
+    if (selected) {
+      const owner = graph.edges.find((e) => e.to === selected.id)?.from;
+      const ownerNode = nodeById(graph, owner ?? null);
+      if (ownerNode && isAgentKind(ownerNode.kind)) return ownerNode.id;
+    }
+    return root?.id ?? "";
+  }, [graph, selectedId, root?.id]);
+
+  const activeNode = nodeById(graph, activeAgentId);
+  const editingRoot = activeNode?.kind === "orchestrator";
+
+  /** Edit whichever agent node is active — orchestrator or specialist. */
+  const patchActive = (patch: Partial<GraphNode>) => {
+    if (!activeAgentId) return;
+    // Tagged by field so a typed-out name is one undo step, not one per key.
+    setGraph(updateNode(graph, activeAgentId, patch), `patch:${activeAgentId}:${Object.keys(patch).join(",")}`);
   };
 
-  const toggleSkill = (s: PickedSkill) => {
-    setAgent((a) => ({
-      ...a,
-      skills: a.skills.some((x) => x.id === s.id)
-        ? a.skills.filter((x) => x.id !== s.id)
-        : [...a.skills, s],
-    }));
+  /**
+   * A new specialist under the active agent. `at` comes from a double-click or
+   * the canvas context menu, and puts the node where the pointer was rather
+   * than in the next free slot — the point of asking for one *there*.
+   */
+  const addSubagent = (at?: { x: number; y: number }) => {
+    const owner = activeNode ?? root;
+    if (!owner || locked) return;
+    const slot = at ?? slotUnder(graph, owner.id);
+    const node = newSubagent(owner, Math.round(slot.x), Math.round(slot.y));
+    setGraph(addNode(graph, node, owner.id));
+    setSelection([node.id]);
     setPreviewState("wizard");
-    setSaved(false);
   };
+
+  const deleteSelected = () => {
+    if (selection.length === 0 || locked) return;
+    let next = graph;
+    for (const id of selection) next = removeNode(next, id);
+    if (next === graph) return;
+    setGraph(next);
+    setSelection([]);
+  };
+
+  const duplicateSelected = () => {
+    if (locked) return;
+    const result = duplicateMany(graph, selection);
+    if (result.graph === graph) return;
+    setGraph(result.graph);
+    setSelection(result.ids);
+    setPreviewState("wizard");
+  };
+
+  // A pick toggles against the *active agent node*, not the agent as a whole:
+  // the point of the canvas is that a specialist carries only its own tools.
+  const toggleSkill = (s: PickedSkill) => {
+    // A pick is a node on the canvas, so the lock has to cover it too —
+    // otherwise "locked" would quietly mean "locked except this one door".
+    if (!activeAgentId || locked) return;
+    const existing = componentNodeFor(graph, activeAgentId, s.id);
+    if (existing) {
+      setGraph(removeNode(graph, existing.id));
+    } else {
+      const slot = slotUnder(graph, activeAgentId);
+      setGraph(addNode(graph, pickToNode(s, slot.x, slot.y), activeAgentId));
+    }
+    setPreviewState("wizard");
+  };
+
+  const activePicks = activeAgentId ? componentPicksFor(graph, activeAgentId) : [];
+  const activeComponents = activeAgentId ? componentsOf(graph, activeAgentId) : [];
+  const issues = useMemo(() => graphIssues(graph), [graph]);
+
+  // The orchestrator is the one node that cannot be duplicated or deleted, so
+  // a selection of only it leaves both buttons with nothing to do.
+  const canEditSelection =
+    !locked && selection.some((id) => nodeById(graph, id)?.kind !== "orchestrator");
 
   const output = useMemo(() => exportAgent(agent), [agent]);
   const install = useMemo(() => installCommand(agent), [agent]);
@@ -191,14 +329,11 @@ function Builder() {
             <h1 className="font-pixel text-xs sm:text-sm mb-1">AGENT_COMPOSER</h1>
             <PoweredBy />
           </div>
-          {/* Wraps because the three buttons are `whitespace-nowrap` and need
-              335px — more than a 320px viewport has once the page gutters are
-              taken out, which pushed "Save agent" off-screen and gave the whole
-              page a horizontal scrollbar. */}
+          {/* Wraps because both buttons are `whitespace-nowrap`: they need more
+              room than a 320px viewport has once the page gutters are taken
+              out, which pushed "Save agent" off-screen and gave the whole page
+              a horizontal scrollbar. */}
           <div className="flex flex-wrap gap-2">
-            <PixelButton variant="ghost" onClick={() => router.push("/")}>
-              ← Home
-            </PixelButton>
             <PixelButton
               variant="ghost"
               onClick={copyShareLink}
@@ -210,13 +345,13 @@ function Builder() {
               }
             >
               <span className="inline-flex items-center gap-1.5">
-                <SuccessCheck shown={copiedKey === "share"} size={12} />
+                {copiedKey === "share" ? <SuccessCheck shown size={12} /> : <ShareIcon size={12} />}
                 {copiedKey === "share" ? "Link copied" : "Share"}
               </span>
             </PixelButton>
             <PixelButton variant="coral" onClick={doSave}>
               <span className="inline-flex items-center gap-1.5">
-                <SuccessCheck shown={saved} size={12} />
+                {saved ? <SuccessCheck shown size={12} /> : <SaveIcon size={12} />}
                 {saved ? "Saved" : "Save agent"}
               </span>
             </PixelButton>
@@ -247,48 +382,160 @@ function Builder() {
         <div className="grid gap-6 lg:grid-cols-[1fr_340px]">
           {/* FORM */}
           <div className="space-y-5 min-w-0">
+            <AgentCanvas
+              graph={graph}
+              onChange={setGraph}
+              selection={selection}
+              onSelectionChange={setSelection}
+              onAddSubagent={addSubagent}
+              locked={locked}
+              onLockedChange={setLocked}
+              history={history}
+              className="h-[520px]"
+              toolbar={
+                <>
+                  <PixelButton
+                    variant="ghost"
+                    onClick={() => addSubagent()}
+                    disabled={locked}
+                    className="!px-2 !py-0.5 !text-[9px]"
+                    title={
+                      locked
+                        ? "Canvas is locked"
+                        : `Add a specialist under ${activeNode?.name ?? "the orchestrator"}`
+                    }
+                  >
+                    <span className="inline-flex items-center gap-1">
+                      <PlusIcon size={10} />
+                      subagent
+                    </span>
+                  </PixelButton>
+                  <PixelButton
+                    variant="ghost"
+                    onClick={duplicateSelected}
+                    disabled={!canEditSelection}
+                    className="!px-2 !py-0.5 !text-[9px]"
+                    title="Duplicate the selection, components and all (⌘D)"
+                  >
+                    duplicate
+                  </PixelButton>
+                  <PixelButton
+                    variant="ghost"
+                    onClick={deleteSelected}
+                    disabled={!canEditSelection}
+                    className="!px-2 !py-0.5 !text-[9px]"
+                    title="Delete the selected nodes and everything under them"
+                  >
+                    delete
+                  </PixelButton>
+                </>
+              }
+            />
+
+            {/* Structural problems, not validation errors: the agent still
+                exports, it just would not do what the canvas shows. */}
+            {issues.length > 0 && (
+              <Panel className="p-3">
+                <div className="font-pixel text-[9px] uppercase text-muted mb-1.5">
+                  {issues.length} thing{issues.length === 1 ? "" : "s"} to wire up
+                </div>
+                <ul className="space-y-1">
+                  {/* Indexed: two specialists both left unnamed produce the
+                      same sentence, and the message is the only identity a
+                      plain string key would have. */}
+                  {issues.map((issue, i) => (
+                    <li key={`${i}-${issue}`} className="font-mono text-[10px] text-ink-soft leading-snug">
+                      — {issue}
+                    </li>
+                  ))}
+                </ul>
+              </Panel>
+            )}
+
             <Panel className="p-5 space-y-4">
+              {/* Which node the panel is pointed at. Without this the same
+                  fields silently mean two different things depending on what
+                  is selected on the canvas. */}
+              <div className="flex items-center justify-between gap-2">
+                <span className="font-pixel text-[10px] uppercase">
+                  {editingRoot ? "Orchestrator" : "Subagent"}
+                </span>
+                {!editingRoot && (
+                  <button
+                    onClick={() => selectOne(root?.id ?? null)}
+                    className="font-mono text-[10px] px-2 py-0.5 border-2 border-line bg-paper hover:bg-stone transition-colors cursor-pointer"
+                  >
+                    <span className="inline-flex items-center gap-1">
+                      <AngleLeftIcon size={10} />
+                      back to orchestrator
+                    </span>
+                  </button>
+                )}
+              </div>
+
               <div className="grid sm:grid-cols-2 gap-4">
                 <Field label="Name">
                   <TextInput
-                    value={agent.name}
+                    value={activeNode?.name ?? ""}
                     onFocus={() => setPreviewState("thinking")}
-                    onChange={(e) => set("name", e.target.value)}
+                    onChange={(e) => patchActive({ name: e.target.value })}
                   />
                 </Field>
                 <Field label="Role">
                   <TextInput
-                    value={agent.role}
+                    value={activeNode?.role ?? ""}
                     onFocus={() => setPreviewState("thinking")}
-                    onChange={(e) => set("role", e.target.value)}
+                    onChange={(e) => patchActive({ role: e.target.value })}
                   />
                 </Field>
               </div>
-              <Field label="System prompt" hint={`${agent.systemPrompt.length} chars`}>
+              <Field
+                label="System prompt"
+                hint={`${(activeNode?.systemPrompt ?? "").length} chars`}
+              >
                 <TextArea
                   rows={5}
-                  value={agent.systemPrompt}
+                  value={activeNode?.systemPrompt ?? ""}
                   onFocus={() => setPreviewState("working")}
-                  onChange={(e) => set("systemPrompt", e.target.value)}
+                  onChange={(e) => patchActive({ systemPrompt: e.target.value })}
                 />
               </Field>
             </Panel>
 
             <Panel className="p-5 space-y-4">
-              <Field label="Target tool" hint={TARGETS.find((t) => t.id === agent.target)?.hint}>
+              {/* Target is a property of the export, not of a node: one repo
+                  gets one CLAUDE.md, and every specialist in it is described
+                  by that same file. Only the orchestrator offers it. */}
+              <Field
+                group
+                label="Target tool"
+                hint={
+                  editingRoot
+                    ? TARGETS.find((t) => t.id === agent.target)?.hint
+                    : "set on the orchestrator — one export, one tool"
+                }
+              >
                 <Segmented<AgentTarget>
                   options={TARGETS.map((t) => ({ id: t.id, label: t.label }))}
                   value={agent.target}
                   onChange={(v) => {
                     // Switching tools can strand the model on one the new tool
                     // can't run (Opus 5 under Gemini CLI), so fall back to the
-                    // new tool's first option when that happens.
+                    // new tool's first option when that happens. Every node is
+                    // checked, not just the root: a specialist left on a model
+                    // the new CLI cannot drive is the same bug, one level down.
                     const allowed = modelsFor(v);
-                    setAgent((a) => ({
-                      ...a,
-                      target: v,
-                      model: allowed.some((m) => m.id === a.model) ? a.model : allowed[0].id,
-                    }));
+                    const ok = (m: string | undefined) => !!m && allowed.some((x) => x.id === m);
+                    setAgent((a) => {
+                      const g = a.graph ?? graphFromAgent(a);
+                      const fixed: AgentGraph = {
+                        ...g,
+                        nodes: g.nodes.map((n) =>
+                          isAgentKind(n.kind) && !ok(n.model) ? { ...n, model: allowed[0].id } : n,
+                        ),
+                      };
+                      return agentFromGraph({ ...a, target: v }, fixed);
+                    });
                     setSaved(false);
                   }}
                 />
@@ -303,19 +550,25 @@ function Builder() {
                       hint: m.vendor,
                       icon: <VendorMark vendor={m.vendor} />,
                     }))}
-                    value={agent.model}
-                    onChange={(v) => set("model", v)}
+                    value={activeNode?.model ?? agent.model}
+                    onChange={(v) => patchActive({ model: v })}
                   />
                 </Field>
-                <Field label="Temperature" hint={agent.temperature.toFixed(2)}>
+                <Field
+                  group
+                  label="Temperature"
+                  hint={(activeNode?.temperature ?? agent.temperature).toFixed(2)}
+                >
                   <Slider
                     aria-label="Temperature"
                     className="heroui-brand w-full"
                     maxValue={1}
                     minValue={0}
                     step={0.05}
-                    value={agent.temperature}
-                    onChange={(v) => set("temperature", Array.isArray(v) ? v[0] : v)}
+                    value={activeNode?.temperature ?? agent.temperature}
+                    onChange={(v) =>
+                      patchActive({ temperature: Array.isArray(v) ? v[0] : v })
+                    }
                   >
                     <Slider.Track>
                       <Slider.Fill />
@@ -328,18 +581,18 @@ function Builder() {
 
             {/* MASCOT PICKER */}
             <Panel className="p-5">
-              <Field label="Mascot" hint="state animation on the card">
+              <Field group label="Mascot" hint="state animation on the card">
                 <div className="grid grid-cols-5 sm:grid-cols-10 gap-2 mt-1">
                   {MASCOT_ORDER.map((s) => (
                     <button
                       key={s}
                       title={MASCOTS[s].label}
                       onClick={() => {
-                        set("mascot", s);
+                        patchActive({ mascot: s });
                         setPreviewState(s);
                       }}
-                      className={`mascot-stage relative overflow-hidden aspect-square grid place-items-center border-2 transition-[border-color,box-shadow] duration-150 ${
-                        agent.mascot === s
+                      className={`mascot-stage relative overflow-hidden aspect-square grid place-items-center border-2 cursor-pointer transition-[border-color,box-shadow] duration-150 outline-none focus-visible:border-coral focus-visible:shadow-[0_0_0_2px_var(--coral)] ${
+                        activeNode?.mascot === s
                           ? "border-coral shadow-[0_0_0_2px_var(--coral)]"
                           : "border-line hover:border-ink-soft"
                       }`}
@@ -353,27 +606,46 @@ function Builder() {
 
             {/* COMPONENTS — live search of skills.sh + the aitmpl catalog */}
             <Panel className="p-5">
-              <div className="flex items-center justify-between mb-3">
+              <div className="flex items-center justify-between gap-2 mb-1">
                 <span className="font-pixel text-[10px] uppercase">Components</span>
-                <Badge tone="coral">{agent.skills.length} selected</Badge>
+                <Badge tone="coral">{activeComponents.length} on this agent</Badge>
               </div>
+              {/* Says where a pick lands. On a graph with specialists this is
+                  the difference between arming the orchestrator and arming the
+                  one subagent that should own the tool. */}
+              <p className="font-mono text-[10px] text-muted mb-3">
+                {locked ? (
+                  <>canvas is locked — unlock it to add or remove components</>
+                ) : (
+                  <>
+                    picks attach to <b>{activeNode?.name ?? "—"}</b>
+                    {agent.skills.length !== activeComponents.length && (
+                      <> · {agent.skills.length} across the whole graph</>
+                    )}
+                  </>
+                )}
+              </p>
 
-              {agent.skills.length > 0 && (
+              {activeComponents.length > 0 && (
                 <div className="flex flex-wrap gap-1.5 mb-3">
-                  {agent.skills.map((s) => (
+                  {activeComponents.map((n) => (
                     <button
-                      key={s.id}
-                      onClick={() => toggleSkill(s)}
-                      title={`remove ${s.repo ?? componentId(s.installArg) ?? s.name}`}
-                      className="inline-flex items-center gap-1 font-mono text-[10px] px-2 py-0.5 border-2 border-line bg-fill text-on-fill hover:bg-coral-text transition-colors"
+                      key={n.id}
+                      disabled={locked}
+                      onClick={() => {
+                        setGraph(removeNode(graph, n.id));
+                        setPreviewState("wizard");
+                      }}
+                      title={locked ? "Canvas is locked" : `remove ${nodeRef(n)}`}
+                      className="inline-flex items-center gap-1 font-mono text-[10px] px-2 py-0.5 border-2 border-line bg-fill text-on-fill hover:bg-coral-text transition-colors disabled:opacity-50 disabled:pointer-events-none"
                     >
-                      {s.name} <span className="opacity-70">✕</span>
+                      {n.name} <span className="opacity-70">✕</span>
                     </button>
                   ))}
                 </div>
               )}
 
-              <SkillBrowser selected={agent.skills} onToggle={toggleSkill} />
+              <SkillBrowser selected={activePicks} onToggle={toggleSkill} />
             </Panel>
           </div>
 
@@ -385,11 +657,19 @@ function Builder() {
               </div>
               <div className="mt-3 font-sans font-bold truncate">{agent.name}</div>
               <div className="font-mono text-[11px] text-muted truncate">{agent.role}</div>
-              <div className="flex items-center justify-center gap-1.5 mt-2 font-mono text-[10px] text-muted dots">
-                <span>{MASCOTS[previewState].blurb}</span>
-                <span>.</span>
-                <span>.</span>
-                <span>.</span>
+              <div className="flex items-center justify-center gap-1.5 mt-2">
+                <Badge>{subagentsOf(graph).length} subagents</Badge>
+                <Badge>{agent.skills.length} components</Badge>
+              </div>
+              {/* Status line — the shimmer sweep replaces the old staggered
+                  dots, which stuttered at 1.4s with three delayed copies. */}
+              <div className="flex items-center justify-center mt-2 font-mono text-[10px] text-muted">
+                <span
+                  className="t-shimmer"
+                  data-text={MASCOTS[previewState].blurb}
+                >
+                  {MASCOTS[previewState].blurb}
+                </span>
               </div>
             </Panel>
 
@@ -457,10 +737,16 @@ function Builder() {
                     disabled={repos.length === 0}
                     className="w-full"
                   >
-                    ↓ .skills.json
+                    <span className="inline-flex items-center gap-1">
+                      <AngleDownIcon size={12} />
+                      .skills.json
+                    </span>
                   </PixelButton>
                   <PixelButton variant="ghost" onClick={downloadAgent} className="w-full">
-                    ↓ agent.json
+                    <span className="inline-flex items-center gap-1">
+                      <AngleDownIcon size={12} />
+                      agent.json
+                    </span>
                   </PixelButton>
                 </div>
                 <p className="font-mono text-[9px] text-muted leading-relaxed">

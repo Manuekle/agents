@@ -29,7 +29,7 @@ function Reel({ digit, index, play }: { digit: string; index: number; play: bool
     strip.style.transition = "none";
     strip.style.transform = "translateY(0)";
     void strip.offsetHeight; // reflow, or the tween has nothing to start from
-    strip.style.transition = `transform var(--reel-dur) var(--reel-ease) ${index * 80}ms`;
+    strip.style.transition = `transform var(--reel-dur) var(--reel-ease) calc(var(--reel-stagger) * ${index})`;
     strip.style.transform = `translateY(-${(spins * 10 + target) * cell}px)`;
   }, [digit, index, play]);
 

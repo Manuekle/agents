@@ -218,7 +218,7 @@ export function BarCanvas() {
         className="pointer-events-none absolute"
         style={{
           ...pos,
-          transition: "opacity 220ms ease",
+          transition: "opacity 220ms cubic-bezier(0.22, 1, 0.36, 1)",
           ...(bloom ?? { opacity: 0 }),
         }}
       />

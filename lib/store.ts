@@ -2,12 +2,17 @@
 
 import { useSyncExternalStore } from "react";
 import type { Agent } from "./types";
+import { normalizeGraph } from "./graph";
 import { supabaseBrowser } from "./supabase/client";
 
-// Agents live in Supabase once you sign in and in localStorage until then, so
-// the composer works with no account at all. Reads stay synchronous either
-// way: the DB hydrates into the same in-memory cache the local path uses, and
-// writes update the cache first and persist after.
+// Agents live in Supabase. Reads stay synchronous: the DB hydrates into an
+// in-memory cache, and writes update the cache first and persist after.
+//
+// The localStorage half is now a migration path rather than a way to work.
+// The composer needs an account (see lib/access.ts), so nothing new is written
+// locally — but agents composed before that was true are still sitting in
+// people's browsers, and the upsert in applyUser below is what carries them
+// into the account on first sign-in. Removing it would strand them.
 
 const KEY = "agents-dev:agents";
 const listeners = new Set<() => void>();
@@ -44,13 +49,14 @@ type Row = {
   model: string;
   temperature: number;
   skills: Agent["skills"];
+  graph: unknown;
   mascot: string;
   accent: string;
   created_at: string;
 };
 
 function toAgent(r: Row): Agent {
-  return {
+  const base: Agent = {
     id: r.id,
     name: r.name,
     role: r.role,
@@ -63,6 +69,10 @@ function toAgent(r: Row): Agent {
     accent: r.accent,
     createdAt: new Date(r.created_at).getTime(),
   };
+  // Rows written before the canvas existed have no graph; normalizeGraph
+  // builds one from the flat picks rather than the app having to branch on
+  // "does this agent have a structure yet" everywhere downstream.
+  return { ...base, graph: normalizeGraph(r.graph, base) };
 }
 
 function toRow(a: Agent, uid: string) {
@@ -76,6 +86,7 @@ function toRow(a: Agent, uid: string) {
     model: a.model,
     temperature: a.temperature,
     skills: a.skills,
+    graph: a.graph ?? null,
     mascot: a.mascot,
     accent: a.accent,
     created_at: new Date(a.createdAt).toISOString(),
@@ -88,7 +99,10 @@ function readLocal(): Agent[] {
   if (typeof window === "undefined") return EMPTY;
   try {
     const parsed = JSON.parse(localStorage.getItem(KEY) ?? "[]");
-    return Array.isArray(parsed) && parsed.length > 0 ? parsed : EMPTY;
+    if (!Array.isArray(parsed) || parsed.length === 0) return EMPTY;
+    // Same reason as toAgent: anything saved before the canvas has no graph,
+    // and localStorage is where most first-time agents live.
+    return (parsed as Agent[]).map((a) => ({ ...a, graph: normalizeGraph(a.graph, a) }));
   } catch {
     return EMPTY;
   }

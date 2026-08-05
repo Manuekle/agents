@@ -381,7 +381,13 @@ html::-webkit-scrollbar-corner {
   --burst-size: 3px;
   --burst-dur: 600ms;
   --pop-dur: 350ms;
-  --pop-ease: cubic-bezier(0.34, 1.96, 0.64, 1);
+  --pop-ease: cubic-bezier(0.34, 1.36, 0.64, 1);
+
+  /* heart like (sponsor) — same burst, springier pop than the star so the
+     fill lands with a little overshoot */
+  --like-fill: 150ms;
+  --like-pop-ease: cubic-bezier(0.34, 1.96, 0.64, 1);
+  --like-ease: cubic-bezier(0.22, 1, 0.36, 1);
 
   /* text reveal */
   --stagger-dur: 500ms;
@@ -397,16 +403,26 @@ html::-webkit-scrollbar-corner {
   /* shimmer */
   --shimmer-dur: 2600ms;
 
+  /* accordion (FAQ) */
+  --acc-expand: 250ms;
+  --acc-collapse: 250ms;
+  --acc-chevron: 250ms;
+  --acc-ease: cubic-bezier(0.22, 1, 0.36, 1);
+
   /* card tilt */
-  --tilt-return: 900ms;
+  /* The return is the hover-out: slower than the follow and springy, so the
+     card settles back instead of snapping. */
+  --tilt-return: 400ms;
+  --tilt-return-ease: cubic-bezier(0.34, 3.85, 0.64, 1);
   --tilt-follow: 300ms;
+  --tilt-glare-dur: 250ms;
   --tilt-ease: cubic-bezier(0.22, 1, 0.36, 1);
 
   /* digit reel */
   --reel-dur: 1200ms;
   --reel-cell: 16px;
   --reel-stagger: 80ms;
-  --reel-ease: cubic-bezier(0.16, 1, 0.3, 1);
+  --reel-ease: cubic-bezier(0.22, 1, 0.36, 1);
 
   /* skeleton loader / reveal */
   --pulse-dur: 1000ms;
@@ -429,8 +445,30 @@ html::-webkit-scrollbar-corner {
   --panel-blur: 2px;
   --panel-ease: cubic-bezier(0.22, 1, 0.36, 1);
 
+  /* agent canvas — node position rides --resize-dur; this is the state
+     change (selection, droppable highlight), which stays quicker. */
+  --canvas-state-dur: 150ms;
+  /* The camera, when the canvas moves it rather than the user: longer than a
+     state change because the distance is a whole viewport, and it is the one
+     moment where the point is to be followed rather than to be quick. */
+  --canvas-pan-dur: 320ms;
+  --canvas-pan-ease: cubic-bezier(0.22, 1, 0.36, 1);
+  /* A node arriving on the canvas. Scale and blur are the icon-swap values,
+     pulled up from 0.25 because a node is a card and not a glyph — a card that
+     grows from a quarter size reads as thrown at you. */
+  --canvas-node-in-dur: 260ms;
+  --canvas-node-in-scale: 0.92;
+  --canvas-node-in-blur: 3px;
+
+  /* modal open / close (command palette) */
+  --modal-open-dur: 250ms;
+  --modal-close-dur: 150ms;
+  --modal-scale: 0.96;
+  --modal-scale-close: 0.96;
+  --modal-ease: cubic-bezier(0.22, 1, 0.36, 1);
+
   /* card resize */
-  --resize-dur: 300ms;
+  --resize-dur: 250ms;
   --resize-ease: cubic-bezier(0.22, 1, 0.36, 1);
 
   /* success check */
@@ -438,9 +476,9 @@ html::-webkit-scrollbar-corner {
   --check-rotate-dur: 500ms;
   --check-rotate-from: 80deg;
   --check-bob-dur: 500ms;
-  --check-y-amount: 40px;
+  --check-y-amount: 30px;
   --check-blur-dur: 500ms;
-  --check-blur-from: 10px;
+  --check-blur-from: 8px;
   --check-path-dur: 500ms;
   --check-path-delay: 80ms;
   /* getTotalLength() of the checkmark in <SuccessCheck>, rounded up. */
@@ -448,7 +486,7 @@ html::-webkit-scrollbar-corner {
   --check-ease-out: cubic-bezier(0.22, 1, 0.36, 1);
   --check-ease-opacity: cubic-bezier(0.22, 1, 0.36, 1);
   --check-ease-rotate: cubic-bezier(0.22, 1, 0.36, 1);
-  --check-ease-bob: cubic-bezier(0.34, 1.35, 0.64, 1);
+  --check-ease-bob: cubic-bezier(0.34, 1.36, 0.64, 1);
   --check-ease-path: cubic-bezier(0.22, 1, 0.36, 1);
 }
 
@@ -487,6 +525,23 @@ html::-webkit-scrollbar-corner {
   0% { opacity: 0; transform: translate(0, 0) scale(0.4); }
   20% { opacity: 1; transform: translate(calc(var(--px) * 0.25), calc(var(--py) * 0.25)) scale(1); }
   100% { opacity: 0; transform: translate(var(--px), var(--py)) scale(var(--pend, 0.6)); }
+}
+
+/* ---------- heart like (sponsor button) ----------
+   Reuses .t-burst / .is-bursting from the star pill; only the pop and the
+   fill colour are heart-specific. The pop scales an HTML wrapper and never
+   the <svg>: transforming an inline SVG makes Chromium rasterise it at 1×,
+   which on a pixel sprite reads as a blurred smear. */
+.t-like-icon {
+  display: inline-flex;
+  transition: color var(--like-fill) var(--like-ease);
+}
+.t-like[data-liked="true"] .t-like-icon { color: var(--coral-text); }
+.t-like.is-bursting .t-like-icon { animation: t-like-pop var(--pop-dur) var(--like-pop-ease); }
+@keyframes t-like-pop {
+  0% { transform: scale(1); }
+  30% { transform: scale(0.82); }
+  100% { transform: scale(1); }
 }
 
 /* ---------- text reveal ---------- */
@@ -571,7 +626,7 @@ html::-webkit-scrollbar-corner {
     rotateX(var(--tilt-rx, 0deg))
     rotateY(var(--tilt-ry, 0deg));
   transform-style: preserve-3d;
-  transition: transform var(--tilt-return) var(--tilt-ease);
+  transition: transform var(--tilt-return) var(--tilt-return-ease);
   will-change: transform;
 }
 .t-tilt-card.is-tilting { transition: transform var(--tilt-follow) var(--tilt-ease); }
@@ -587,7 +642,7 @@ html::-webkit-scrollbar-corner {
     rgba(255, 255, 255, 0.04) 58%,
     rgba(255, 255, 255, 0) 80%
   );
-  transition: opacity 300ms var(--tilt-ease);
+  transition: opacity var(--tilt-glare-dur) var(--tilt-ease);
 }
 .t-tilt.is-hover .t-tilt-glare { opacity: 0.5; }
 
@@ -642,6 +697,13 @@ html::-webkit-scrollbar-corner {
 @keyframes t-skel-pulse {
   0%, 100% { opacity: 1; }
   50%      { opacity: var(--pulse-min); }
+}
+
+/* Standing "live / loading" dot. Rides the same beat as the skeleton pulse
+   rather than Tailwind's animate-pulse (2s, cubic-bezier(0.4, 0, 0.6, 1)),
+   so every pulsing thing in the app breathes together. */
+.t-pulse-dot {
+  animation: t-skel-pulse var(--pulse-dur) linear infinite;
 }
 
 /* ---------- digit reel ---------- */
@@ -807,6 +869,319 @@ html::-webkit-scrollbar-corner {
   transition: height var(--panel-open-dur) var(--panel-ease);
 }
 
+/* ---------- accordion (FAQ) ---------- */
+/* grid-template-rows 0fr -> 1fr animates height with no JS
+   measurement; the inner element clips overflow. */
+.t-acc-panel {
+  display: grid;
+  grid-template-rows: 0fr;
+  transition: grid-template-rows var(--acc-collapse) var(--acc-ease);
+}
+.t-acc[data-open="true"] .t-acc-panel {
+  grid-template-rows: 1fr;
+  transition: grid-template-rows var(--acc-expand) var(--acc-ease);
+}
+.t-acc-panel-inner {
+  overflow: hidden;
+  opacity: 0;
+  filter: blur(2px);
+  transition:
+    opacity var(--acc-collapse) var(--acc-ease),
+    filter var(--acc-collapse) var(--acc-ease);
+}
+.t-acc[data-open="true"] .t-acc-panel-inner {
+  opacity: 1;
+  filter: blur(0);
+  transition:
+    opacity var(--acc-expand) var(--acc-ease),
+    filter var(--acc-expand) var(--acc-ease);
+}
+/* scaleY flip turns the "v" into a "^" through a flat line at
+   the midpoint; the pixel angle-down is symmetric about the
+   24x24 viewBox centre, so the flip lands exactly on "^". */
+.t-acc-chevron {
+  display: inline-flex;
+  transform: scaleY(1);
+  transform-origin: center;
+  transition: transform var(--acc-chevron) var(--acc-ease);
+}
+.t-acc[data-open="true"] .t-acc-chevron {
+  transform: scaleY(-1);
+}
+
+/* ---------- modal open / close ---------- */
+/* Close is quicker than open (150ms vs 250ms): opening is an invitation,
+   dismissal should get out of the way. */
+.t-modal {
+  transform-origin: center;
+  transform: scale(var(--modal-scale));
+  opacity: 0;
+  pointer-events: none;
+  transition:
+    transform var(--modal-open-dur) var(--modal-ease),
+    opacity   var(--modal-open-dur) var(--modal-ease);
+  will-change: transform, opacity;
+}
+.t-modal.is-open {
+  transform: scale(1);
+  opacity: 1;
+  pointer-events: auto;
+}
+.t-modal.is-closing {
+  transform: scale(var(--modal-scale-close));
+  opacity: 0;
+  pointer-events: none;
+  transition:
+    transform var(--modal-close-dur) var(--modal-ease),
+    opacity   var(--modal-close-dur) var(--modal-ease);
+}
+
+/* Scrim. A gaussian `backdrop-filter: blur()` is the one soft edge in an
+   otherwise hard-edged design — it reads as a different art direction. This
+   is a screen-door instead: a 4px checker of ink over a flat wash, so the
+   page behind goes quiet by losing pixels rather than by going out of focus. */
+.t-modal-backdrop {
+  background-color: color-mix(in oklab, var(--ink) 32%, transparent);
+  background-image: repeating-conic-gradient(
+    color-mix(in oklab, var(--ink) 58%, transparent) 0% 25%,
+    transparent 0% 50%
+  );
+  background-size: 4px 4px;
+  opacity: 0;
+  transition: opacity var(--modal-open-dur) var(--modal-ease);
+}
+.t-modal-backdrop.is-open { opacity: 1; }
+.t-modal-backdrop.is-closing {
+  opacity: 0;
+  transition: opacity var(--modal-close-dur) var(--modal-ease);
+}
+
+/* ---------- agent canvas ---------- */
+.t-canvas-shell {
+  display: flex;
+  flex-direction: column;
+  /* The floor lives on the shell, which is the box that owns the height. It
+     used to sit on `.t-canvas` instead, where it fought `flex: 1`: under a
+     fixed-height shell the surface kept its own 420px and so rendered a
+     toolbar's worth taller than its frame, hanging the minimap and the legend
+     below the border. */
+  min-height: 280px;
+}
+/* Fullscreen is an overlay, not the Fullscreen API — that one is missing on
+   iOS Safari and takes the browser chrome with it, and all this needs is the
+   whole window. `!important` beats the fixed height the page hands in through
+   className, which is the one thing that must not survive the switch. */
+.t-canvas-shell.is-fullscreen {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  width: 100%;
+  height: 100% !important;
+  max-height: none !important;
+  /* Under the notch and the home indicator on a phone. */
+  padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom)
+    env(safe-area-inset-left);
+}
+.t-canvas {
+  flex: 1;
+  /* Not `auto`: a flex item's automatic minimum is content-based, and one
+     stray unpositioned child would let the surface push past the shell again.
+     0 is what makes `flex: 1` mean "whatever the toolbar left over". */
+  min-height: 0;
+  touch-action: none; /* the surface owns pan and zoom, not the browser */
+  cursor: grab;
+  /* Same speckle as .dither-stone, sized and offset from the viewport state so
+     the grid pans and zooms with the world without being a scaled bitmap. */
+  background-color: var(--stone);
+  background-image: radial-gradient(var(--dot) 1px, transparent 1px);
+}
+/* A camera move the canvas made on the user's behalf — fit, reveal, a minimap
+   jump. Only ever set for the length of that move: a permanent transform
+   transition here would put every pan a third of a second behind the pointer.
+   The surface tweens its dot grid in step with the world above it, or the
+   nodes glide while the dots they sit on cut. */
+.t-canvas-world.is-easing {
+  transition: transform var(--canvas-pan-dur) var(--canvas-pan-ease);
+  will-change: transform;
+}
+.t-canvas.is-easing {
+  transition:
+    background-position var(--canvas-pan-dur) var(--canvas-pan-ease),
+    background-size var(--canvas-pan-dur) var(--canvas-pan-ease);
+}
+.t-canvas.is-hand {
+  cursor: grab;
+}
+/* The select tool draws a marquee, so the crosshair is the honest cursor —
+   `grab` on a surface that does not pan is a promise the canvas breaks. */
+.t-canvas:not(.is-hand) {
+  cursor: crosshair;
+}
+.t-canvas.is-panning {
+  cursor: grabbing;
+}
+
+/* Locked: nothing moves, so nothing may advertise that it does. The port is
+   removed rather than disabled — a control that does nothing when pressed is
+   worse than one that is not there. */
+.t-canvas.is-locked .t-port {
+  display: none;
+}
+.t-canvas.is-locked .t-node button {
+  cursor: pointer;
+}
+.t-canvas.is-locked .t-wire-hit {
+  cursor: default;
+}
+.t-canvas:focus-visible {
+  outline: 2px solid var(--coral);
+  outline-offset: -2px;
+}
+
+/* Position changes are a surface move: same curve as every other one. Dragging
+   opts out — a tween between the pointer and the node reads as lag. */
+.t-node {
+  transition:
+    left var(--resize-dur) var(--resize-ease),
+    top var(--resize-dur) var(--resize-ease),
+    border-color var(--canvas-state-dur) var(--resize-ease),
+    box-shadow var(--canvas-state-dur) var(--resize-ease);
+}
+.t-node.is-dragging {
+  transition: border-color var(--canvas-state-dur) var(--resize-ease);
+  z-index: 3;
+}
+/* Enter. Nodes arrive one at a time — a subagent added, a component wired on,
+   a whole branch replayed by the demo — and appearing with no transition reads
+   as a repaint rather than as something being put there.
+   `backwards`, not `both`: `forwards` would retain the last keyframe, and a
+   retained `filter: blur(0)` keeps a compositing layer on every node in the
+   graph for the rest of the session. `scale` rather than `transform: scale()`
+   so it composes with a transform instead of overwriting one. */
+.t-node {
+  animation: canvasNodeIn var(--canvas-node-in-dur) var(--canvas-pan-ease) backwards;
+}
+@keyframes canvasNodeIn {
+  from {
+    opacity: 0;
+    scale: var(--canvas-node-in-scale);
+    filter: blur(var(--canvas-node-in-blur));
+  }
+}
+.t-node--root {
+  background: var(--stone);
+}
+.t-node.is-droppable {
+  border-color: var(--coral);
+  box-shadow: 0 0 0 2px var(--coral);
+}
+.t-node:focus-within {
+  z-index: 2;
+}
+.t-node button:focus-visible {
+  outline: 2px solid var(--coral);
+  outline-offset: 2px;
+}
+
+.t-port {
+  z-index: 4;
+}
+.t-port:hover,
+.t-port:focus-visible {
+  background: var(--coral);
+}
+
+.t-wire {
+  fill: none;
+  stroke: var(--line);
+  stroke-width: 2;
+  /* Hard corners and whole-pixel strokes — the wires are drawn in the same
+     language as the borders they connect. */
+  stroke-linecap: square;
+  stroke-linejoin: miter;
+  transition: stroke var(--canvas-state-dur) var(--resize-ease);
+}
+.t-wire.is-active {
+  stroke: var(--coral);
+}
+.t-wire.is-preview {
+  stroke: var(--coral);
+  stroke-dasharray: 4 4;
+}
+.t-wire.is-selected {
+  stroke: var(--coral);
+  stroke-width: 4;
+}
+/* The click target for a wire. A 2px line is unhittable with a mouse, let
+   alone a finger, so the pointer meets this instead and the visible stroke
+   stays as thin as the design wants it. */
+.t-wire-hit {
+  fill: none;
+  stroke: transparent;
+  stroke-width: 12;
+  cursor: pointer;
+}
+
+/* Alignment guides. One device pixel at every zoom — a guide that thickens
+   with the world stops being a reference line and becomes another shape. */
+.t-guide {
+  stroke: var(--coral);
+  stroke-width: 1;
+  stroke-dasharray: 3 3;
+  vector-effect: non-scaling-stroke;
+  pointer-events: none;
+}
+
+.t-marquee {
+  border: 2px dashed var(--coral);
+  background: color-mix(in oklab, var(--coral) 12%, transparent);
+}
+
+/* Legend backing. Same wash as the minimap so the two corners of the canvas
+   read as one family, but no border: the minimap is a control you can click
+   and the border says so, while this is a caption. */
+.t-canvas-legend {
+  background: color-mix(in oklab, var(--paper) 88%, transparent);
+}
+
+/* ---------- minimap ---------- */
+.t-minimap {
+  border: 2px solid var(--line);
+  background: color-mix(in oklab, var(--paper) 88%, transparent);
+  cursor: pointer;
+}
+.t-minimap-node {
+  fill: var(--line);
+}
+.t-minimap-node.is-root {
+  fill: var(--ink-soft);
+}
+.t-minimap-node.is-selected {
+  fill: var(--coral);
+}
+.t-minimap-view {
+  fill: color-mix(in oklab, var(--coral) 14%, transparent);
+  stroke: var(--coral);
+  stroke-width: 1;
+}
+
+/* ---------- canvas context menu ---------- */
+.t-menu {
+  box-shadow: 4px 4px 0 0 var(--line);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .t-node,
+  .t-wire,
+  .t-canvas-world,
+  .t-canvas {
+    transition: none !important;
+  }
+  .t-node {
+    animation: none !important;
+  }
+}
+
 /* ---------- card resize ---------- */
 .t-resize {
   transition:
@@ -857,13 +1232,19 @@ html::-webkit-scrollbar-corner {
 @keyframes t-check-draw { to { stroke-dashoffset: 0; } }
 
 @media (prefers-reduced-motion: reduce) {
-  .t-star-pop,
+  /* the pop lives on .t-star-icon / .t-like-icon — `.t-star-pop` is the
+     keyframes name, so as a selector it matched nothing */
+  .is-bursting .t-star-icon,
+  .t-like.is-bursting .t-like-icon,
   .is-bursting .t-burst i,
   .t-shimmer::before,
+  .t-pulse-dot,
   .t-skel-skeleton.is-pulsing > * {
     animation: none !important;
   }
   .t-icon-swap .t-icon,
+  .t-modal,
+  .t-modal-backdrop,
   .t-panel-slide,
   .t-panel-clip,
   .t-resize {
@@ -969,7 +1350,7 @@ html::-webkit-scrollbar-corner {
 }
 
 /* entrance */
-.pop-in { animation: popIn 0.35s cubic-bezier(0.2, 1.4, 0.4, 1) both; }
+.pop-in { animation: popIn 0.35s cubic-bezier(0.34, 1.36, 0.64, 1) both; }
 @keyframes popIn {
   0% { transform: translateY(8px) scale(0.96); opacity: 0; }
   100% { transform: translateY(0) scale(1); opacity: 1; }
@@ -984,5 +1365,8 @@ html::-webkit-scrollbar-corner {
   * {
     animation-duration: 0.001ms !important;
     animation-iteration-count: 1 !important;
+  }
+  .t-acc-panel, .t-acc-panel-inner, .t-acc-chevron {
+    transition: none !important;
   }
 }

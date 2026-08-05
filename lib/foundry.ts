@@ -67,10 +67,6 @@ export function clientIp(req: Request): string {
 }
 
 // ---- input ---------------------------------------------------------------
-// Every field is capped before it reaches the model: the prompt is billed by
-// the token, so an unbounded `purpose` is an unbounded bill.
-export const LIMITS = { purpose: 600, domain: 200, tone: 40, teamName: 120 } as const;
-
-export function clamp(value: unknown, max: number): string {
-  return typeof value === "string" ? value.trim().slice(0, max) : "";
-}
+// The caps live in lib/ai/brief so the browser can build the same brief for a
+// bring-your-own-key draft without importing the OpenAI client above.
+export { LIMITS, clamp } from "./ai/brief";

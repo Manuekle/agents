@@ -6,9 +6,11 @@ import { useEffect, useState } from "react";
 import { clsx } from "@/lib/clsx";
 import { GitHubStars } from "@/components/GitHubStars";
 import { ThemeToggle } from "@/components/ThemeToggle";
-import { MenuIcon, CloseIcon } from "@/components/icons";
+import { MenuIcon, CloseIcon, LockIcon } from "@/components/icons";
 import { AuthButton } from "@/components/AuthButton";
 import { openCommandPalette } from "@/lib/palette";
+import { DEMO_PATH, requiresAccount } from "@/lib/access";
+import { useSignedIn } from "@/lib/use-auth";
 
 // `match` lists the extra path prefixes that should light the tab — the
 // onboarding wizard is part of the New flow, so it must not leave the nav
@@ -28,9 +30,26 @@ function isActive(path: string, link: (typeof LINKS)[number]): boolean {
   return link.match?.some((m) => path.startsWith(m)) ?? false;
 }
 
+/**
+ * Where a tab actually goes for this visitor. Signed out, the gated ones lead
+ * to the demo carrying where they were headed, so the proxy's redirect is
+ * something the nav told them about rather than a bounce that reads as a
+ * broken link.
+ *
+ * The tab set itself never changes: dropping three of six tabs once auth
+ * resolves would reflow the bar on every page load.
+ */
+function hrefFor(link: (typeof LINKS)[number], locked: boolean): string {
+  return locked ? `${DEMO_PATH}?from=${encodeURIComponent(link.href)}` : link.href;
+}
+
 export function Nav() {
   const path = usePathname();
   const [open, setOpen] = useState(false);
+  const signedIn = useSignedIn();
+  // `null` is "not known yet" and must not read as "locked": showing a padlock
+  // on every tab for a frame on each load is worse than showing none.
+  const lockedFor = (href: string) => signedIn === false && requiresAccount(href);
 
   // Navigating with the drawer open would otherwise leave it hanging over the
   // page it just moved to.
@@ -71,20 +90,27 @@ export function Nav() {
               overflowed the row on every narrow laptop once signed in — the
               whole set moves into the drawer below `lg` instead. */}
           <nav className="hidden lg:flex items-center gap-1">
-            {LINKS.map((l) => (
-              <Link
-                key={l.href}
-                href={l.href}
-                className={clsx(
-                  "font-mono text-xs px-2 sm:px-3 py-1.5 border-2 transition-colors",
-                  isActive(path, l)
-                    ? "border-line bg-fill text-on-fill"
-                    : "border-transparent hover:border-line hover:bg-stone",
-                )}
-              >
-                {l.label}
-              </Link>
-            ))}
+            {LINKS.map((l) => {
+              const locked = lockedFor(l.href);
+              return (
+                <Link
+                  key={l.href}
+                  href={hrefFor(l, locked)}
+                  title={locked ? `${l.label} needs an account — see the demo` : undefined}
+                  className={clsx(
+                    "font-mono text-xs px-2 sm:px-3 py-1.5 border-2 transition-colors inline-flex items-center gap-1",
+                    isActive(path, l)
+                      ? "border-line bg-fill text-on-fill"
+                      : "border-transparent hover:border-line hover:bg-stone",
+                  )}
+                >
+                  {l.label}
+                  {/* Decorative: the title above carries the same thing for
+                      anyone who cannot see the glyph. */}
+                  {locked && <LockIcon size={10} className="text-muted" aria-hidden="true" />}
+                </Link>
+              );
+            })}
           </nav>
 
           {/* Visibility lives on the wrapper, not on GitHubStars' own className:
@@ -140,21 +166,32 @@ export function Nav() {
       <div id="nav-drawer" className="lg:hidden t-panel-clip" data-open={open}>
         <div className="t-panel-slide border-t-2 border-line" data-open={open}>
           <nav className="mx-auto max-w-6xl px-5 py-3 flex flex-col gap-1">
-            {LINKS.map((l) => (
-              <Link
-                key={l.href}
-                href={l.href}
-                tabIndex={open ? undefined : -1}
-                className={clsx(
-                  "font-mono text-xs px-3 py-2 border-2 transition-colors",
-                  isActive(path, l)
-                    ? "border-line bg-fill text-on-fill"
-                    : "border-transparent hover:border-line hover:bg-stone",
-                )}
-              >
-                {l.label}
-              </Link>
-            ))}
+            {LINKS.map((l) => {
+              const locked = lockedFor(l.href);
+              return (
+                <Link
+                  key={l.href}
+                  href={hrefFor(l, locked)}
+                  tabIndex={open ? undefined : -1}
+                  className={clsx(
+                    "font-mono text-xs px-3 py-2 border-2 transition-colors flex items-center gap-1.5",
+                    isActive(path, l)
+                      ? "border-line bg-fill text-on-fill"
+                      : "border-transparent hover:border-line hover:bg-stone",
+                  )}
+                >
+                  {l.label}
+                  {locked && (
+                    <>
+                      <LockIcon size={10} className="text-muted" aria-hidden="true" />
+                      <span className="ml-auto font-mono text-[10px] text-muted">
+                        needs an account
+                      </span>
+                    </>
+                  )}
+                </Link>
+              );
+            })}
             <div className="pt-2 mt-1 border-t-2 border-line flex flex-wrap items-center gap-2">
               <GitHubStars />
               <AuthButton compact />
@@ -169,7 +206,7 @@ export function Nav() {
 export function PoweredBy() {
   return (
     <div className="inline-flex items-center gap-1.5 font-mono text-[10px] uppercase tracking-widest text-muted">
-      <span className="w-1.5 h-1.5 bg-coral rounded-full animate-pulse" />
+      <span className="w-1.5 h-1.5 bg-coral rounded-full t-pulse-dot" />
       {/* data-text duplicates the string so ::before can clip the sweep to
           the same glyphs — keep the two in sync. */}
       <span className="t-shimmer" data-text="powered by ai">

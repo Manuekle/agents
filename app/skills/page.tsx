@@ -6,8 +6,13 @@ import { Footer } from "@/components/Footer";
 import { Mascot } from "@/components/Mascot";
 import { SkillBrowser } from "@/components/SkillBrowser";
 import { Panel, PixelButton, Badge } from "@/components/ui";
+import { useSignedIn } from "@/lib/use-auth";
 
 export default function SkillsPage() {
+  // Browsing is public; composing is not. Both CTAs on this page point at the
+  // composer, so signed out they have to say so rather than bounce.
+  const guest = useSignedIn() === false;
+
   return (
     <div>
       <Nav />
@@ -27,9 +32,14 @@ export default function SkillsPage() {
               Two open registries. <strong>skills.sh</strong> is searched live;{" "}
               <strong>aitmpl</strong> browses skills, subagents, slash commands, MCP
               servers, hooks and settings by category, with the descriptions skills.sh
-              does not publish. Copy an install, or compose an agent in{" "}
-              <Link href="/build" className="text-coral-text underline">Build</Link> to bundle
-              several.
+              does not publish. Copy an install here — no account needed — or{" "}
+              <Link
+                href={guest ? "/demo?from=%2Fbuild" : "/build"}
+                className="text-coral-text underline"
+              >
+                {guest ? "see how several get bundled into one agent" : "bundle several into one agent"}
+              </Link>
+              .
             </p>
             <div className="flex flex-wrap gap-2 mt-2">
               <code className="inline-block bg-stone border-2 border-line px-2 py-1 font-mono text-[10px]">
@@ -46,10 +56,21 @@ export default function SkillsPage() {
           <SkillBrowser showChart />
         </Panel>
 
-        <div className="mt-6 text-center">
-          <Link href="/build">
-            <PixelButton variant="coral">Compose an agent →</PixelButton>
-          </Link>
+        <div className="mt-6 flex flex-wrap justify-center gap-2">
+          {guest ? (
+            <>
+              <Link href="/demo">
+                <PixelButton variant="coral">Watch an agent get composed →</PixelButton>
+              </Link>
+              <Link href="/login?next=%2Fbuild">
+                <PixelButton variant="ghost">Sign in to compose one</PixelButton>
+              </Link>
+            </>
+          ) : (
+            <Link href="/build">
+              <PixelButton variant="coral">Compose an agent →</PixelButton>
+            </Link>
+          )}
         </div>
       </div>
       <Footer />

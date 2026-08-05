@@ -2,7 +2,7 @@
 
 import { useEffect, useId, useLayoutEffect, useRef, useState } from "react";
 import { clsx } from "@/lib/clsx";
-import { CheckIcon } from "@/components/icons";
+import { AngleDownSolidIcon, CheckIcon } from "@/components/icons";
 import type { ButtonHTMLAttributes, ReactNode } from "react";
 
 // Animated confirmation tick. `shown` false keeps it at opacity 0 with the
@@ -142,23 +142,41 @@ export function Badge({
   );
 }
 
+/**
+ * Label + hint above a control.
+ *
+ * `group` is required whenever the children are a *set* of controls — a
+ * Segmented strip, the mascot grid, a slider. A `<label>` adopts the first
+ * labelable descendant as its control, so wrapping ten buttons in one makes
+ * the browser treat button #1 as "the" control: hovering any of the others
+ * lights up #1 as well (`:hover` walks the label→control association), and a
+ * click on the label text fires it. `group` renders a plain `<div>` with
+ * `role="group"`, which keeps the name for screen readers without inventing
+ * that association.
+ */
 export function Field({
   label,
   hint,
+  group,
   children,
 }: {
   label: string;
   hint?: string;
+  group?: boolean;
   children: ReactNode;
 }) {
+  const Tag = group ? "div" : "label";
   return (
-    <label className="block">
+    <Tag
+      className="block"
+      {...(group ? { role: "group" as const, "aria-label": label } : {})}
+    >
       <div className="flex items-baseline justify-between mb-1">
         <span className="font-pixel text-[10px] uppercase tracking-wide">{label}</span>
         {hint && <span className="font-mono text-[10px] text-muted">{hint}</span>}
       </div>
       {children}
-    </label>
+    </Tag>
   );
 }
 
@@ -292,11 +310,13 @@ export function Select<T extends string>({
   value,
   onChange,
   className,
+  "aria-label": ariaLabel,
 }: {
   options: { id: T; label: string; hint?: string; icon?: ReactNode }[];
   value: T;
   onChange: (v: T) => void;
   className?: string;
+  "aria-label"?: string;
 }) {
   const [open, setOpen] = useState(false);
   // The visually highlighted option. Focus never leaves the trigger — the
@@ -377,6 +397,7 @@ export function Select<T extends string>({
         aria-expanded={open}
         aria-controls={open ? `${baseId}-list` : undefined}
         aria-activedescendant={open ? `${baseId}-opt-${activeIndex}` : undefined}
+        aria-label={ariaLabel}
         className={clsx(
           "w-full flex items-center justify-between gap-2 bg-paper border-2 border-line px-3 py-2 font-mono text-sm cursor-pointer transition-shadow",
           open ? "shadow-[2px_2px_0_0_var(--coral)] border-coral" : "hover:bg-stone",
@@ -389,8 +410,8 @@ export function Select<T extends string>({
             {current?.hint && <span className="text-muted"> · {current.hint}</span>}
           </span>
         </span>
-        <span className={clsx("font-pixel text-[9px] transition-transform", open && "rotate-180")}>
-          ▼
+        <span className={clsx("transition-transform shrink-0", open && "rotate-180")}>
+          <AngleDownSolidIcon size={12} />
         </span>
       </button>
 

@@ -1,12 +1,14 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { TextInput } from "@/components/ui";
+import { Select, TextInput } from "@/components/ui";
 import { BarChart } from "@/components/dither-kit/bar-chart";
 import { Bar } from "@/components/dither-kit/bar";
 import { XAxis } from "@/components/dither-kit/x-axis";
 import { YAxis } from "@/components/dither-kit/y-axis";
 import { Tooltip } from "@/components/dither-kit/tooltip";
+import { DitherAvatar } from "@/components/dither-kit/avatar";
+import { avatarHue } from "@/lib/avatar";
 import { clsx } from "@/lib/clsx";
 import { copyText } from "@/lib/copy";
 import { KIND_META, type AitmplKind } from "@/lib/aitmpl";
@@ -59,6 +61,14 @@ function pick(s: Skill): PickedSkill {
   return repo.includes("/")
     ? { id: s.id, name: s.name, repo }
     : { id: s.id, name: s.name, installArg: s.installArg };
+}
+
+// Who a skill comes from, as one stable string to seed the card avatar with.
+// The owner half of owner/repo for skills.sh; for aitmpl there is no owner, so
+// the catalog itself is the identity — every aitmpl result shares one glyph,
+// which is the truth.
+function ownerOf(s: Skill): string {
+  return s.repo?.split("/")[0] ?? s.source;
 }
 
 // What the card shows under the name: the owner/repo for skills.sh, the CLI
@@ -272,19 +282,15 @@ export function SkillBrowser({
           placeholder={source === "aitmpl" ? `filter ${kind}…` : "search skills.sh…"}
           className="flex-1 min-w-[200px]"
         />
-        <select
+        <Select<SortId>
+          options={SORTS.map((s) => ({ id: s.id, label: s.label }))}
           value={sort}
-          onChange={(e) => setSort(e.target.value as SortId)}
+          onChange={setSort}
           aria-label="Sort results"
-          // 16px below `sm` so tapping it does not zoom the page on iOS.
-          className="font-mono text-base sm:text-[10px] px-2 py-1.5 border-2 border-line bg-paper"
-        >
-          {SORTS.map((s) => (
-            <option key={s.id} value={s.id}>
-              {s.label}
-            </option>
-          ))}
-        </select>
+          // The custom dropdown draws its own trigger; width must be explicit
+          // so the row wraps instead of stretching full-width like a <select>.
+          className="w-40 shrink-0"
+        />
         {loading && <span className="font-mono text-[10px] text-muted">searching…</span>}
       </div>
 
@@ -400,7 +406,20 @@ export function SkillBrowser({
                   )}
                 >
                   <div className="flex items-center justify-between gap-2">
-                    <span className="font-mono text-xs font-bold truncate">{s.name}</span>
+                    {/* Seeded with the owner, not the skill: everything from
+                        vercel-labs draws the same glyph, so where a result
+                        came from is visible without reading the line under
+                        it. `animate={false}` because a query can swap 50
+                        cards at once and each entrance is 1024 fillRects a
+                        frame — the materialize belongs on a handful of
+                        nodes, not on a search list. */}
+                    <DitherAvatar
+                      name={ownerOf(s)}
+                      hue={avatarHue(ownerOf(s))}
+                      animate={false}
+                      className="size-5 shrink-0"
+                    />
+                    <span className="font-mono text-xs font-bold truncate flex-1">{s.name}</span>
                     {installs && (
                       <span className={clsx("font-mono text-[9px] shrink-0", on ? "text-on-fill-muted" : "text-muted")}>
                         ↓{installs}

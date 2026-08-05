@@ -87,7 +87,7 @@ function Skills() {
           <div
             key={s.repo}
             className="pop-in flex items-center justify-between gap-2 p-2 border-2 border-line bg-fill text-on-fill"
-            style={{ animationDelay: `${i * 260}ms` }}
+            style={{ animationDelay: `calc(var(--stagger-stagger) * ${i})` }}
           >
             <div className="min-w-0">
               <div className="font-mono text-[11px] font-bold truncate">{s.name}</div>
@@ -207,7 +207,7 @@ export function HowItWorks() {
               </span>
               <span className="font-mono text-xs">{st.label}</span>
               {i === step && (
-                <span className="ml-auto h-1.5 w-1.5 rounded-full bg-coral animate-pulse" />
+                <span className="ml-auto h-1.5 w-1.5 rounded-full bg-coral t-pulse-dot" />
               )}
             </button>
           ))}

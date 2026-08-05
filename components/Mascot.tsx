@@ -7,16 +7,26 @@ import { clsx } from "@/lib/clsx";
 // Cache which slots have a real PNG so we never flash a broken-image icon.
 const loaded: Record<string, boolean> = {};
 
+// Below this the idle loop is a twitch, not a character: a 40px sprite bobbing
+// in a picker or on a canvas node reads as jitter, and a grid of them is a
+// screenful of unrelated motion. Only the one mascot a screen shows big enough
+// to be the subject animates.
+const ANIMATE_ABOVE = 72;
+
 export function Mascot({
   state,
   size = 96,
   className,
+  animate,
 }: {
   state: MascotState;
   size?: number;
   className?: string;
+  /** Defaults to on for `size >= 72`. Pass explicitly to override. */
+  animate?: boolean;
 }) {
   const def = MASCOTS[state];
+  const animated = animate ?? size >= ANIMATE_ABOVE;
   const src = `/mascots/${def.slot}.png`;
   const [ok, setOk] = useState<boolean>(loaded[src] ?? false);
 
@@ -45,7 +55,10 @@ export function Mascot({
       aria-label={def.label}
       role="img"
     >
-      <div className={clsx("will-change-transform", def.anim)} style={{ width: size, height: size }}>
+      <div
+        className={clsx(animated && "will-change-transform", animated && def.anim)}
+        style={{ width: size, height: size }}
+      >
         {ok ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img

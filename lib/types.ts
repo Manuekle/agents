@@ -1,4 +1,5 @@
 import type { MascotState } from "./mascot";
+import type { AgentGraph } from "./graph";
 
 export type AgentTarget = "claude-code" | "codex" | "cursor" | "gemini-cli" | "generic-mcp";
 
@@ -35,10 +36,16 @@ export interface Agent {
   target: AgentTarget;
   model: string;
   temperature: number;
+  // The flat union of every component in the graph. Kept alongside `graph`
+  // because every installer, manifest and share payload only ever asks "what
+  // do I install", and none of them should have to walk a tree to find out.
   skills: PickedSkill[];
   mascot: MascotState;
   accent: string; // hex
   createdAt: number;
+  // The orchestrator/subagent structure. Optional: agents saved before the
+  // canvas existed have none, and `graphFromAgent` builds one on first open.
+  graph?: AgentGraph;
 }
 
 // Unique owner/repo install targets for an agent's picked skills.

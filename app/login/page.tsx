@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { Suspense, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { Nav, PoweredBy } from "@/components/Nav";
 import { Footer } from "@/components/Footer";
 import { Mascot } from "@/components/Mascot";
@@ -9,7 +10,14 @@ import { GitHubIcon } from "@/components/icons";
 import { supabaseBrowser } from "@/lib/supabase/client";
 import { SUPABASE_CONFIGURED } from "@/lib/supabase/env";
 
-export default function LoginPage() {
+function Login() {
+  const params = useSearchParams();
+  // Where to land afterwards. Only ever one of our own paths: an absolute
+  // `next` would make this an open redirect wearing the site's credibility,
+  // and the callback route rejects one too — this is the near half of that.
+  const raw = params.get("next") ?? "/";
+  const next = raw.startsWith("/") && !raw.startsWith("//") ? raw : "/";
+
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -24,7 +32,7 @@ export default function LoginPage() {
       options: {
         // Comes back to our own callback, which trades the code for a session
         // and then returns the user to where they were.
-        redirectTo: `${window.location.origin}/auth/callback?next=/`,
+        redirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent(next)}`,
       },
     });
 
@@ -48,8 +56,9 @@ export default function LoginPage() {
 
           <h2 className="font-sans font-bold text-lg mt-4">Keep your agents</h2>
           <p className="font-mono text-xs text-muted mt-1.5 leading-relaxed">
-            Signing in saves your agents to your account instead of this
-            browser. Anything you have already composed comes with you.
+            The composer, the AI drafts and the MCP tokens all belong to an
+            account. Signing in is free, and anything you composed on this
+            browser before comes with you.
           </p>
 
           {SUPABASE_CONFIGURED ? (
@@ -80,7 +89,8 @@ export default function LoginPage() {
                 Accounts are off on this deploy — set{" "}
                 <code className="text-coral-text">NEXT_PUBLIC_SUPABASE_URL</code> and{" "}
                 <code className="text-coral-text">NEXT_PUBLIC_SUPABASE_ANON_KEY</code>{" "}
-                to switch them on. The composer works signed-out either way.
+                to switch them on. With no way to sign in there is nothing to
+                gate, so the composer stays open on this deploy.
               </p>
             </div>
           )}
@@ -88,5 +98,13 @@ export default function LoginPage() {
       </div>
       <Footer />
     </div>
+  );
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense fallback={<div className="p-10 font-mono text-sm">loading…</div>}>
+      <Login />
+    </Suspense>
   );
 }

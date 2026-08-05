@@ -44,7 +44,7 @@ export function Dot({
     <g
       style={{
         opacity: ctx.entranceDone ? 1 : 0,
-        transition: "opacity 300ms ease",
+        transition: "opacity 250ms cubic-bezier(0.22, 1, 0.36, 1)",
       }}
     >
       {band.map((b, i) => (

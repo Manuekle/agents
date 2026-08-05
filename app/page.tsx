@@ -9,14 +9,38 @@ import { Mascot } from "@/components/Mascot";
 import { DitherField } from "@/components/DitherField";
 import { TiltCard } from "@/components/TiltCard";
 import { Panel, PixelButton, Badge } from "@/components/ui";
+import { HeartButton } from "@/components/Sponsor";
+import { StarIcon, AngleDownSolidIcon } from "@/components/icons";
 import { MASCOT_ORDER, MASCOTS } from "@/lib/mascot";
 import { useAgents, useAgentsLoading, deleteAgent } from "@/lib/store";
 import { TARGETS } from "@/lib/types";
+import { useStars } from "@/lib/stars";
+import { PLAN_ORDER } from "@/lib/plans";
+import { useSignedIn } from "@/lib/use-auth";
+import { SITE, fmtCount } from "@/lib/site";
 import { clsx } from "@/lib/clsx";
+
+const FAQS = [
+  { q: "Is it really free?", a: "Yes — the Free plan is $0: 3 saved agents, 10 AI drafts a month, the full skills.sh registry and every export target. Pro adds 25 agents, 200 drafts and MCP serving for $12." },
+  { q: "Do I need an account?", a: "To build one, yes — the composer saves agents and the drafts run on our model, so both need an account to attribute them to. Without one you get /demo: the whole flow, start to finish, on pre-loaded data." },
+  { q: "What does signing in give me?", a: "The composer, the AI drafts and MCP tokens. Agents save to your account (GitHub OAuth, via Supabase) and follow you across devices — including anything you composed here before accounts existed." },
+  { q: "How does sharing work?", a: "A shared agent travels in the URL — no database row. The recipient opens the exact same build and saves their own copy." },
+  { q: "How do I install a skill?", a: "Export gives you install commands per component. The skills CLI auto-detects Claude Code, Cursor and Codex and writes into their skills directory." },
+  { q: "Can any model use my agent?", a: "Yes — serve it over MCP. One command exposes the agent's persona and skills to any MCP-capable model." },
+  { q: "What if my prompt is too long to share?", a: "Share links have a size cap. Export agent.json and drop it in the repo instead — same build, no limit." },
+];
 
 export default function Home() {
   const agents = useAgents();
   const agentsLoading = useAgentsLoading();
+  const stars = useStars();
+  // `null` until auth resolves. The hero treats unknown as signed-in so the
+  // primary button does not flip from "Forge" to "Watch" under the pointer on
+  // every load for people who are in fact signed in.
+  const signedIn = useSignedIn();
+  const guest = signedIn === false;
+  // which FAQ item is open; null = all closed
+  const [openFaq, setOpenFaq] = useState<number | null>(null);
   const [i, setI] = useState(0);
   // Held off one frame so the lines have a "before" to transition from —
   // applying .is-shown in the same paint would skip the reveal.
@@ -57,12 +81,38 @@ export default function Home() {
               MCP model. All pixel, all custom.
             </p>
             <div className="mt-7 flex flex-wrap items-center gap-3 t-stagger-line t-stagger-line--4">
-              <Link href="/new">
-                <PixelButton variant="coral">Forge an agent →</PixelButton>
-              </Link>
+              {guest ? (
+                <>
+                  <Link href="/demo">
+                    <PixelButton variant="coral">Watch it get built →</PixelButton>
+                  </Link>
+                  <Link href="/login?next=%2Fnew">
+                    <PixelButton variant="ghost">Sign in to build</PixelButton>
+                  </Link>
+                </>
+              ) : (
+                <>
+                  <Link href="/new">
+                    <PixelButton variant="coral">Forge an agent →</PixelButton>
+                  </Link>
+                  <Link href="/demo">
+                    <PixelButton variant="ghost">See the demo</PixelButton>
+                  </Link>
+                </>
+              )}
               <Link href="/skills">
                 <PixelButton variant="ghost">Browse skills</PixelButton>
               </Link>
+            </div>
+            <div className="mt-5 flex flex-wrap items-center gap-x-4 gap-y-1 font-mono text-[10px] text-muted t-stagger-line t-stagger-line--5">
+              <span className="inline-flex items-center gap-1">
+                <StarIcon size={10} className="text-coral" />
+                {stars === null ? "—" : `${fmtCount(stars)} on GitHub`}
+              </span>
+              <span>·</span>
+              <span>{TARGETS.length} export targets</span>
+              <span>·</span>
+              <span>{PLAN_ORDER.length} plans, free to start</span>
             </div>
             <div className="mt-6">
               <PoweredBy />
@@ -113,6 +163,106 @@ export default function Home() {
         ))}
       </section>
 
+      {/* EXPORT TARGETS — one agent, every tool */}
+      <section className="mx-auto max-w-6xl px-5 pb-14">
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="font-pixel text-sm">EXPORT_TARGETS</h2>
+          <span className="font-mono text-[11px] text-muted">one agent, five tools</span>
+        </div>
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+          {TARGETS.map((t) => (
+            <Panel key={t.id} className="p-3">
+              <div className="font-sans font-bold text-sm">{t.label}</div>
+              <div className="font-mono text-[10px] text-muted mt-1 leading-snug">{t.hint}</div>
+            </Panel>
+          ))}
+        </div>
+      </section>
+
+      {/* SERVE OVER MCP — one command, any MCP model */}
+      <section className="mx-auto max-w-6xl px-5 pb-14">
+        <Panel className="overflow-hidden">
+          <div className="flex items-center justify-between px-4 py-2 border-b-2 border-line bg-coral-text text-paper">
+            <span className="font-pixel text-[10px] uppercase">Serve over MCP</span>
+            <Link href="/mcp" className="font-mono text-[10px] underline">set it up →</Link>
+          </div>
+          <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center justify-between p-4">
+            <p className="font-mono text-xs text-ink leading-relaxed max-w-xl">
+              Run one command and any MCP-capable model — Claude, GPT, Gemini — can call your
+              agent's skills straight from the prompt.
+            </p>
+            <code className="w-full sm:w-auto min-w-0 overflow-x-auto whitespace-nowrap bg-stone border-2 border-line px-2 py-1.5 font-mono text-[10px]">
+              npx -y @manudev.jsx/agents --agent ./agents-dev.agent.json
+            </code>
+          </div>
+        </Panel>
+      </section>
+
+      {/* WHO IT IS FOR — three ways in */}
+      <section className="mx-auto max-w-6xl px-5 pb-14">
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="font-pixel text-sm">WHO_IT_IS_FOR</h2>
+          <span className="font-mono text-[11px] text-muted">three ways in</span>
+        </div>
+        <div className="grid gap-3 md:grid-cols-3">
+          <Panel className="p-4">
+            <Badge>solo</Badge>
+            <h3 className="font-sans font-bold text-sm mt-3">One repo, one persona</h3>
+            <p className="font-mono text-xs text-muted mt-1.5 leading-relaxed">
+              Compose once, drop CLAUDE.md in, and keep every picked skill in sync with one
+              manifest.
+            </p>
+          </Panel>
+          <Panel className="p-4">
+            <Badge>team</Badge>
+            <h3 className="font-sans font-bold text-sm mt-3">Share by link</h3>
+            <p className="font-mono text-xs text-muted mt-1.5 leading-relaxed">
+              Send a share link — the recipient opens the exact same build and can fork it or
+              export it to their own tool.
+            </p>
+          </Panel>
+          <Panel className="p-4">
+            <Badge>product</Badge>
+            <h3 className="font-sans font-bold text-sm mt-3">Ship agents as config</h3>
+            <p className="font-mono text-xs text-muted mt-1.5 leading-relaxed">
+              Export agent.json, serve it over MCP, and any model in your product can call the
+              persona.
+            </p>
+          </Panel>
+        </div>
+      </section>
+
+      {/* AGENT_JSON — one file, every tool */}
+      <section className="mx-auto max-w-6xl px-5 pb-14">
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="font-pixel text-sm">AGENT_JSON</h2>
+          <span className="font-mono text-[11px] text-muted">one file, every tool</span>
+        </div>
+        <Panel className="overflow-hidden">
+          <div className="flex items-center justify-between px-3 py-2 border-b-2 border-line bg-stone">
+            <span className="font-mono text-[11px]">agents-dev.agent.json</span>
+            <span className="font-mono text-[10px] text-muted">what ships</span>
+          </div>
+          <pre className="p-4 text-[11px] font-mono leading-relaxed overflow-auto">{`{
+  "version": 2,
+  "name": "Untitled Agent",
+  "role": "general assistant",
+  "model": "claude-opus-5",
+  "temperature": 0.7,
+  "system": "You are a focused, pixel-precise engineering agent.",
+  "skills": [
+    {
+      "name": "QA",
+      "kind": "skills",
+      "repo": "mattpocock/skills"
+    }
+  ],
+  "orchestrator": null,
+  "subagents": []
+}`}</pre>
+        </Panel>
+      </section>
+
       {/* HOW IT WORKS — animated live demo of the real flow */}
       <section className="mx-auto max-w-6xl px-5 pb-14">
         <div className="flex items-center justify-between mb-4">
@@ -126,12 +276,30 @@ export default function Home() {
       <section className="mx-auto max-w-6xl px-5 pb-20">
         <div className="flex items-center justify-between mb-4">
           <h2 className="font-pixel text-sm">YOUR_AGENTS</h2>
-          <Link href="/new">
-            <PixelButton>+ New</PixelButton>
+          <Link href={guest ? "/login?next=%2Fnew" : "/new"}>
+            <PixelButton>{guest ? "Sign in" : "+ New"}</PixelButton>
           </Link>
         </div>
 
-        {agentsLoading ? (
+        {guest ? (
+          // Not "no agents yet" — a signed-out visitor has no agents *here*
+          // because agents belong to accounts, and saying "the forge is cold"
+          // would imply they had lost some.
+          <Panel className="p-10 text-center dither-stone">
+            <Mascot state="coffee" size={72} className="mx-auto" />
+            <p className="font-mono text-sm mt-3">
+              Agents live in an account. Sign in and this fills up.
+            </p>
+            <div className="mt-4 flex flex-wrap justify-center gap-2">
+              <Link href="/login?next=%2Fnew">
+                <PixelButton variant="coral">Sign in with GitHub →</PixelButton>
+              </Link>
+              <Link href="/demo">
+                <PixelButton variant="ghost">See one get built first</PixelButton>
+              </Link>
+            </div>
+          </Panel>
+        ) : agentsLoading ? (
           // Signing in fetches the account's agents; showing "the forge is
           // cold" in the meantime tells a signed-in user their work is gone.
           <Panel className="p-10 text-center dither-stone">
@@ -182,6 +350,75 @@ export default function Home() {
             ))}
           </div>
         )}
+      </section>
+
+      {/* FAQ — six straight answers */}
+      <section className="mx-auto max-w-6xl px-5 pb-20">
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="font-pixel text-sm">FAQ</h2>
+          <span className="font-mono text-[11px] text-muted">
+            {FAQS.length} straight answers
+          </span>
+        </div>
+        <div className="space-y-2">
+          {FAQS.map((f, n) => (
+            <div key={f.q} className="t-acc border-2 border-line bg-paper" data-open={openFaq === n}>
+              <button
+                type="button"
+                className="t-acc-head w-full flex items-center justify-between gap-3 font-mono text-xs px-3 py-2 cursor-pointer hover:bg-stone transition-colors text-left"
+                aria-expanded={openFaq === n}
+                aria-controls={`faq-panel-${n}`}
+                onClick={() => setOpenFaq(openFaq === n ? null : n)}
+              >
+                {f.q}
+                <span className="t-acc-chevron shrink-0">
+                  <AngleDownSolidIcon size={10} />
+                </span>
+              </button>
+              <div className="t-acc-panel" id={`faq-panel-${n}`}>
+                <div className="t-acc-panel-inner">
+                  <p className="font-mono text-[10px] text-muted px-3 pb-2 leading-relaxed">
+                    {f.a}
+                  </p>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      {/* SUPPORT — sponsor the project */}
+      <section className="mx-auto max-w-6xl px-5 pb-20">
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="font-pixel text-sm">SUPPORT</h2>
+          <span className="font-mono text-[11px] text-muted">free, and staying that way</span>
+        </div>
+        <Panel className="overflow-hidden">
+          <div className="flex items-center justify-between px-4 py-2 border-b-2 border-line bg-coral-text text-paper">
+            <span className="font-pixel text-[10px] uppercase">Sponsor the project</span>
+            <a
+              href={SITE.sponsorUrl}
+              target="_blank"
+              rel="noreferrer noopener"
+              className="font-mono text-[10px] underline"
+            >
+              github sponsors ↗
+            </a>
+          </div>
+          <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between p-4">
+            <p className="font-mono text-xs text-ink leading-relaxed max-w-xl">
+              {SITE.name} is open source and built by one person. Sponsoring pays for the
+              skills crawler and the drafting model — the two things that cost money — and
+              keeps the Free plan free.
+            </p>
+            <div className="flex flex-wrap items-center gap-2 shrink-0">
+              <a href={SITE.sponsorUrl} target="_blank" rel="noreferrer noopener">
+                <PixelButton variant="coral">Sponsor →</PixelButton>
+              </a>
+              <HeartButton />
+            </div>
+          </div>
+        </Panel>
       </section>
 
       <Footer />

@@ -3,6 +3,9 @@ import { createClient } from "@supabase/supabase-js";
 import { SUPABASE_CONFIGURED, SUPABASE_KEY, SUPABASE_URL } from "@/lib/supabase/env";
 import { planOf } from "@/lib/plans";
 import { clientIp, rateLimit } from "@/lib/foundry";
+import { normalizeGraph } from "@/lib/graph";
+import { agentSpec } from "@/lib/export";
+import type { Agent } from "@/lib/types";
 
 // What `@manudev.jsx/agents --token …` calls to fetch an agent from an
 // account, so an agent served over MCP no longer has to live in a file on
@@ -85,16 +88,26 @@ export async function GET(req: Request) {
   }
 
   // Same shape as the downloaded agents-dev.agent.json, so the MCP server has
-  // one spec format whether it read a file or fetched this.
+  // one spec format whether it read a file or fetched this — including the
+  // orchestrator/subagent tree, which is built here rather than sent raw so a
+  // hand-edited or pre-canvas row still serves something coherent.
+  const agent: Agent = {
+    id: row.id,
+    name: row.name,
+    role: row.role ?? "",
+    systemPrompt: row.system_prompt ?? "",
+    target: "generic-mcp",
+    model: row.model,
+    temperature: row.temperature,
+    skills: Array.isArray(row.skills) ? row.skills : [],
+    mascot: "working",
+    accent: "#f95c4b",
+    createdAt: Date.now(),
+  };
+  const graph = normalizeGraph(row.graph, agent);
+
   return NextResponse.json(
-    {
-      name: row.name,
-      role: row.role,
-      model: row.model,
-      temperature: row.temperature,
-      system: row.system_prompt,
-      skills: Array.isArray(row.skills) ? row.skills : [],
-    },
+    agentSpec({ ...agent, graph }),
     // A CLI may sit behind a shared proxy; this response is per-token.
     { headers: { "cache-control": "private, no-store" } },
   );

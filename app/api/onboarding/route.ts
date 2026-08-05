@@ -1,11 +1,19 @@
 import { NextResponse } from "next/server";
 import { TARGETS } from "@/lib/types";
 import { FOUNDRY_ERROR, LIMITS, clamp, clientIp, foundryClient, rateLimit } from "@/lib/foundry";
+import { buildBrief } from "@/lib/ai/brief";
+import { DRAFT_PROMPT, DRAFT_SCHEMA, type DraftedAgent } from "@/lib/ai/onboarding";
 import { supabaseServer } from "@/lib/supabase/server";
+import { requireAccount } from "@/lib/api-auth";
 
 // Drafts the agent persona and nothing else. Skill picking lives in
 // ./skills/route.ts so the browser can render the persona at ~4s instead of
 // holding a blank panel for the ~9s the whole pipeline takes.
+//
+// This is the hosted path — our Foundry deployment, our bill, and so the plan
+// quota below. A visitor who brought their own API key never reaches this
+// route: their browser runs the same prompt against their own provider (see
+// lib/ai/draft.ts), which is why nothing here has to know about the others.
 //
 // The Foundry API key never reaches the browser: this route holds it in env
 // vars and the client only ever talks to /api/onboarding.
@@ -14,37 +22,14 @@ export const runtime = "nodejs";
 
 const TARGET_IDS = new Set(TARGETS.map((t) => t.id));
 
-interface DraftedAgent {
-  name: string;
-  role: string;
-  systemPrompt: string;
-  searchTerms: string[];
-}
-
-const DRAFT_PROMPT =
-  "Draft a coding-agent persona from the user's brief. " +
-  "name: 2-4 words, punchy. role: one lowercase clause, no leading article. " +
-  "systemPrompt: 2-4 sentences, second person, concrete about scope and constraints, no filler. " +
-  "searchTerms: 2-4 short queries (1-2 words each) for an agent-skill registry — " +
-  "the technologies and practices this agent needs, e.g. \"react\", \"testing\", \"security\". " +
-  "Do not name specific skills or repositories; these are search queries, not results.";
-
-// Structured Outputs — the model is constrained to this shape, so the response
-// is valid JSON on the first call. Without it a malformed reply costs a second
-// round trip to recover from.
-const DRAFT_SCHEMA = {
-  type: "object" as const,
-  properties: {
-    name: { type: "string" },
-    role: { type: "string" },
-    systemPrompt: { type: "string" },
-    searchTerms: { type: "array", items: { type: "string" } },
-  },
-  required: ["name", "role", "systemPrompt", "searchTerms"],
-  additionalProperties: false,
-};
-
 export async function POST(req: Request) {
+  // An account first, before anything is spent. This used to be optional, and
+  // the monthly quota below could be walked around simply by signing out:
+  // there was no identity to attribute a month to, so a signed-out draft only
+  // ever met the per-IP ceiling. Requiring the account is what closes that.
+  const gate = await requireAccount("draft an agent");
+  if (!gate.ok) return gate.response;
+
   const foundry = foundryClient();
   if (!foundry) return NextResponse.json({ error: FOUNDRY_ERROR }, { status: 500 });
 
@@ -56,11 +41,8 @@ export async function POST(req: Request) {
     );
   }
 
-  // Signed-in drafts come out of the account's monthly plan quota. Signed-out
-  // ones can't: there is no identity to attribute a month to, so they keep the
-  // per-IP rate limit above and nothing more. That does mean signing out is a
-  // way around the monthly cap — the flood ceiling still holds, and closing it
-  // properly means requiring an account to draft at all.
+  // Every draft that gets here belongs to an account, so every draft comes out
+  // of that account's monthly plan quota.
   const supabase = await supabaseServer();
   if (supabase) {
     const {
@@ -100,17 +82,13 @@ export async function POST(req: Request) {
     typeof raw.target === "string" && TARGET_IDS.has(raw.target as never)
       ? raw.target
       : "generic-mcp";
-  const teamName = clamp(raw.teamName, LIMITS.teamName);
-
-  const brief = [
-    `Purpose: ${purpose}`,
-    `Domain/stack: ${clamp(raw.domain, LIMITS.domain) || "general"}`,
-    `Tone: ${clamp(raw.tone, LIMITS.tone) || "direct"}`,
-    `Target tool: ${target}`,
-    teamName && `Team/project: ${teamName}`,
-  ]
-    .filter(Boolean)
-    .join("\n");
+  const brief = buildBrief({
+    purpose,
+    domain: clamp(raw.domain, LIMITS.domain),
+    tone: clamp(raw.tone, LIMITS.tone),
+    target,
+    teamName: clamp(raw.teamName, LIMITS.teamName),
+  });
 
   let text: string;
   try {

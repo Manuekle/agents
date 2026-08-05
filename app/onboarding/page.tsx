@@ -15,7 +15,12 @@ import {
   type PickedSkill,
 } from "@/lib/types";
 import { saveAgent } from "@/lib/store";
+import { graphFromAgent } from "@/lib/graph";
 import { componentId } from "@/lib/aitmpl";
+import { AiProviderSettings } from "@/components/AiProviderSettings";
+import { aiConfig, settingsProblem, useAiSettings } from "@/lib/ai/settings";
+import { draftPersona, pickSkills } from "@/lib/ai/draft";
+import { providerOf } from "@/lib/ai/providers";
 
 const TONES = ["Direct", "Friendly", "Formal", "Playful"] as const;
 type Tone = (typeof TONES)[number];
@@ -24,6 +29,11 @@ interface Drafted {
   name: string;
   role: string;
   systemPrompt: string;
+  // The model's own registry queries and the brief it was drafted from, both
+  // carried forward so the skill-picking call can reuse them without either
+  // side reassembling state.
+  searchTerms: string[];
+  brief: string;
   // Picked by the model out of live skills.sh results, so every repo here
   // resolves. Can legitimately be empty — the registry may have nothing that
   // fits, and padding the list would be worse than leaving it to the composer.
@@ -34,6 +44,7 @@ interface Drafted {
 
 export default function OnboardingPage() {
   const router = useRouter();
+  const settings = useAiSettings();
   const [purpose, setPurpose] = useState("");
   const [domain, setDomain] = useState("");
   const [tone, setTone] = useState<Tone>("Direct");
@@ -44,43 +55,74 @@ export default function OnboardingPage() {
   const [error, setError] = useState<string | null>(null);
   const [drafted, setDrafted] = useState<Drafted | null>(null);
 
+  // Both paths run the same two prompts in the same order; they differ only in
+  // whose model answers them. Hosted goes through our routes so the Foundry key
+  // stays server-side; bring-your-own-key calls the provider from here, because
+  // that is the only way the key stays on this machine — and the only way a
+  // localhost Ollama is reachable at all.
+  const draftHosted = async (): Promise<Drafted> => {
+    const res = await fetch("/api/onboarding", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ purpose, domain, tone, target, teamName }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error ?? "draft failed");
+    return { ...data, skills: null };
+  };
+
+  const pickHosted = async (d: Drafted) => {
+    const picked = await fetch("/api/onboarding/skills", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        searchTerms: d.searchTerms,
+        brief: d.brief,
+        name: d.name,
+        role: d.role,
+      }),
+    });
+    const skillData = await picked.json().catch(() => ({ skills: [] }));
+    return (skillData.skills ?? []) as PickedSkill[];
+  };
+
   const draft = async () => {
     if (!purpose.trim()) {
       setError("Tell it what the agent should do first.");
       return;
     }
+    const problem = settingsProblem(settings);
+    if (problem) {
+      setError(problem);
+      return;
+    }
+
     setLoading(true);
     setError(null);
     setDrafted(null);
+
+    const byok = settings.mode === "byok";
+    const config = aiConfig(settings);
+
     try {
-      const res = await fetch("/api/onboarding", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ purpose, domain, tone, target, teamName }),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error ?? "draft failed");
+      const persona: Drafted = byok
+        ? { ...(await draftPersona(config, { purpose, domain, tone, target, teamName })), skills: null }
+        : await draftHosted();
 
       // Show the persona the moment it lands — the registry search and the
       // pick that follow take about as long again, and a blank panel for the
       // whole nine seconds read as a hang.
-      setDrafted({ ...data, skills: null });
+      setDrafted({ ...persona, skills: null });
       setLoading(false);
 
-      const picked = await fetch("/api/onboarding/skills", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({
-          searchTerms: data.searchTerms,
-          brief: data.brief,
-          name: data.name,
-          role: data.role,
-        }),
-      });
-      const skillData = await picked.json().catch(() => ({ skills: [] }));
-      // The persona is already on screen and usable, so a failure here settles
-      // to "no skills" rather than throwing the whole draft away.
-      setDrafted((d) => (d ? { ...d, skills: skillData.skills ?? [] } : d));
+      try {
+        const skills = byok ? await pickSkills(config, persona) : await pickHosted(persona);
+        setDrafted((d) => (d ? { ...d, skills } : d));
+      } catch {
+        // The persona is already on screen and usable, so a failure here
+        // settles to "no skills" rather than throwing the whole draft away.
+        setDrafted((d) => (d ? { ...d, skills: [] } : d));
+      }
     } catch (e) {
       setError(e instanceof Error ? e.message : "draft failed");
       setLoading(false);
@@ -104,7 +146,10 @@ export default function OnboardingPage() {
       accent: "#f95c4b",
       createdAt: Date.now(),
     };
-    saveAgent(agent);
+    // A drafted agent is a flat pick list; graphFromAgent lays it out under an
+    // orchestrator so the composer opens on a canvas rather than on an agent
+    // it has to migrate at first render.
+    saveAgent({ ...agent, graph: graphFromAgent(agent) });
     router.push(`/build?id=${agent.id}`);
   };
 
@@ -115,11 +160,16 @@ export default function OnboardingPage() {
         <h1 className="font-pixel text-sm mb-1">ONBOARDING</h1>
         <PoweredBy />
         <p className="mt-4 font-mono text-sm text-ink-soft">
-          Answer a few questions — an Azure AI Foundry model drafts the persona,
-          then searches skills.sh and picks the skills that fit it.
+          Answer a few questions — a model drafts the persona, then searches skills.sh
+          and picks the skills that fit it. Run it on ours, or on your own API key:
+          Claude, ChatGPT, Kimi, Gemini, or a local model through Ollama.
         </p>
 
-        <Panel className="p-5 mt-6 space-y-4">
+        <div className="mt-6">
+          <AiProviderSettings />
+        </div>
+
+        <Panel className="p-5 mt-5 space-y-4">
           <Field label="What should this agent do?">
             <TextArea
               rows={3}
@@ -137,7 +187,7 @@ export default function OnboardingPage() {
             />
           </Field>
 
-          <Field label="Tone">
+          <Field group label="Tone">
             <Segmented<Tone>
               options={TONES.map((t) => ({ id: t, label: t }))}
               value={tone}
@@ -145,7 +195,7 @@ export default function OnboardingPage() {
             />
           </Field>
 
-          <Field label="Target tool" hint={TARGETS.find((t) => t.id === target)?.hint}>
+          <Field group label="Target tool" hint={TARGETS.find((t) => t.id === target)?.hint}>
             <Segmented<AgentTarget>
               options={TARGETS.map((t) => ({ id: t.id, label: t.label }))}
               value={target}
@@ -177,7 +227,7 @@ export default function OnboardingPage() {
                 Drafting…
               </span>
             ) : (
-              "Draft with Foundry →"
+              `Draft with ${settings.mode === "byok" ? (providerOf(settings.provider)?.label ?? "your model") : "Foundry"} →`
             )}
           </PixelButton>
         </Panel>
@@ -236,7 +286,7 @@ export default function OnboardingPage() {
                     <span
                       key={w}
                       style={{ width: w }}
-                      className="h-[21px] border-2 border-line bg-stone-deep animate-pulse"
+                      className="h-[21px] border-2 border-line bg-stone-deep t-pulse-dot"
                     />
                   ))}
                 </div>
