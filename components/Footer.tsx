@@ -27,6 +27,13 @@ const COLS: { title: string; links: { label: string; href: string; external?: bo
       { label: "GitHub", href: SITE.githubUrl, external: true },
     ],
   },
+  {
+    title: "Legal",
+    links: [
+      { label: "Privacy", href: "/privacy" },
+      { label: "Terms", href: "/terms" },
+    ],
+  },
 ];
 
 // Real stargazer count, not a made-up rating: the filled stars reflect the
@@ -56,7 +63,7 @@ function Rating() {
 export function Footer() {
   return (
     <footer className="mt-20 border-t-2 border-line bg-stone">
-      <div className="mx-auto max-w-6xl px-5 py-12 grid gap-10 md:grid-cols-[1.4fr_1fr_1fr]">
+      <div className="mx-auto max-w-6xl px-5 py-12 grid gap-10 md:grid-cols-[1.4fr_1fr_1fr_1fr]">
         {/* brand */}
         <div>
           <Link href="/" className="group inline-flex items-center gap-2">
