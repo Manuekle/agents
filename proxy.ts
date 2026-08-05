@@ -33,7 +33,13 @@ export async function proxy(request: NextRequest) {
   // Nothing may run between createServerClient and getUser(): the call is what
   // rotates the refresh token, and work in between has been the usual cause of
   // users being logged out at random.
-  await supabase.auth.getUser();
+  try {
+    await supabase.auth.getUser();
+  } catch {
+    // Auth unreachable (refresh endpoint down): serve the page anyway instead
+    // of 500ing the whole site. The session cookie is left as-is and the next
+    // request retries the refresh.
+  }
 
   // A shared cache holding a response carrying someone's session cookie would
   // hand that session to the next visitor.
@@ -43,6 +49,6 @@ export async function proxy(request: NextRequest) {
 
 export const config = {
   matcher: [
-    "/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
+    "/((?!_next/static|_next/image|.*\\.(?:svg|png|jpg|jpeg|gif|webp|avif|ico|txt|xml|webmanifest|json)$).*)",
   ],
 };
