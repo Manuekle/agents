@@ -1,3 +1,5 @@
+import { fnv1a } from "@/components/dither-kit/pixel";
+
 // Mascot state machine.
 // Each state maps to a pixel-art asset slot + a motion signature + ASCII fallback.
 // Drop PNGs into /public/mascots/<slot>.png and they replace the ASCII automatically.
@@ -107,3 +109,36 @@ export const MASCOT_ORDER: MascotState[] = [
   "rocket",
   "sleeping",
 ];
+
+/**
+ * What a new specialist is given, in order.
+ *
+ * Every subagent used to be born "thinking", so six specialists on the canvas
+ * were six identical sprites and the mascot stopped carrying any information.
+ * Cycling means the nth specialist under an agent looks different from the
+ * (n-1)th without anyone having to pick — and the picker is still there to
+ * override it.
+ *
+ * `sleeping` is deliberately absent: it is the dormant state, and a specialist
+ * that arrives asleep reads as broken rather than as new.
+ */
+export const SUBAGENT_MASCOTS: MascotState[] = [
+  "thinking",
+  "sherlock",
+  "wizard",
+  "headphones",
+  "cooking",
+  "paragliding",
+  "coffee",
+  "working",
+  "rocket",
+];
+
+/**
+ * A stable mascot for a node that has none — anything saved before subagents
+ * carried one. Derived from the node's own id so it never changes under the
+ * user, and so two specialists in one graph rarely land on the same sprite.
+ */
+export function mascotForSeed(seed: string): MascotState {
+  return SUBAGENT_MASCOTS[fnv1a(seed) % SUBAGENT_MASCOTS.length];
+}

@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Select, TextInput } from "@/components/ui";
+import { Select } from "@/components/ui";
+import { SearchInput } from "@/components/SearchInput";
 import { BarChart } from "@/components/dither-kit/bar-chart";
 import { Bar } from "@/components/dither-kit/bar";
 import { XAxis } from "@/components/dither-kit/x-axis";
@@ -273,13 +274,18 @@ export function SkillBrowser({
   return (
     <div>
       <div className="flex flex-wrap items-center gap-2 mb-3">
-        <TextInput
+        {/* The in-flight state rides inside the field (a dot by the × button),
+            not as a word next to it: this row is flex-wrap, and a label that
+            appeared on every keystroke pushed the sort control onto a second
+            line and back. The count line below is what announces the result. */}
+        <SearchInput
           value={q}
-          onChange={(e) => setQ(e.target.value)}
+          onChange={setQ}
           // The placeholder cannot do this job: it disappears the moment
           // someone types, and this is the page's primary control.
-          aria-label={source === "aitmpl" ? `Filter ${kind}` : "Search skills.sh"}
+          label={source === "aitmpl" ? `Filter ${kind}` : "Search skills.sh"}
           placeholder={source === "aitmpl" ? `filter ${kind}…` : "search skills.sh…"}
+          loading={loading}
           className="flex-1 min-w-[200px]"
         />
         <Select<SortId>
@@ -291,7 +297,6 @@ export function SkillBrowser({
           // so the row wraps instead of stretching full-width like a <select>.
           className="w-40 shrink-0"
         />
-        {loading && <span className="font-mono text-[10px] text-muted">searching…</span>}
       </div>
 
       <div className="flex flex-wrap gap-1.5 mb-3">

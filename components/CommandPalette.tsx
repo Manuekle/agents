@@ -213,8 +213,13 @@ export function CommandPalette() {
     // this is open. `inert` is what actually delivers it: without it, Tab
     // walks straight out of the panel into the nav behind, and assistive tech
     // has been told that content is not there.
+    //
+    // Matched by attribute rather than by "does it contain the overlay": the
+    // toast below is a sibling of the overlay, not an ancestor, so it was
+    // being inerted too — and an inert live region announces nothing, which is
+    // the one thing that element exists to do.
     const roots = [...document.body.children].filter(
-      (el): el is HTMLElement => el instanceof HTMLElement && !el.contains(overlayRef.current),
+      (el): el is HTMLElement => el instanceof HTMLElement && !el.hasAttribute("data-palette"),
     );
     for (const el of roots) el.inert = true;
 
@@ -362,6 +367,7 @@ export function CommandPalette() {
     <div
       role="status"
       aria-live="polite"
+      data-palette=""
       className={clsx(
         "fixed bottom-4 left-1/2 -translate-x-1/2 z-50 font-mono text-[10px] px-3 py-2 border-2 border-line bg-paper",
         !toast && "sr-only",
@@ -381,6 +387,7 @@ export function CommandPalette() {
         role="dialog"
         aria-modal="true"
         aria-label="Command palette"
+        data-palette=""
         className={clsx(
           "fixed inset-0 z-50 flex items-start justify-center pt-[12vh] px-4 overscroll-contain",
           "t-modal-backdrop",

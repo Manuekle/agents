@@ -1,4 +1,4 @@
-import type { MascotState } from "./mascot";
+import { SUBAGENT_MASCOTS, mascotForSeed, type MascotState } from "./mascot";
 import { AITMPL_KINDS, componentId, kindOfArg, type AitmplKind } from "./aitmpl";
 import type { Agent, PickedSkill } from "./types";
 
@@ -542,8 +542,21 @@ export function graphFromAgent(agent: Agent): AgentGraph {
   return autoLayout(graph);
 }
 
-/** A fresh specialist, inheriting the model of whoever will own it. */
-export function newSubagent(parent: GraphNode | undefined, x: number, y: number): GraphNode {
+/**
+ * A fresh specialist, inheriting the model of whoever will own it.
+ *
+ * `graph` is optional only so the signature stays usable from a context that
+ * has none; pass it whenever there is one, because it is what makes the new
+ * specialist's mascot differ from its siblings' instead of every one of them
+ * arriving as the same sprite.
+ */
+export function newSubagent(
+  parent: GraphNode | undefined,
+  x: number,
+  y: number,
+  graph?: AgentGraph,
+): GraphNode {
+  const nth = graph ? subagentsOf(graph).length : 0;
   return {
     id: newNodeId(),
     kind: "subagent",
@@ -554,8 +567,18 @@ export function newSubagent(parent: GraphNode | undefined, x: number, y: number)
     systemPrompt: "",
     model: parent?.model,
     temperature: parent?.temperature,
-    mascot: "thinking",
+    mascot: SUBAGENT_MASCOTS[nth % SUBAGENT_MASCOTS.length],
   };
+}
+
+/**
+ * The sprite a node shows. Every agent node has one to draw — the orchestrator
+ * mirrors the agent record's, a specialist carries its own, and anything saved
+ * before specialists had one gets a stable sprite derived from its id rather
+ * than falling back to a shared default that would make them all identical.
+ */
+export function mascotOf(node: GraphNode): MascotState {
+  return node.mascot ?? (node.kind === "orchestrator" ? "working" : mascotForSeed(node.id));
 }
 
 /**

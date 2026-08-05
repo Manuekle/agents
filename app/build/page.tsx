@@ -1,10 +1,10 @@
 "use client";
 
 import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Slider } from "@heroui/react";
-import { Nav, PoweredBy } from "@/components/Nav";
-import { Footer } from "@/components/Footer";
+import { PoweredBy } from "@/components/PoweredBy";
 import { DitherConfetti } from "@/components/DitherConfetti";
 import { Mascot } from "@/components/Mascot";
 import { VendorMark } from "@/components/brands";
@@ -55,7 +55,10 @@ import {
   type GraphNode,
 } from "@/lib/graph";
 import { useGraphHistory } from "@/lib/use-graph-history";
-import { saveAgent, useAgents, useStoreError } from "@/lib/store";
+import { saveAgent, useAgents, useAgentsLoading, useStoreError } from "@/lib/store";
+import { usePlan } from "@/lib/use-plan";
+import { PLANS, atLimit, formatUsage } from "@/lib/plans";
+import { UsageChip } from "@/components/PlanUsage";
 import {
   exportAgent,
   installCommand,
@@ -105,6 +108,7 @@ function Builder() {
   const params = useSearchParams();
   const router = useRouter();
   const agents = useAgents();
+  const agentsLoading = useAgentsLoading();
   const editId = params.get("id");
 
   const [agent, setAgent] = useState<Agent>(newAgent);
@@ -151,6 +155,9 @@ function Builder() {
     const found = agents.find((a) => a.id === editId);
     // A stored agent may predate the canvas; normalizeGraph is what
     // guarantees the rest of this component always has one to edit.
+    // Not found is not always an error — the account's agents may still be
+    // loading — so the "no such agent" notice below waits for that to settle
+    // rather than firing on the first render.
     if (!found) return;
     setAgent({ ...found, graph: normalizeGraph(found.graph, found) });
     // A different agent is a different document. Its undo stack is not this
@@ -215,7 +222,9 @@ function Builder() {
     const owner = activeNode ?? root;
     if (!owner || locked) return;
     const slot = at ?? slotUnder(graph, owner.id);
-    const node = newSubagent(owner, Math.round(slot.x), Math.round(slot.y));
+    // The graph goes in so the new specialist takes the next mascot in the
+    // rotation rather than the same one its siblings already wear.
+    const node = newSubagent(owner, Math.round(slot.x), Math.round(slot.y), graph);
     setGraph(addNode(graph, node, owner.id));
     setSelection([node.id]);
     setPreviewState("wizard");
@@ -264,12 +273,30 @@ function Builder() {
   const canEditSelection =
     !locked && selection.some((id) => nodeById(graph, id)?.kind !== "orchestrator");
 
+  // Only once the account's agents have actually arrived: during the fetch the
+  // list is legitimately empty and every `?id=` would look missing.
+  const missingAgent =
+    !!editId && !agentsLoading && !agents.some((a) => a.id === editId);
+
   const output = useMemo(() => exportAgent(agent), [agent]);
   const install = useMemo(() => installCommand(agent), [agent]);
   const newProj = useMemo(() => newProjectCommand(agent), [agent]);
   const repos = agentRepos(agent);
 
+  // ---- the plan's agent cap ------------------------------------------------
+  //
+  // The cap binds in the database (a before-insert trigger), and the store
+  // rolls a refused save back — but the user only found out afterwards, from
+  // an error where a saved agent should have been. This is the same rule, read
+  // ahead of the press: an *existing* agent can always be saved again, because
+  // an update is not a new row, so only a first save is ever blocked.
+  const { plan: planId } = usePlan();
+  const agentCap = planId ? PLANS[planId].agents : null;
+  const isNewAgent = !agents.some((a) => a.id === agent.id);
+  const capReached = isNewAgent && atLimit(agents.length, agentCap);
+
   const doSave = () => {
+    if (capReached) return;
     setPreviewState("cooking");
     saveAgent(agent);
     setSaved(true);
@@ -320,7 +347,6 @@ function Builder() {
   return (
     <div>
       <DitherConfetti token={confettiToken} />
-      <Nav />
       <div className="mx-auto max-w-6xl px-5 py-8">
         {/* Stacks below `sm`: the Silkscreen title and both buttons cannot
             share a 375px row without colliding. */}
@@ -333,7 +359,8 @@ function Builder() {
               room than a 320px viewport has once the page gutters are taken
               out, which pushed "Save agent" off-screen and gave the whole page
               a horizontal scrollbar. */}
-          <div className="flex flex-wrap gap-2">
+          <div className="flex flex-wrap items-center gap-2">
+            <UsageChip kind="agents" />
             <PixelButton
               variant="ghost"
               onClick={copyShareLink}
@@ -349,7 +376,16 @@ function Builder() {
                 {copiedKey === "share" ? "Link copied" : "Share"}
               </span>
             </PixelButton>
-            <PixelButton variant="coral" onClick={doSave}>
+            <PixelButton
+              variant="coral"
+              onClick={doSave}
+              disabled={capReached}
+              title={
+                capReached
+                  ? `You're at ${formatUsage(agents.length, agentCap)} saved agents — delete one or upgrade`
+                  : "Save this agent to your account"
+              }
+            >
               <span className="inline-flex items-center gap-1.5">
                 {saved ? <SuccessCheck shown size={12} /> : <SaveIcon size={12} />}
                 {saved ? "Saved" : "Save agent"}
@@ -358,6 +394,19 @@ function Builder() {
           </div>
         </div>
 
+        {/* `?id=` naming an agent this account does not have — a deleted one, a
+            bookmark from another account, a hand-typed id. The composer used to
+            fall through to a blank "Untitled Agent" without a word, so the next
+            Save quietly created a second agent instead of editing the one the
+            link pointed at. */}
+        {missingAgent && (
+          <p className="mb-5 font-mono text-xs border-2 border-line bg-stone px-3 py-2 leading-relaxed">
+            No agent <code className="text-coral-text">{editId}</code> in this
+            account — it may have been deleted, or belong to another one. What
+            is open below is a new, unsaved agent.
+          </p>
+        )}
+
         {/* Nothing is stored yet — a shared agent lives in this tab until the
             recipient saves it, and saying so avoids them closing it. */}
         {fromShare && (
@@ -365,6 +414,24 @@ function Builder() {
             Opened from a shared link. Edit anything you like — it is not saved
             to your account until you press <strong>Save agent</strong>.
           </p>
+        )}
+
+        {/* Said before the press rather than after it — everything on this page
+            still works, the agent just has nowhere to go until a slot frees up,
+            and exporting or sharing it does not need one. */}
+        {capReached && (
+          <div className="mb-5 border-2 border-coral-deep px-3 py-2 flex flex-wrap items-center gap-x-3 gap-y-1.5">
+            <p className="font-mono text-xs text-coral-deep flex-1 min-w-[16rem] leading-relaxed">
+              {formatUsage(agents.length, agentCap)} saved agents on{" "}
+              {planId ? PLANS[planId].label : "your plan"} — delete one from the
+              home page to free a slot, or upgrade. Export and share still work.
+            </p>
+            <Link href="/pricing">
+              <PixelButton variant="coral" className="!px-3 !py-1 !text-[9px]">
+                See plans →
+              </PixelButton>
+            </Link>
+          </div>
         )}
 
         {/* A rejected write has already been rolled back in the store, so this
@@ -581,12 +648,25 @@ function Builder() {
 
             {/* MASCOT PICKER */}
             <Panel className="p-5">
-              <Field group label="Mascot" hint="state animation on the card">
+              {/* Edits the active node like every other field on this page, so
+                  it names which one — a specialist's mascot is what its node
+                  wears on the canvas, and picking one while a subagent is
+                  selected used to look like it had changed the agent's. */}
+              <Field
+                group
+                label="Mascot"
+                hint={
+                  editingRoot
+                    ? "on the agent card and the root node"
+                    : `on ${activeNode?.name ?? "this specialist"}'s node`
+                }
+              >
                 <div className="grid grid-cols-5 sm:grid-cols-10 gap-2 mt-1">
                   {MASCOT_ORDER.map((s) => (
                     <button
                       key={s}
                       title={MASCOTS[s].label}
+                      aria-pressed={activeNode?.mascot === s}
                       onClick={() => {
                         patchActive({ mascot: s });
                         setPreviewState(s);
@@ -778,7 +858,6 @@ function Builder() {
           </div>
         </div>
       </div>
-      <Footer />
     </div>
   );
 }

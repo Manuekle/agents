@@ -1,7 +1,5 @@
 import type { Metadata } from "next";
-import { Nav } from "@/components/Nav";
-import { Footer } from "@/components/Footer";
-import { PoweredBy } from "@/components/Nav";
+import { PoweredBy } from "@/components/PoweredBy";
 
 export const metadata: Metadata = {
   title: "Privacy — agents",
@@ -38,7 +36,6 @@ const SECTIONS: { title: string; body: string }[] = [
 export default function PrivacyPage() {
   return (
     <div>
-      <Nav />
       <div className="mx-auto max-w-3xl px-5 py-10">
         <h1 className="font-pixel text-xs sm:text-sm mb-1">PRIVACY</h1>
         <PoweredBy />
@@ -57,7 +54,6 @@ export default function PrivacyPage() {
           ))}
         </div>
       </div>
-      <Footer />
     </div>
   );
 }

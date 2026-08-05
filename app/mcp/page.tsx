@@ -1,8 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { Nav, PoweredBy } from "@/components/Nav";
-import { Footer } from "@/components/Footer";
+import { PoweredBy } from "@/components/PoweredBy";
 import { Mascot } from "@/components/Mascot";
 import { Panel, PixelButton, Badge } from "@/components/ui";
 import { McpTokens } from "@/components/McpTokens";
@@ -99,7 +98,6 @@ export default function McpPage() {
 
   return (
     <div>
-      <Nav />
       <div className="mx-auto max-w-6xl px-5 py-8">
         <div className="flex items-center justify-between mb-6">
           <div>
@@ -204,7 +202,6 @@ export default function McpPage() {
           </div>
         </div>
       </div>
-      <Footer />
     </div>
   );
 }

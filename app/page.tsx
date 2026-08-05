@@ -2,18 +2,19 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { Nav, PoweredBy } from "@/components/Nav";
-import { Footer } from "@/components/Footer";
+import { PoweredBy } from "@/components/PoweredBy";
 import { HowItWorks } from "@/components/HowItWorks";
 import { Mascot } from "@/components/Mascot";
 import { DitherField } from "@/components/DitherField";
 import { TiltCard } from "@/components/TiltCard";
 import { Panel, PixelButton, Badge } from "@/components/ui";
 import { HeartButton } from "@/components/Sponsor";
+import { UsageChip } from "@/components/PlanUsage";
 import { StarIcon, AngleDownSolidIcon } from "@/components/icons";
 import { MASCOT_ORDER, MASCOTS } from "@/lib/mascot";
-import { useAgents, useAgentsLoading, deleteAgent } from "@/lib/store";
-import { TARGETS } from "@/lib/types";
+import { useAgents, useAgentsLoading, useStoreError, deleteAgent } from "@/lib/store";
+import { TARGETS, type Agent } from "@/lib/types";
+import { subagentsOf } from "@/lib/graph";
 import { useStars } from "@/lib/stars";
 import { PLAN_ORDER } from "@/lib/plans";
 import { useSignedIn } from "@/lib/use-auth";
@@ -30,9 +31,17 @@ const FAQS = [
   { q: "What if my prompt is too long to share?", a: "Share links have a size cap. Export agent.json and drop it in the repo instead — same build, no limit." },
 ];
 
+/** Specialists under an agent's orchestrator. Pre-canvas rows have none. */
+function subagentCount(a: Agent): number {
+  return a.graph ? subagentsOf(a.graph).length : 0;
+}
+
 export default function Home() {
   const agents = useAgents();
   const agentsLoading = useAgentsLoading();
+  const storeError = useStoreError();
+  // Which agent's ✕ has been armed. One at a time, and cleared on blur.
+  const [confirming, setConfirming] = useState<string | null>(null);
   const stars = useStars();
   // `null` until auth resolves. The hero treats unknown as signed-in so the
   // primary button does not flip from "Forge" to "Watch" under the pointer on
@@ -59,8 +68,6 @@ export default function Home() {
 
   return (
     <div>
-      <Nav />
-
       {/* HERO */}
       <section className="relative overflow-hidden border-b-2 border-line">
         <DitherField className="absolute inset-0 w-full h-full opacity-90" cell={7} />
@@ -274,12 +281,27 @@ export default function Home() {
 
       {/* SAVED AGENTS */}
       <section className="mx-auto max-w-6xl px-5 pb-20">
-        <div className="flex items-center justify-between mb-4">
+        <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
           <h2 className="font-pixel text-sm">YOUR_AGENTS</h2>
-          <Link href={guest ? "/login?next=%2Fnew" : "/new"}>
-            <PixelButton>{guest ? "Sign in" : "+ New"}</PixelButton>
-          </Link>
+          <div className="flex items-center gap-2">
+            {/* Answers "how many of these am I allowed" without leaving the
+                page. Renders nothing signed out. */}
+            <UsageChip kind="agents" />
+            <Link href={guest ? "/login?next=%2Fnew" : "/new"}>
+              <PixelButton>{guest ? "Sign in" : "+ New"}</PixelButton>
+            </Link>
+          </div>
         </div>
+
+        {/* Where a failed write actually surfaces. The one that matters here is
+            the first-sign-in migration: agents composed on this browser before
+            the account existed are upserted into it, and if that is refused
+            they stay local and invisible in the list below. */}
+        {storeError && (
+          <p className="mb-4 font-mono text-xs text-coral-deep border-2 border-coral-deep px-3 py-2 leading-relaxed">
+            {storeError}
+          </p>
+        )}
 
         {guest ? (
           // Not "no agents yet" — a signed-out visitor has no agents *here*
@@ -337,13 +359,39 @@ export default function Home() {
                   <Badge>
                     {a.skills.length} skill{a.skills.length === 1 ? "" : "s"}
                   </Badge>
+                  {/* Only when there are any: "0 subagents" on every card is a
+                      column of noise, and most agents are a single persona. */}
+                  {subagentCount(a) > 0 && (
+                    <Badge>
+                      {subagentCount(a)} subagent{subagentCount(a) === 1 ? "" : "s"}
+                    </Badge>
+                  )}
                 </div>
                 <div className="flex gap-2 mt-4">
                   <Link href={`/build?id=${a.id}`} className="flex-1">
                     <PixelButton className="w-full">Edit</PixelButton>
                   </Link>
-                  <PixelButton variant="ghost" onClick={() => deleteAgent(a.id)}>
-                    ✕
+                  {/* Two presses, not a browser confirm(): deleting an agent
+                      cannot be undone — the row goes from the account — and a
+                      single ✕ next to Edit is one slip away from losing it. */}
+                  <PixelButton
+                    variant="ghost"
+                    aria-label={
+                      confirming === a.id ? `Confirm deleting ${a.name}` : `Delete ${a.name}`
+                    }
+                    title={confirming === a.id ? "Press again to delete" : "Delete this agent"}
+                    className={confirming === a.id ? "!bg-coral-text !text-paper" : undefined}
+                    onClick={() => {
+                      if (confirming === a.id) {
+                        deleteAgent(a.id);
+                        setConfirming(null);
+                        return;
+                      }
+                      setConfirming(a.id);
+                    }}
+                    onBlur={() => setConfirming((id) => (id === a.id ? null : id))}
+                  >
+                    {confirming === a.id ? "Sure?" : "✕"}
                   </PixelButton>
                 </div>
               </Panel>
@@ -420,8 +468,6 @@ export default function Home() {
           </div>
         </Panel>
       </section>
-
-      <Footer />
     </div>
   );
 }

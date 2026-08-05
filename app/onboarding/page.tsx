@@ -1,10 +1,10 @@
 "use client";
 
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { ThinkingOrb } from "thinking-orbs";
-import { Nav, PoweredBy } from "@/components/Nav";
-import { Footer } from "@/components/Footer";
+import { PoweredBy } from "@/components/PoweredBy";
 import { Mascot } from "@/components/Mascot";
 import { Panel, PixelButton, Badge, Field, TextInput, TextArea, Segmented } from "@/components/ui";
 import {
@@ -14,7 +14,9 @@ import {
   type AgentTarget,
   type PickedSkill,
 } from "@/lib/types";
-import { saveAgent } from "@/lib/store";
+import { saveAgent, useAgents } from "@/lib/store";
+import { refreshPlan, usePlan } from "@/lib/use-plan";
+import { PLANS, atLimit, formatUsage } from "@/lib/plans";
 import { graphFromAgent } from "@/lib/graph";
 import { componentId } from "@/lib/aitmpl";
 import { AiProviderSettings } from "@/components/AiProviderSettings";
@@ -54,6 +56,19 @@ export default function OnboardingPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [drafted, setDrafted] = useState<Drafted | null>(null);
+
+  // Only the hosted path spends quota — a bring-your-own-key draft runs
+  // against the visitor's own provider and never touches our bill, so metering
+  // it would be charging for something we did not pay for.
+  const { plan: planId, draftsUsed } = usePlan();
+  const agents = useAgents();
+  const plan = planId ? PLANS[planId] : null;
+  const hosted = settings.mode !== "byok";
+  const outOfDrafts = hosted && !!plan && atLimit(draftsUsed ?? 0, plan.drafts);
+  // The composer saves the drafted agent on the way in, so the agent cap is
+  // this page's problem too — and finding out after nine seconds of drafting
+  // is the worst possible moment to learn about it.
+  const outOfAgents = !!plan && atLimit(agents.length, plan.agents);
 
   // Both paths run the same two prompts in the same order; they differ only in
   // whose model answers them. Hosted goes through our routes so the Foundry key
@@ -96,6 +111,12 @@ export default function OnboardingPage() {
       setError(problem);
       return;
     }
+    if (outOfDrafts) {
+      setError(
+        "You're out of AI drafts for this month. Bring your own API key above, or see /pricing.",
+      );
+      return;
+    }
 
     setLoading(true);
     setError(null);
@@ -114,6 +135,9 @@ export default function OnboardingPage() {
       // whole nine seconds read as a hang.
       setDrafted({ ...persona, skills: null });
       setLoading(false);
+      // The hosted call has just spent a draft server-side. Re-read so the
+      // counter below moves now rather than on the next page load.
+      if (!byok) refreshPlan();
 
       try {
         const skills = byok ? await pickSkills(config, persona) : await pickHosted(persona);
@@ -155,7 +179,6 @@ export default function OnboardingPage() {
 
   return (
     <div>
-      <Nav />
       <div className="mx-auto max-w-3xl px-5 py-10">
         <h1 className="font-pixel text-sm mb-1">ONBOARDING</h1>
         <PoweredBy />
@@ -217,7 +240,31 @@ export default function OnboardingPage() {
             </p>
           )}
 
-          <PixelButton variant="coral" onClick={draft} disabled={loading} className="w-full">
+          {/* What a press costs, next to the button that spends it. Hidden on
+              the bring-your-own-key path, which spends nothing of ours. */}
+          {hosted && plan && (
+            <div className="flex flex-wrap items-center justify-between gap-2 font-mono text-[11px]">
+              <span className={outOfDrafts ? "text-coral-deep" : "text-muted"}>
+                <span className="tabular-nums">
+                  {formatUsage(draftsUsed ?? 0, plan.drafts)}
+                </span>{" "}
+                AI drafts used this month on {plan.label}
+              </span>
+              {outOfDrafts && (
+                <Link href="/pricing" className="text-coral-text underline">
+                  see plans →
+                </Link>
+              )}
+            </div>
+          )}
+
+          <PixelButton
+            variant="coral"
+            onClick={draft}
+            disabled={loading || outOfDrafts}
+            title={outOfDrafts ? "No AI drafts left this month" : undefined}
+            className="w-full"
+          >
             {loading ? (
               <span className="inline-flex items-center gap-2">
                 {/* theme pinned, not `auto`: the orb sits on the coral button,
@@ -309,13 +356,29 @@ export default function OnboardingPage() {
               )}
             </div>
 
-            <PixelButton variant="coral" onClick={openInComposer} className="mt-4 w-full">
+            {/* The composer saves on entry, so a full account has to be said
+                here — the draft itself is fine, it just has nowhere to land. */}
+            {outOfAgents && plan && (
+              <p className="mt-4 font-mono text-[11px] text-coral-deep border-2 border-coral-deep px-3 py-2 leading-relaxed">
+                {formatUsage(agents.length, plan.agents)} saved agents on{" "}
+                {plan.label} — delete one from the home page to make room, or{" "}
+                <Link href="/pricing" className="underline">
+                  see plans
+                </Link>
+                .
+              </p>
+            )}
+            <PixelButton
+              variant="coral"
+              onClick={openInComposer}
+              disabled={outOfAgents}
+              className="mt-4 w-full"
+            >
               Use this — open in composer →
             </PixelButton>
           </Panel>
         )}
       </div>
-      <Footer />
     </div>
   );
 }

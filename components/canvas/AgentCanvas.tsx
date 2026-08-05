@@ -2,9 +2,8 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { clsx } from "@/lib/clsx";
+import { cssTimeMs } from "@/lib/motion";
 import { Mascot } from "@/components/Mascot";
-import { DitherAvatar } from "@/components/dither-kit/avatar";
-import { avatarHue } from "@/lib/avatar";
 import {
   CollapseIcon,
   ExpandIcon,
@@ -24,6 +23,7 @@ import {
   graphBounds,
   isAgentKind,
   isComponentKind,
+  mascotOf,
   moveNodes,
   nodeById,
   nodeHeight,
@@ -122,20 +122,6 @@ const KIND_LABEL: Record<NodeKind, string> = {
 
 /** Ctrl on Windows and Linux, ⌘ on a Mac — one predicate for every shortcut. */
 const mod = (e: React.KeyboardEvent) => e.metaKey || e.ctrlKey;
-
-/**
- * A CSS `<time>` token in milliseconds.
- *
- * Not `parseFloat`: the build minifies `150ms` down to `.15s`, so reading the
- * token that way yields 0.15 and every timer keyed off it fires on the next
- * tick — which silently skips whatever it was meant to be waiting for.
- */
-function cssTimeMs(value: string, fallback: number): number {
-  const raw = value.trim();
-  const n = parseFloat(raw);
-  if (!Number.isFinite(n)) return fallback;
-  return raw.endsWith("ms") ? n : n * 1000;
-}
 
 export function AgentCanvas({
   graph,
@@ -1125,16 +1111,16 @@ function CanvasNode({
         <span aria-hidden="true" className="flex items-start gap-1.5 h-full">
           {agentish && (
             <span className="shrink-0 mt-0.5">
-              {/* The orchestrator keeps the mascot — it is the brand, and it is
-                  what makes the root node read as the root. Subagents get a
-                  glyph derived from their own name instead: they all used to
-                  draw the same "working" sprite, so six specialists were six
-                  identical 28px boxes. Renaming one re-derives its glyph. */}
-              {node.kind === "orchestrator" ? (
-                <Mascot state={node.mascot ?? "working"} size={28} />
-              ) : (
-                <DitherAvatar name={node.name} hue={avatarHue(node.name)} size={28} />
-              )}
+              {/* Every agent node wears its own mascot — the specialists too.
+                  They briefly wore a generated dither glyph instead, because
+                  they were all born "thinking" and six specialists were six
+                  identical sprites; that is fixed at the source now (see
+                  SUBAGENT_MASCOTS), so the canvas shows the same character the
+                  card, the picker and the demo show for that agent.
+                  Not animated: a dozen idle loops running out of phase behind
+                  a drag is motion nobody asked for. The inspector's preview is
+                  where a mascot animates. */}
+              <Mascot state={mascotOf(node)} size={28} animate={false} />
             </span>
           )}
           <span className="min-w-0 flex-1">

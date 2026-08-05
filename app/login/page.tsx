@@ -1,14 +1,15 @@
 "use client";
 
 import { Suspense, useState } from "react";
+import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { Nav, PoweredBy } from "@/components/Nav";
-import { Footer } from "@/components/Footer";
+import { PoweredBy } from "@/components/PoweredBy";
 import { Mascot } from "@/components/Mascot";
 import { Panel, PixelButton, Badge } from "@/components/ui";
 import { GitHubIcon } from "@/components/icons";
 import { supabaseBrowser } from "@/lib/supabase/client";
 import { SUPABASE_CONFIGURED } from "@/lib/supabase/env";
+import { useSignedIn } from "@/lib/use-auth";
 
 function Login() {
   const params = useSearchParams();
@@ -19,7 +20,18 @@ function Login() {
   const next = raw.startsWith("/") && !raw.startsWith("//") ? raw : "/";
 
   const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  // `?error=1` is what /auth/callback redirects here with when the code could
+  // not be exchanged for a session. Nothing read it before, so a failed OAuth
+  // round trip landed the user back on a page that looked like they had simply
+  // never pressed the button.
+  const [error, setError] = useState<string | null>(
+    params.get("error") ? "That sign-in didn't complete. Try again." : null,
+  );
+
+  // Already signed in — usually someone who followed a stale /login link, or
+  // came back to a tab that signed in elsewhere. Offering the button again
+  // would send them through GitHub for a session they already have.
+  const signedIn = useSignedIn();
 
   const signIn = async () => {
     const sb = supabaseBrowser();
@@ -44,7 +56,6 @@ function Login() {
 
   return (
     <div>
-      <Nav />
       <div className="mx-auto max-w-md px-5 py-12">
         <h1 className="font-pixel text-xs sm:text-sm mb-1">SIGN_IN</h1>
         <PoweredBy />
@@ -61,7 +72,21 @@ function Login() {
             browser before comes with you.
           </p>
 
-          {SUPABASE_CONFIGURED ? (
+          {SUPABASE_CONFIGURED && signedIn ? (
+            <div className="mt-5">
+              <Badge tone="coral">Signed in</Badge>
+              <p className="font-mono text-[11px] text-muted mt-2 leading-relaxed">
+                You already have a session on this browser. Carry on where you
+                were headed — sign out from the nav if you meant to switch
+                accounts.
+              </p>
+              <Link href={next} className="block mt-4">
+                <PixelButton variant="coral" className="w-full">
+                  {next === "/" ? "Go home →" : `Continue to ${next} →`}
+                </PixelButton>
+              </Link>
+            </div>
+          ) : SUPABASE_CONFIGURED ? (
             <>
               <PixelButton
                 variant="coral"
@@ -96,7 +121,6 @@ function Login() {
           )}
         </Panel>
       </div>
-      <Footer />
     </div>
   );
 }

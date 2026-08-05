@@ -1,8 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { Nav, PoweredBy } from "@/components/Nav";
-import { Footer } from "@/components/Footer";
+import { PoweredBy } from "@/components/PoweredBy";
 import { Mascot } from "@/components/Mascot";
 import { SkillBrowser } from "@/components/SkillBrowser";
 import { Panel, PixelButton, Badge } from "@/components/ui";
@@ -15,7 +14,6 @@ export default function SkillsPage() {
 
   return (
     <div>
-      <Nav />
       <div className="mx-auto max-w-6xl px-5 py-8">
         <div className="flex flex-wrap items-end justify-between gap-4 mb-6">
           <div>
@@ -73,7 +71,6 @@ export default function SkillsPage() {
           )}
         </div>
       </div>
-      <Footer />
     </div>
   );
 }

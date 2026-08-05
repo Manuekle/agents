@@ -76,3 +76,32 @@ export function planOf(value: string | null | undefined): Plan {
 export function formatLimit(n: number | null): string {
   return n === null ? "Unlimited" : String(n);
 }
+
+// ------------------------------------------------------------------- usage
+//
+// The limits themselves bind in SQL (see supabase/migrations/0002_plans.sql):
+// the agent cap is a trigger and the draft quota is checked and spent in one
+// statement. Everything below is for telling the user where they stand *before*
+// the database has to refuse them — a save that vanishes and reappears as an
+// error is a much worse way to learn you are at three of three.
+
+/** How many are left, or null when the plan has no cap. */
+export function remaining(used: number, cap: number | null): number | null {
+  return cap === null ? null : Math.max(0, cap - used);
+}
+
+/** True when the next one would be refused. Uncapped plans are never at one. */
+export function atLimit(used: number, cap: number | null): boolean {
+  return cap !== null && used >= cap;
+}
+
+/** "2 / 3" or "2 / ∞" — the shape every usage readout in the app uses. */
+export function formatUsage(used: number, cap: number | null): string {
+  return `${used} / ${cap === null ? "∞" : cap}`;
+}
+
+/** The plan one step up, or null at the top. What an "at your limit" nudge sells. */
+export function nextPlanAfter(id: PlanId): Plan | null {
+  const at = PLAN_ORDER.indexOf(id);
+  return at >= 0 && at < PLAN_ORDER.length - 1 ? PLANS[PLAN_ORDER[at + 1]] : null;
+}

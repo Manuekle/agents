@@ -3,15 +3,14 @@
 import Link from "next/link";
 import { Suspense, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
-import { Nav, PoweredBy } from "@/components/Nav";
-import { Footer } from "@/components/Footer";
+import { PoweredBy } from "@/components/PoweredBy";
 import { Mascot } from "@/components/Mascot";
 import { AgentCanvas } from "@/components/canvas/AgentCanvas";
 import { Panel, PixelButton, Badge, ResizeBox } from "@/components/ui";
 import { clsx } from "@/lib/clsx";
 import { MASCOTS } from "@/lib/mascot";
 import { TARGETS } from "@/lib/types";
-import { subagentsOf } from "@/lib/graph";
+import { mascotOf, subagentsOf } from "@/lib/graph";
 import { exportAgent, installCommand } from "@/lib/export";
 import {
   DEMO_BRIEF,
@@ -172,7 +171,7 @@ function DelegatePanel() {
           className="pop-in flex gap-3 items-start p-3 border-2 border-line bg-paper"
         >
           <div className="mascot-stage relative overflow-hidden pixel-border-sm p-1.5 shrink-0">
-            <Mascot state={s.mascot ?? "thinking"} size={40} />
+            <Mascot state={mascotOf(s)} size={40} />
           </div>
           <div className="min-w-0">
             <div className="font-sans font-bold text-sm">{s.name}</div>
@@ -269,7 +268,6 @@ function Demo() {
 
   return (
     <div>
-      <Nav />
       <div className="mx-auto max-w-6xl px-5 py-8">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-6">
           <div>
@@ -429,7 +427,6 @@ function Demo() {
           </div>
         </div>
       </div>
-      <Footer />
     </div>
   );
 }

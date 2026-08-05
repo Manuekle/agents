@@ -2,10 +2,10 @@
 
 import Link from "next/link";
 import { BorderBeam } from "border-beam";
-import { Nav, PoweredBy } from "@/components/Nav";
-import { Footer } from "@/components/Footer";
+import { PoweredBy } from "@/components/PoweredBy";
 import { Mascot } from "@/components/Mascot";
 import { Panel, PixelButton, Badge } from "@/components/ui";
+import { PlanUsage } from "@/components/PlanUsage";
 import { PLANS, PLAN_ORDER, formatLimit } from "@/lib/plans";
 import { usePlan } from "@/lib/use-plan";
 import { useSignedIn } from "@/lib/use-auth";
@@ -48,7 +48,6 @@ export default function PricingPage() {
 
   return (
     <div>
-      <Nav />
       <div className="mx-auto max-w-6xl px-5 py-8">
         <h1 className="font-pixel text-xs sm:text-sm mb-1">PRICING</h1>
         <PoweredBy />
@@ -71,6 +70,10 @@ export default function PricingPage() {
             <PixelButton variant={guest ? "coral" : "ghost"}>Open the demo →</PixelButton>
           </Link>
         </Panel>
+
+        {/* The columns below say what each plan allows; this says what the
+            reader has actually used of theirs. Renders nothing signed out. */}
+        <PlanUsage className="mt-5" />
 
         <div className="mt-8 grid gap-5 md:grid-cols-3">
           {PLAN_ORDER.map((id) => {
@@ -221,7 +224,6 @@ export default function PricingPage() {
           can be talked past from the browser.
         </p>
       </div>
-      <Footer />
     </div>
   );
 }

@@ -432,6 +432,20 @@ html::-webkit-scrollbar-corner {
   --reveal-blur: 2px;
   --reveal-ease: ease-in-out;
 
+  /* input clear with dissolve (search fields) */
+  --clear-dur: 1000ms;
+  --clear-out-dur: 400ms;
+  --clear-in-dur: 400ms;
+  --clear-out-fly: 12px;
+  --clear-in-fly: 12px;
+  --clear-out-ease: cubic-bezier(0.22, 1, 0.36, 1);
+  --clear-in-ease: cubic-bezier(0.22, 1, 0.36, 1);
+  --clear-blur: 2px;
+  --glow-delay: 50ms;
+  --glow-peak-at: 0.15;
+  --glow-opacity: 0.42;
+  --glow-spread: 1.5;
+
   /* icon swap (mobile menu trigger) */
   --icon-swap-dur: 250ms;
   --icon-swap-blur: 2px;
@@ -705,6 +719,57 @@ html::-webkit-scrollbar-corner {
 .t-pulse-dot {
   animation: t-skel-pulse var(--pulse-dur) linear infinite;
 }
+
+/* ---------- input clear with dissolve ---------- */
+/* transitions.dev recipe, house-adapted. The wrap owns the field's border,
+   surface and focus shadow — the <input> inside is transparent — because the
+   wrap has to clip the glow, and a border on the input would be clipped with
+   it. `overflow: hidden` clips descendants only, so the wrap's own 2px offset
+   focus shadow still paints outside the box.
+   The mirror, the fake placeholder and the glow all stack on the input's own
+   coordinates; only <SearchInput> drives them. */
+.t-clear {
+  position: relative;
+  overflow: hidden;
+}
+.t-clear-mirror,
+.t-clear-placeholder {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  pointer-events: none;
+  white-space: nowrap;
+  overflow: hidden;
+  z-index: 2;
+}
+/* Second house change: the recipe hands the mirror every rendered value, so
+   the real glyphs are transparent the whole time someone is typing. A query
+   longer than the field then desyncs — the input scrolls with the caret and
+   the static mirror does not. Here the mirror only takes the text over for
+   the length of the clear, when the input is already empty and cannot scroll. */
+.t-clear-mirror { opacity: 0; }
+.t-clear.is-clearing .t-clear-mirror { opacity: 1; }
+.t-clear.is-clearing > input {
+  -webkit-text-fill-color: transparent;
+}
+.t-clear.has-value .t-clear-placeholder { opacity: 0; }
+/* The streak overlay: empty by default; JS writes a stack of
+   `radial-gradient(...)` layers into background during a clear, then animates
+   opacity. `multiply` darkens the surface and the hairline under it. */
+.t-clear-glow {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0;
+  z-index: 3;
+  mix-blend-mode: multiply;
+}
+/* Multiply over dark paper vanishes, so dark mode lightens instead — with
+   white gradients (picked in JS off the same attribute) and a stronger peak,
+   since a light streak on a dark field carries less than the reverse. */
+[data-theme="dark"] .t-clear-glow { mix-blend-mode: screen; }
+[data-theme="dark"] { --glow-opacity: 0.85; }
 
 /* ---------- digit reel ---------- */
 .t-reel {
@@ -1263,6 +1328,10 @@ html::-webkit-scrollbar-corner {
   }
   .t-stagger-line { opacity: 1; transform: none; filter: none; }
   .t-tilt-card { transform: none !important; }
+  /* <SearchInput> already skips the whole frame loop under reduced motion —
+     this is the belt-and-braces the recipe asks for, so a glow left painted
+     by an interrupted clear cannot stay on screen. */
+  .t-clear-glow { opacity: 0 !important; }
 }
 
 /* ---------- blinking caret ---------- */

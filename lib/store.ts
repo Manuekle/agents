@@ -156,6 +156,17 @@ async function applyUser(id: string | null) {
     // Only clear once the rows are safely in the account — a failed upsert
     // followed by a clear would destroy the only copy.
     if (!error) writeLocal([]);
+    else {
+      // Silently keeping them local was the old behaviour, and it looked
+      // exactly like signing in had eaten the user's agents: the account's
+      // list renders, theirs is not in it, and nothing says why. The usual
+      // cause is the plan's agent cap refusing a batch bigger than the plan.
+      setError(
+        error.message.includes("agent limit")
+          ? `Couldn't move ${local.length} agent${local.length === 1 ? "" : "s"} from this browser into your account — that would pass your plan's agent limit. They are still here; see /pricing.`
+          : `Couldn't move ${local.length} agent${local.length === 1 ? "" : "s"} from this browser into your account. They are still saved on this device.`,
+      );
+    }
   }
 
   const { data } = await sb

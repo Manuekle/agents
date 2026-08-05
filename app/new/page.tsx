@@ -1,21 +1,24 @@
 "use client";
 
 import Link from "next/link";
-import { Nav, PoweredBy } from "@/components/Nav";
-import { Footer } from "@/components/Footer";
+import { PoweredBy } from "@/components/PoweredBy";
 import { Mascot } from "@/components/Mascot";
 import { Panel, PixelButton, Badge } from "@/components/ui";
+import { PlanUsage } from "@/components/PlanUsage";
 
 export default function NewAgentPage() {
   return (
     <div>
-      <Nav />
       <div className="mx-auto max-w-4xl px-5 py-10">
         <h1 className="font-pixel text-sm mb-1">CREATE_AGENT</h1>
         <PoweredBy />
         <p className="mt-4 font-mono text-sm text-ink-soft max-w-lg">
           Two ways in — let an AI draft the persona, or build every field yourself.
         </p>
+
+        {/* Both routes below spend something: the left one an AI draft, both of
+            them an agent slot. This is the page to say how many are left on. */}
+        <PlanUsage className="mt-6" />
 
         <div className="mt-8 grid gap-5 sm:grid-cols-2">
           <Link href="/onboarding" className="group block">
@@ -57,7 +60,6 @@ export default function NewAgentPage() {
           </Link>
         </div>
       </div>
-      <Footer />
     </div>
   );
 }
