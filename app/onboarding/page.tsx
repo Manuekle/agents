@@ -25,7 +25,9 @@ interface Drafted {
   // Picked by the model out of live skills.sh results, so every repo here
   // resolves. Can legitimately be empty — the registry may have nothing that
   // fits, and padding the list would be worse than leaving it to the composer.
-  skills: PickedSkill[];
+  // `null` means the second request is still in flight, which is a different
+  // thing to show than "found nothing".
+  skills: PickedSkill[] | null;
 }
 
 export default function OnboardingPage() {
@@ -47,6 +49,7 @@ export default function OnboardingPage() {
     }
     setLoading(true);
     setError(null);
+    setDrafted(null);
     try {
       const res = await fetch("/api/onboarding", {
         method: "POST",
@@ -55,10 +58,29 @@ export default function OnboardingPage() {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "draft failed");
-      setDrafted(data);
+
+      // Show the persona the moment it lands — the registry search and the
+      // pick that follow take about as long again, and a blank panel for the
+      // whole nine seconds read as a hang.
+      setDrafted({ ...data, skills: null });
+      setLoading(false);
+
+      const picked = await fetch("/api/onboarding/skills", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          searchTerms: data.searchTerms,
+          brief: data.brief,
+          name: data.name,
+          role: data.role,
+        }),
+      });
+      const skillData = await picked.json().catch(() => ({ skills: [] }));
+      // The persona is already on screen and usable, so a failure here settles
+      // to "no skills" rather than throwing the whole draft away.
+      setDrafted((d) => (d ? { ...d, skills: skillData.skills ?? [] } : d));
     } catch (e) {
       setError(e instanceof Error ? e.message : "draft failed");
-    } finally {
       setLoading(false);
     }
   };
@@ -74,6 +96,8 @@ export default function OnboardingPage() {
       model: modelsFor(target)[0].id,
       temperature: 0.7,
       skills: drafted.skills ?? [],
+      // ^ still null if the user hits the button before the pick lands; the
+      //   composer is where skills get edited anyway.
       mascot: "wizard",
       accent: "#f95c4b",
       createdAt: Date.now(),
@@ -142,9 +166,7 @@ export default function OnboardingPage() {
           )}
 
           <PixelButton variant="coral" onClick={draft} disabled={loading} className="w-full">
-            {/* Named the slow half: this now drafts, searches the registry and
-                picks, which runs ~9s. "Drafting…" alone read as a hang. */}
-            {loading ? "Drafting + picking skills…" : "Draft with Foundry →"}
+            {loading ? "Drafting…" : "Draft with Foundry →"}
           </PixelButton>
         </Panel>
 
@@ -179,10 +201,25 @@ export default function OnboardingPage() {
               <div className="flex items-baseline justify-between mb-2">
                 <span className="font-pixel text-[10px] uppercase">Skills picked</span>
                 <span className="font-mono text-[10px] text-muted">
-                  {drafted.skills.length} from skills.sh
+                  {drafted.skills === null
+                    ? "searching skills.sh…"
+                    : `${drafted.skills.length} from skills.sh`}
                 </span>
               </div>
-              {drafted.skills.length > 0 ? (
+              {drafted.skills === null ? (
+                <div className="flex flex-wrap gap-1.5">
+                  {/* Placeholder chips rather than a spinner: the row keeps the
+                      height it will have, so the panel doesn't jump when the
+                      real picks arrive. */}
+                  {[72, 96, 64].map((w) => (
+                    <span
+                      key={w}
+                      style={{ width: w }}
+                      className="h-[21px] border-2 border-line bg-stone-deep animate-pulse"
+                    />
+                  ))}
+                </div>
+              ) : drafted.skills.length > 0 ? (
                 <div className="flex flex-wrap gap-1.5">
                   {drafted.skills.map((s) => (
                     <span
