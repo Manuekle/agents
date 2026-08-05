@@ -5,6 +5,7 @@ import { Nav, PoweredBy } from "@/components/Nav";
 import { Footer } from "@/components/Footer";
 import { Mascot } from "@/components/Mascot";
 import { Panel, PixelButton, Badge } from "@/components/ui";
+import { McpTokens } from "@/components/McpTokens";
 import { copyText } from "@/lib/copy";
 
 // What @manudev.jsx/agents exposes once connected.
@@ -103,7 +104,10 @@ export default function McpPage() {
             </Panel>
           </div>
 
-          <Panel className="overflow-hidden self-start">
+          <div className="space-y-5 self-start min-w-0">
+            <McpTokens />
+
+            <Panel className="overflow-hidden">
             <div className="flex items-center justify-between px-3 py-2 border-b-2 border-line bg-stone">
               <span className="font-mono text-[11px]">mcp.json</span>
               <PixelButton
@@ -125,7 +129,8 @@ export default function McpPage() {
                 Then call the <b>activate_agent</b> prompt to load the persona.
               </p>
             </div>
-          </Panel>
+            </Panel>
+          </div>
         </div>
       </div>
       <Footer />

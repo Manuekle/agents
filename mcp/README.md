@@ -6,6 +6,29 @@ Windsurf, Cline, Gemini…) can load it.
 
 ## Use
 
+Two ways to point it at an agent.
+
+### From your account (needs Pro or Max)
+
+Create a token on [the MCP page](https://agents-dev.vercel.app/mcp), then:
+
+```json
+{
+  "mcpServers": {
+    "agents-dev": {
+      "command": "npx",
+      "args": ["-y", "@manudev.jsx/agents", "--token", "adv_…"]
+    }
+  }
+}
+```
+
+The agent is fetched from your account, so it follows you between machines
+rather than living in one file. Add `--agent-id <id>` to pick a specific one;
+without it you get your most recent agent.
+
+### From a file (works on every plan, no account)
+
 1. In the agents.dev composer, download **agents-dev.agent.json**.
 2. Drop it in your project root.
 3. Add to your MCP client config (`.mcp.json`, `~/.claude/…`, etc.):
@@ -21,9 +44,11 @@ Windsurf, Cline, Gemini…) can load it.
 }
 ```
 
-4. Call the **activate_agent** prompt to load the persona.
+Then call the **activate_agent** prompt to load the persona.
 
-Spec resolution order: `--agent <file>` → `$AGENTS_DEV_AGENT` → `./agents-dev.agent.json`.
+Resolution order: `--token` / `$AGENTS_DEV_TOKEN` wins if present; otherwise
+`--agent <file>` → `$AGENTS_DEV_AGENT` → `./agents-dev.agent.json`.
+`$AGENTS_DEV_API` overrides the API host for self-hosted deploys.
 
 ## Exposes
 
