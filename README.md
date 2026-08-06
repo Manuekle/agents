@@ -1,15 +1,15 @@
 <div align="center">
 
-<img src="assets/logo-mark.png" width="104" alt="agents logo" />
+<img src="assets/logo-mark.png" width="104" alt="creagent logo" />
 
-# agents
+# creagent
 
 ### Build AI agents. Ship your skills.
 
 Scrape skills, compose agents, export to Claude Code, Codex & any MCP model.
 
-[![Live](https://img.shields.io/badge/live-agents--dev.vercel.app-ef5c47?style=flat-square&logo=vercel&logoColor=white)](https://agents-dev.vercel.app)
-[![Demo](https://img.shields.io/badge/demo-no%20account-ef5c47?style=flat-square)](https://agents-dev.vercel.app/demo)
+[![Live](https://img.shields.io/badge/live-creagent.fun-ef5c47?style=flat-square&logo=vercel&logoColor=white)](https://creagent.fun)
+[![Demo](https://img.shields.io/badge/demo-no%20account-ef5c47?style=flat-square)](https://creagent.fun/demo)
 [![MCP](https://img.shields.io/badge/serve-via%20MCP-17150f?style=flat-square)](mcp/README.md)
 [![Next.js 16](https://img.shields.io/badge/Next.js-16-17150f?style=flat-square)](https://nextjs.org)
 [![React 19](https://img.shields.io/badge/React-19-17150f?style=flat-square)](https://react.dev)
@@ -17,7 +17,7 @@ Scrape skills, compose agents, export to Claude Code, Codex & any MCP model.
 
 </div>
 
-<img src="docs/screenshots/hero.png" alt="agents — home" width="100%" />
+<img src="docs/screenshots/hero.png" alt="creagent — home" width="100%" />
 
 <div align="center">
 
@@ -41,7 +41,7 @@ Scrape skills, compose agents, export to Claude Code, Codex & any MCP model.
 
 <div align="center">
 
-**Brief** · **Draft** · **Skills** · **Delegate** · **Export** — the five steps below run live at [`/demo`](https://agents-dev.vercel.app/demo), no account.
+**Brief** · **Draft** · **Skills** · **Delegate** · **Export** — the five steps below run live at [`/demo`](https://creagent.fun/demo), no account.
 
 </div>
 
@@ -90,7 +90,7 @@ One command and any MCP-capable model — Claude, GPT, Gemini — calls your age
 <img src="docs/screenshots/mcp.png" alt="Serve over MCP — generated mcp.json" width="100%" />
 
 ```bash
-npx -y @manudev.jsx/agents --agent ./agents-dev.agent.json
+npx -y @manudev.jsx/creagent --agent ./creagent.agent.json
 ```
 
 ## Plans
@@ -101,7 +101,7 @@ Free is free forever: 3 saved agents, 10 AI drafts a month, the whole registry, 
 
 ## Dark, too
 
-<img src="docs/screenshots/hero-dark.png" alt="agents — dark theme" width="100%" />
+<img src="docs/screenshots/hero-dark.png" alt="creagent — dark theme" width="100%" />
 
 ---
 
@@ -112,7 +112,7 @@ npm install
 npm run dev
 ```
 
-Open **http://localhost:3000**. Without Supabase configured nothing is gated: agents live in `localStorage` and the whole flow runs on [`/demo`](https://agents-dev.vercel.app/demo).
+Open **http://localhost:3000**. Without Supabase configured nothing is gated: agents live in `localStorage` and the whole flow runs on [`/demo`](https://creagent.fun/demo).
 
 ## Stack
 

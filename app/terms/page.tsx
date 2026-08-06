@@ -1,14 +1,14 @@
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: "Terms — agents",
-  description: "The terms that govern your use of agents.",
+  title: "Terms — creagent",
+  description: "The terms that govern your use of creagent.",
 };
 
 const SECTIONS: { title: string; body: string }[] = [
   {
     title: "The service",
-    body: "agents lets you compose AI agent definitions, save them to your account, and export them to tools like Claude Code, Codex and any MCP-capable model. The service is provided as-is, with no guarantee of availability.",
+    body: "creagent lets you compose AI agent definitions, save them to your account, and export them to tools like Claude Code, Codex and any MCP-capable model. The service is provided as-is, with no guarantee of availability.",
   },
   {
     title: "Your account",

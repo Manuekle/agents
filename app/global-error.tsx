@@ -123,7 +123,7 @@ export default function GlobalError({
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img src="/mascots/sleeping.png" alt="" width={88} height={88} />
           </div>
-          <h1 className="ge-title">agents — something broke</h1>
+          <h1 className="ge-title">creagent — something broke</h1>
           <p className="ge-body">
             The app failed to start. Reloading usually clears it; if it does
             not, the deploy is having a bad time and nothing you did caused it.

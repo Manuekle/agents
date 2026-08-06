@@ -6,7 +6,7 @@ import { Panel, PixelButton, Badge } from "@/components/ui";
 import { McpTokens } from "@/components/McpTokens";
 import { copyText } from "@/lib/copy";
 
-// What @manudev.jsx/agents exposes once connected.
+// What @manudev.jsx/creagent exposes once connected.
 const PRIMITIVES = [
   { kind: "prompt", name: "activate_agent", desc: "the orchestrator persona + its delegation roster" },
   { kind: "prompt", name: "activate_subagent", desc: "one specialist's persona, by name" },
@@ -76,9 +76,9 @@ export default function McpPage() {
       JSON.stringify(
         {
           mcpServers: {
-            "agents-dev": {
+            creagent: {
               command: "npx",
-              args: ["-y", "@manudev.jsx/agents", "--agent", "./agents-dev.agent.json"],
+              args: ["-y", "@manudev.jsx/creagent", "--agent", "./creagent.agent.json"],
             },
           },
         },
@@ -108,7 +108,7 @@ export default function McpPage() {
           <div className="space-y-5">
             <Panel className="p-5">
               <p className="font-mono text-xs text-ink-soft leading-relaxed">
-                <b>@manudev.jsx/agents</b> serves an agent you composed — its system
+                <b>@manudev.jsx/creagent</b> serves an agent you composed — its system
                 prompt, its skills and its subagents — over MCP, so <i>any</i>{" "}
                 MCP-capable client can load it. Export <b>agent.json</b> from the
                 composer, drop it in your repo, add the config, done.
@@ -150,7 +150,7 @@ export default function McpPage() {
 
             <Panel className="overflow-hidden">
               <div className="flex items-center justify-between px-3 py-2 border-b-2 border-line bg-stone">
-                <span className="font-mono text-[11px]">agents-dev.agent.json</span>
+                <span className="font-mono text-[11px]">creagent.agent.json</span>
                 <Badge tone="coral">v2</Badge>
               </div>
               <pre className="p-4 text-[10px] font-mono leading-relaxed overflow-auto">
@@ -189,7 +189,7 @@ export default function McpPage() {
             <div className="px-4 py-3 border-t-2 border-line dither-stone space-y-1">
               <p className="font-mono text-[10px] text-ink">
                 Add to <b>.mcp.json</b>, <b>~/.claude/</b> or your client&apos;s MCP
-                config, alongside <b>agents-dev.agent.json</b>.
+                config, alongside <b>creagent.agent.json</b>.
               </p>
               <p className="font-mono text-[10px] text-ink">
                 Then call the <b>activate_agent</b> prompt to load the persona.

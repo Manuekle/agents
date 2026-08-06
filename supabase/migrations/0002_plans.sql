@@ -1,4 +1,4 @@
--- agents.dev — plan limits.
+-- creagent — plan limits.
 -- Run after 0001_agents.sql.
 
 -- --------------------------------------------------------------- ai_usage --

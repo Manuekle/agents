@@ -42,7 +42,7 @@ function mapItem(it: SkillShItem): Skill {
 /** One skills.sh query. Throws on a bad response so callers can decide. */
 export async function searchSkills(q: string, limit = 80): Promise<Skill[]> {
   const res = await fetch(`${SKILLS_SH}?q=${encodeURIComponent(q)}`, {
-    headers: { "user-agent": "agents-dev/1.0", accept: "application/json" },
+    headers: { "user-agent": "creagent/1.0", accept: "application/json" },
     signal: AbortSignal.timeout(8000),
   });
   if (!res.ok) throw new Error(`skills.sh ${res.status}`);

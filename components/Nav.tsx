@@ -80,7 +80,7 @@ export function Nav() {
           {/* Habibi wordmark as live text — scales at any DPI and inherits the
               theme colour, which a rasterised logo could not. */}
           <span className="font-serif text-2xl leading-none lowercase group-hover:text-coral transition-colors">
-            agents
+            creagent
           </span>
         </Link>
 

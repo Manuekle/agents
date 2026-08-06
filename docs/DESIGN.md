@@ -1,5 +1,5 @@
 ---
-title: DESIGN — agents.dev design system
+title: DESIGN — creagent design system
 summary: Colour tokens, typography, spacing, motion tokens and component primitives. The single source of truth for any visual change.
 version: 1.0.0
 updated: 2026-08-05

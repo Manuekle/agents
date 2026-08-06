@@ -1,4 +1,4 @@
--- agents.dev — API tokens so the MCP server can fetch an agent from an account.
+-- creagent — API tokens so the MCP server can fetch an agent from an account.
 -- Run after 0002_plans.sql.
 
 create extension if not exists pgcrypto;

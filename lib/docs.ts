@@ -544,7 +544,7 @@ function wrap(
 }
 
 function render(agent: Agent, spec: DocSpec): DocFile {
-  return wrap(agent, spec, spec.body(agent), { version: "0.1.0", generatedBy: "agents.dev" });
+  return wrap(agent, spec, spec.body(agent), { version: "0.1.0", generatedBy: "creagent" });
 }
 
 function specByPath(path: string): DocSpec | undefined {
@@ -578,7 +578,7 @@ export function withAiBody(agent: Agent, path: string, filledBody: string): DocF
   if (!spec) return null;
   return wrap(agent, spec, filledBody, {
     version: "1.0.0",
-    generatedBy: "agents.dev + AI draft — verify before trusting",
+    generatedBy: "creagent + AI draft — verify before trusting",
   });
 }
 
@@ -610,7 +610,7 @@ the files above instead.
 4. **Tables over prose** for anything enumerable.
 5. **Point at the source of truth, never copy it** — copied code drifts, and a drifted doc is worse than none.
 6. **Facts, dated.** Bump \`updated\` and \`version\` when the content changes.
-7. Replace every \`TODO\` before trusting a file. These are scaffolds: agents.dev knows the agent, not your repo.
+7. Replace every \`TODO\` before trusting a file. These are scaffolds: creagent knows the agent, not your repo.
 `;
 
   const head = frontmatter({
@@ -623,7 +623,7 @@ the files above instead.
     read_when: "Always — it is the router.",
     skip_when: "Never.",
     tokens_est: formatTokens(estimateTokens(draft)),
-    generated_by: "agents.dev",
+    generated_by: "creagent",
   });
 
   const content = `${head}\n${draft}`;

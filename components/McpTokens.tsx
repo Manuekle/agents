@@ -196,7 +196,7 @@ export function McpTokens() {
           <div className="mt-4">
             <div className="font-mono text-[9px] uppercase text-muted mb-1">run it</div>
             <code className="block bg-stone border-2 border-line px-2 py-1.5 font-mono text-[10px] overflow-auto whitespace-nowrap">
-              npx -y @manudev.jsx/agents --token &lt;your-token&gt;
+              npx -y @manudev.jsx/creagent --token &lt;your-token&gt;
             </code>
           </div>
         </>

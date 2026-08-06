@@ -7,7 +7,7 @@ import { normalizeGraph } from "@/lib/graph";
 import { agentSpec } from "@/lib/export";
 import type { Agent } from "@/lib/types";
 
-// What `@manudev.jsx/agents --token …` calls to fetch an agent from an
+// What `@manudev.jsx/creagent --token …` calls to fetch an agent from an
 // account, so an agent served over MCP no longer has to live in a file on
 // disk. Bearer token, not a session cookie: the caller is a CLI process.
 
@@ -87,7 +87,7 @@ export async function GET(req: Request) {
     );
   }
 
-  // Same shape as the downloaded agents-dev.agent.json, so the MCP server has
+  // Same shape as the downloaded creagent.agent.json, so the MCP server has
   // one spec format whether it read a file or fetched this — including the
   // orchestrator/subagent tree, which is built here rather than sent raw so a
   // hand-edited or pre-canvas row still serves something coherent.

@@ -1,7 +1,7 @@
 #!/usr/bin/env node
-// @manudev.jsx/agents — serve an agents.dev agent spec over MCP (stdio).
+// @manudev.jsx/creagent — serve a creagent agent spec over MCP (stdio).
 //
-// Reads an agent spec JSON (exported from agents.dev) and exposes it to any
+// Reads an agent spec JSON (exported from creagent) and exposes it to any
 // MCP-capable client (Claude Desktop, Cursor, …) as:
 //   - prompt   `activate_agent`     -> the orchestrator persona + its delegation roster
 //   - prompt   `activate_subagent`  -> one specialist's persona, by name
@@ -18,12 +18,17 @@
 // specialists, and `skills` means the same thing in both.
 //
 // Two ways to get the spec:
-//   - signed in: --token <api-token> [--agent-id <id>]  |  $AGENTS_DEV_TOKEN
-//                pulls the agent from your agents.dev account, so it follows
+//   - signed in: --token <api-token> [--agent-id <id>]  |  $CREAGENT_TOKEN
+//                pulls the agent from your creagent account, so it follows
 //                you between machines instead of living in one file
-//   - local:     --agent <file>  |  $AGENTS_DEV_AGENT  |  ./agents-dev.agent.json
+//   - local:     --agent <file>  |  $CREAGENT_AGENT  |  ./creagent.agent.json
 //
 // The token wins when both are present.
+//
+// The project was called agents.dev before creagent.fun, and the published
+// package predates the rename: every $CREAGENT_* var still falls back to its
+// $AGENTS_DEV_* spelling, and the local spec falls back to the old
+// agents-dev.agent.json, so an existing client config keeps working untouched.
 
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
@@ -31,7 +36,8 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { z } from "zod";
 
-const API_BASE = process.env.AGENTS_DEV_API ?? "https://agents-dev.vercel.app";
+const API_BASE =
+  process.env.CREAGENT_API ?? process.env.AGENTS_DEV_API ?? "https://creagent.fun";
 
 function flag(name) {
   const argv = process.argv.slice(2);
@@ -99,13 +105,14 @@ function findSubagent(agent, name) {
 function die(message) {
   // stderr, never stdout: stdout is the MCP transport, and a stray line there
   // corrupts the protocol stream rather than showing the user an error.
-  process.stderr.write(`[manudev.jsx/agents] ${message}\n`);
+  process.stderr.write(`[manudev.jsx/creagent] ${message}\n`);
   process.exit(1);
 }
 
 async function fetchSpec(token) {
   const url = new URL("/api/mcp/agent", API_BASE);
-  const agentId = flag("agent-id") ?? process.env.AGENTS_DEV_AGENT_ID;
+  const agentId =
+    flag("agent-id") ?? process.env.CREAGENT_AGENT_ID ?? process.env.AGENTS_DEV_AGENT_ID;
   if (agentId) url.searchParams.set("agent", agentId);
 
   let res;
@@ -129,17 +136,26 @@ async function fetchSpec(token) {
 }
 
 function loadLocalSpec() {
-  const path = resolve(
-    process.cwd(),
-    flag("agent") ?? process.env.AGENTS_DEV_AGENT ?? "agents-dev.agent.json",
+  // An explicit --agent / $CREAGENT_AGENT is taken literally — only the
+  // implicit lookup gets the old filename as a second guess, so a spec exported
+  // before the rename still loads without the user editing anything.
+  const named = flag("agent") ?? process.env.CREAGENT_AGENT ?? process.env.AGENTS_DEV_AGENT;
+  const candidates = (named ? [named] : ["creagent.agent.json", "agents-dev.agent.json"]).map((p) =>
+    resolve(process.cwd(), p),
   );
   let raw;
-  try {
-    raw = readFileSync(path, "utf8");
-  } catch {
+  for (const candidate of candidates) {
+    try {
+      raw = readFileSync(candidate, "utf8");
+      break;
+    } catch {
+      // next candidate; the loop reports only if none of them read
+    }
+  }
+  if (raw === undefined) {
     die(
-      `agent spec not found at ${path}\n` +
-        `  pass --agent <file>, set AGENTS_DEV_AGENT, add ./agents-dev.agent.json,\n` +
+      `agent spec not found at ${candidates.join(" or ")}\n` +
+        `  pass --agent <file>, set CREAGENT_AGENT, add ./creagent.agent.json,\n` +
         `  or sign in with --token <api-token> to pull it from your account`,
     );
   }
@@ -151,7 +167,7 @@ function loadLocalSpec() {
 }
 
 async function loadSpec() {
-  const token = flag("token") ?? process.env.AGENTS_DEV_TOKEN;
+  const token = flag("token") ?? process.env.CREAGENT_TOKEN ?? process.env.AGENTS_DEV_TOKEN;
   return token ? fetchSpec(token) : loadLocalSpec();
 }
 
@@ -214,7 +230,7 @@ function subagentText(a, s) {
 }
 
 const agent = await loadSpec();
-const server = new McpServer({ name: "agents", version: "0.1.0" });
+const server = new McpServer({ name: "creagent", version: "0.1.0" });
 
 // ---- prompt: activate the agent persona ----
 server.registerPrompt(
@@ -269,7 +285,7 @@ if (agent.subagents.length) {
 server.registerResource(
   "agent-spec",
   "agent://spec",
-  { title: "Agent spec", description: "Full agents.dev spec JSON", mimeType: "application/json" },
+  { title: "Agent spec", description: "Full creagent spec JSON", mimeType: "application/json" },
   async (uri) => ({
     contents: [{ uri: uri.href, mimeType: "application/json", text: JSON.stringify(agent, null, 2) }],
   }),
@@ -422,6 +438,6 @@ server.registerTool(
 const transport = new StdioServerTransport();
 await server.connect(transport);
 process.stderr.write(
-  `[manudev.jsx/agents] serving "${agent.name}" — ${agent.skills.length} components, ` +
+  `[manudev.jsx/creagent] serving "${agent.name}" — ${agent.skills.length} components, ` +
     `${agent.subagents.length} subagents (spec v${agent.version})\n`,
 );

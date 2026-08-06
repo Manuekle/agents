@@ -3,7 +3,7 @@ import { BRAND, habibiFont, logoDataUri } from "@/lib/brand";
 
 export const size = { width: 1200, height: 630 };
 export const contentType = "image/png";
-export const alt = "agents — build AI agents, ship your skills";
+export const alt = "creagent — build AI agents, ship your skills";
 
 export default async function OpengraphImage() {
   const logo = await logoDataUri();
@@ -27,7 +27,7 @@ export default async function OpengraphImage() {
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src={logo} width={72} height={72} alt="" />
           <div style={{ display: "flex", fontFamily: "Habibi", fontSize: 60 }}>
-            agents
+            creagent
           </div>
         </div>
 

@@ -25,20 +25,20 @@ const pixel = Silkscreen({
   subsets: ["latin"],
 });
 
-const TITLE = "agents — build AI agents, ship your skills";
+const TITLE = "creagent — build AI agents, ship your skills";
 const DESCRIPTION =
   "Craft AI agents with scraped skills for Claude Code, Codex & more. Pixel-native, MCP-ready.";
 
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
-  title: { default: TITLE, template: "%s · agents" },
+  title: { default: TITLE, template: "%s · creagent" },
   description: DESCRIPTION,
   alternates: { canonical: "/" },
   // app/icon.png, app/opengraph-image.png, app/twitter-image.png are auto-detected
   openGraph: {
     title: TITLE,
     description: DESCRIPTION,
-    siteName: "agents",
+    siteName: "creagent",
     type: "website",
     url: "/",
   },

@@ -395,8 +395,8 @@ function Builder() {
   const download = (filename: string, text: string) =>
     downloadBlob(filename, new Blob([text], { type: "application/json" }));
 
-  const downloadManifest = () => download("agents-dev.skills.json", skillsManifest(agent));
-  const downloadAgent = () => download("agents-dev.agent.json", agentSpecJson(agent));
+  const downloadManifest = () => download("creagent.skills.json", skillsManifest(agent));
+  const downloadAgent = () => download("creagent.agent.json", agentSpecJson(agent));
 
   // The pack is a folder, so it goes out as a zip — a browser download cannot
   // carry `docs/` in a filename, and eight flat files are the user's problem

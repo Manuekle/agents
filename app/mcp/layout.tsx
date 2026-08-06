@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 
 export const metadata: Metadata = {
   title: "MCP server",
-  description: "Serve your agent over MCP to any model with @manudev.jsx/agents.",
+  description: "Serve your agent over MCP to any model with @manudev.jsx/creagent.",
   alternates: { canonical: "/mcp" },
 };
 

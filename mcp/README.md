@@ -1,6 +1,6 @@
-# @manudev.jsx/agents
+# @manudev.jsx/creagent
 
-Serve an [agents.dev](https://agents-dev.vercel.app) agent over MCP, so any
+Serve a [creagent](https://creagent.fun) agent over MCP, so any
 MCP-capable client (Claude Desktop, Claude Code, Cursor, Codex, Windsurf, Cline,
 Gemini…) can load it.
 
@@ -16,14 +16,14 @@ Two ways to point it at an agent.
 
 ### From your account (needs Pro or Max)
 
-Create a token on [the MCP page](https://agents-dev.vercel.app/mcp), then:
+Create a token on [the MCP page](https://creagent.fun/mcp), then:
 
 ```json
 {
   "mcpServers": {
-    "agents-dev": {
+    "creagent": {
       "command": "npx",
-      "args": ["-y", "@manudev.jsx/agents", "--token", "adv_…"]
+      "args": ["-y", "@manudev.jsx/creagent", "--token", "adv_…"]
     }
   }
 }
@@ -35,16 +35,16 @@ without it you get your most recent agent.
 
 ### From a file (works on every plan, no account)
 
-1. In the agents.dev composer, download **agents-dev.agent.json**.
+1. In the creagent composer, download **creagent.agent.json**.
 2. Drop it in your project root.
 3. Add to your MCP client config (`.mcp.json`, `~/.claude/…`, etc.):
 
 ```json
 {
   "mcpServers": {
-    "agents-dev": {
+    "creagent": {
       "command": "npx",
-      "args": ["-y", "@manudev.jsx/agents", "--agent", "./agents-dev.agent.json"]
+      "args": ["-y", "@manudev.jsx/creagent", "--agent", "./creagent.agent.json"]
     }
   }
 }
@@ -52,9 +52,14 @@ without it you get your most recent agent.
 
 Then call the **activate_agent** prompt to load the persona.
 
-Resolution order: `--token` / `$AGENTS_DEV_TOKEN` wins if present; otherwise
-`--agent <file>` → `$AGENTS_DEV_AGENT` → `./agents-dev.agent.json`.
-`$AGENTS_DEV_API` overrides the API host for self-hosted deploys.
+Resolution order: `--token` / `$CREAGENT_TOKEN` wins if present; otherwise
+`--agent <file>` → `$CREAGENT_AGENT` → `./creagent.agent.json`.
+`$CREAGENT_API` overrides the API host for self-hosted deploys.
+
+The project shipped as agents.dev before creagent.fun. Every `$CREAGENT_*` var
+still falls back to its `$AGENTS_DEV_*` spelling, and the implicit file lookup
+still finds `./agents-dev.agent.json`, so a config written before the rename
+keeps working.
 
 ## Exposes
 
@@ -127,6 +132,6 @@ inherits the root's.
 ## Dev
 
 ```bash
-npm install @manudev.jsx/agents
+npm install @manudev.jsx/creagent
 node test.mjs   # smoke test: v2 tree + v1 backwards compatibility
 ```

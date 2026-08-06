@@ -86,7 +86,7 @@ export function subagentSpecs(graph: AgentGraph): {
     });
 }
 
-// The agent spec consumed by @manudev.jsx/agents (agents-dev.agent.json).
+// The agent spec consumed by @manudev.jsx/creagent (creagent.agent.json).
 //
 // `skills` stays the flat union so an older server build still finds every
 // component where it expects it; `orchestrator` and `subagents` are additive,
@@ -123,7 +123,7 @@ export function agentSpecJson(agent: Agent): string {
 
 // Command that serves this agent over MCP to any MCP client.
 export function mcpServeCommand(): string {
-  return "npx -y @manudev.jsx/agents --agent ./agents-dev.agent.json";
+  return "npx -y @manudev.jsx/creagent --agent ./creagent.agent.json";
 }
 
 // A reproducible manifest of the picks (drop in repo, share, re-install).
@@ -338,16 +338,16 @@ Install: ${install}
     case "generic-mcp":
     default:
       // mcp.json that any MCP client (Claude Desktop, Cursor, …) can load.
-      // Save agentSpecJson(agent) next to it as agents-dev.agent.json.
+      // Save agentSpecJson(agent) next to it as creagent.agent.json.
       return {
         filename: "mcp.json",
         lang: "json",
         content: JSON.stringify(
           {
             mcpServers: {
-              "agents-dev": {
+              creagent: {
                 command: "npx",
-                args: ["-y", "@manudev.jsx/agents", "--agent", "./agents-dev.agent.json"],
+                args: ["-y", "@manudev.jsx/creagent", "--agent", "./creagent.agent.json"],
               },
             },
           },

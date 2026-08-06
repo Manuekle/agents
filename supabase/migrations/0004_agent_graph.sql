@@ -1,4 +1,4 @@
--- agents.dev — the composer's canvas.
+-- creagent — the composer's canvas.
 --
 -- An agent is no longer one prompt with a flat list of picks: it is an
 -- orchestrator that can delegate to subagents, each carrying its own

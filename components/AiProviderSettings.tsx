@@ -5,13 +5,14 @@ import { Badge, Field, Panel, Segmented, Select, TextInput } from "@/components/
 import { ArrowRightIcon } from "@/components/icons";
 import { PROVIDERS, isLocalUrl, providerOf } from "@/lib/ai/providers";
 import { setAiSettings, useAiSettings, type AiMode } from "@/lib/ai/settings";
+import { SITE_URL } from "@/lib/site";
 
 // Where a visitor points the onboarding draft at their own model instead of
 // ours. The panel is deliberately blunt about where the key goes, because
 // "paste your API key here" is a request that has to earn trust in one screen.
 
 const MODES: { id: AiMode; label: string }[] = [
-  { id: "hosted", label: "Use agents.dev" },
+  { id: "hosted", label: "Use creagent" },
   { id: "byok", label: "Use my own API" },
 ];
 
@@ -193,7 +194,7 @@ export function AiProviderSettings() {
             {!local && (
               <Check
                 label="Relay if the provider blocks browsers"
-                hint="Some vendors send no CORS headers. With this on, that one request is forwarded through agents.dev — your key passes through and is not stored."
+                hint="Some vendors send no CORS headers. With this on, that one request is forwarded through creagent — your key passes through and is not stored."
                 checked={settings.allowRelay}
                 onChange={(allowRelay) => setAiSettings({ allowRelay })}
               />
@@ -208,7 +209,7 @@ export function AiProviderSettings() {
               </p>
               <code className="mt-2 block font-mono text-[10px] break-all">
                 OLLAMA_ORIGINS=
-                {typeof window === "undefined" ? "https://agents-dev.vercel.app" : window.location.origin}{" "}
+                {typeof window === "undefined" ? SITE_URL : window.location.origin}{" "}
                 ollama serve
               </code>
             </div>

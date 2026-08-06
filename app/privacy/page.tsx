@@ -1,8 +1,8 @@
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: "Privacy — agents",
-  description: "How agents handles your data.",
+  title: "Privacy — creagent",
+  description: "How creagent handles your data.",
 };
 
 const SECTIONS: { title: string; body: string }[] = [

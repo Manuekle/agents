@@ -6,7 +6,7 @@ This version has breaking changes — APIs, conventions, and file structure may 
 
 ---
 
-# agents.dev — agent entry point
+# creagent — agent entry point
 
 Next.js 16 · React 19 · TypeScript · Tailwind v4 · Supabase · motion · d3 · MCP.
 Product: scrape skills → compose an agent → export to Claude Code / Codex / Cursor / Gemini CLI / MCP.

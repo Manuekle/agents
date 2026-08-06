@@ -69,7 +69,7 @@ Fills one context-doc scaffold's `TODO`s with a model call. The scaffolds themse
 
 ## `GET /api/mcp/agent` — bearer token
 
-What `@manudev.jsx/agents --token …` calls so a served agent need not live in a file. Bearer token, not a session cookie — the caller is a CLI process.
+What `@manudev.jsx/creagent --token …` calls so a served agent need not live in a file. Bearer token, not a session cookie — the caller is a CLI process.
 
 Query: `?agent=<id>` (omit for the account's first agent).
 

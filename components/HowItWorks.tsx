@@ -137,10 +137,10 @@ function Mcp() {
       <CodeBlock file="mcp.json">
         {`{
   "mcpServers": {
-    "agents-dev": {
+    "creagent": {
       "command": "npx",
-      "args": ["-y", "@manudev.jsx/agents",
-               "--agent", "./agents-dev.agent.json"]
+      "args": ["-y", "@manudev.jsx/creagent",
+               "--agent", "./creagent.agent.json"]
     }
   }
 }`}

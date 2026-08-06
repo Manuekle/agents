@@ -4,8 +4,8 @@ import type { MetadataRoute } from "next";
 // this is about the icon and name a bookmark gets — not an installable PWA.
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: "agents — build AI agents, ship your skills",
-    short_name: "agents",
+    name: "creagent — build AI agents, ship your skills",
+    short_name: "creagent",
     description:
       "Craft AI agents with scraped skills for Claude Code, Codex & more. Pixel-native, MCP-ready.",
     start_url: "/",

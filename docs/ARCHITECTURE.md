@@ -1,5 +1,5 @@
 ---
-title: ARCHITECTURE — how agents.dev is put together
+title: ARCHITECTURE — how creagent is put together
 summary: Routes, layers, module map and the four data flows (draft, compose, export, serve).
 version: 1.0.0
 updated: 2026-08-05
@@ -105,7 +105,7 @@ Feature gating (`planAllows`) is separate from access gating: today the only fea
 
 **Export** — `lib/export.ts` renders a per-target file plus one install command (`npx skills add …` for repos, `--skill …` flags for aitmpl entries).
 
-**Serve** — `npx -y @manudev.jsx/agents --agent ./x.agent.json`, or the hosted `GET /api/mcp/agent` authenticated by bearer token (`mcp/`, and DATA.md §3).
+**Serve** — `npx -y @manudev.jsx/creagent --agent ./x.agent.json`, or the hosted `GET /api/mcp/agent` authenticated by bearer token (`mcp/`, and DATA.md §3).
 
 ## 7. Environment
 

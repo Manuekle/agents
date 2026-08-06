@@ -1,7 +1,7 @@
 {
-  "name": "@manudev.jsx/agents",
+  "name": "@manudev.jsx/creagent",
   "version": "0.1.0",
-  "description": "Serve an agents.dev agent (system prompt + skills) over MCP to any MCP-capable model.",
+  "description": "Serve a creagent agent (system prompt + skills) over MCP to any MCP-capable model.",
   "keywords": [
     "mcp",
     "model-context-protocol",
@@ -14,14 +14,14 @@
   "author": "Manuekle",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/Manuekle/agents.git",
+    "url": "git+https://github.com/Manuekle/creagent.git",
     "directory": "mcp"
   },
-  "bugs": "https://github.com/Manuekle/agents/issues",
-  "homepage": "https://github.com/Manuekle/agents#readme",
+  "bugs": "https://github.com/Manuekle/creagent/issues",
+  "homepage": "https://github.com/Manuekle/creagent#readme",
   "type": "module",
   "bin": {
-    "agents": "index.mjs"
+    "creagent": "index.mjs"
   },
   "files": [
     "index.mjs",

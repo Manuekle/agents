@@ -210,7 +210,7 @@ export default function Home() {
               agent's skills straight from the prompt.
             </p>
             <code className="w-full sm:w-auto min-w-0 overflow-x-auto whitespace-nowrap bg-stone border-2 border-line px-2 py-1.5 font-mono text-[10px]">
-              npx -y @manudev.jsx/agents --agent ./agents-dev.agent.json
+              npx -y @manudev.jsx/creagent --agent ./creagent.agent.json
             </code>
           </div>
         </Panel>
@@ -258,7 +258,7 @@ export default function Home() {
         </div>
         <Panel className="overflow-hidden">
           <div className="flex items-center justify-between px-3 py-2 border-b-2 border-line bg-stone">
-            <span className="font-mono text-[11px]">agents-dev.agent.json</span>
+            <span className="font-mono text-[11px]">creagent.agent.json</span>
             <span className="font-mono text-[10px] text-muted">what ships</span>
           </div>
           <pre className="p-4 text-[11px] font-mono leading-relaxed overflow-auto">{`{

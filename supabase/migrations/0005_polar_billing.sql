@@ -1,4 +1,4 @@
--- agents.dev — plan sync from Polar subscription webhooks.
+-- creagent — plan sync from Polar subscription webhooks.
 -- Run after 0004_agent_graph.sql.
 
 -- ---------------------------------------------------------------- app_config

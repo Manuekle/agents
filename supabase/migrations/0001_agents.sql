@@ -1,4 +1,4 @@
--- agents.dev — accounts and saved agents.
+-- creagent — accounts and saved agents.
 -- Run once against your Supabase project (SQL Editor, or `supabase db push`).
 
 -- ---------------------------------------------------------------- profiles --
