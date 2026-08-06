@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { Badge, Panel, PixelButton } from "@/components/ui";
+import { ArrowRightIcon } from "@/components/icons";
 import { clsx } from "@/lib/clsx";
 import {
   PLANS,
@@ -111,7 +112,10 @@ function Upsell({ plan, what }: { plan: Plan; what: keyof typeof WHAT }) {
       </p>
       <Link href="/pricing" className="block mt-2">
         <PixelButton variant="coral" className="w-full">
-          See plans →
+          <span className="inline-flex items-center gap-1.5">
+            See plans
+            <ArrowRightIcon size={12} />
+          </span>
         </PixelButton>
       </Link>
     </div>

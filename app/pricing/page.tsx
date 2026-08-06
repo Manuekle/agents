@@ -2,9 +2,9 @@
 
 import Link from "next/link";
 import { BorderBeam } from "border-beam";
-import { PoweredBy } from "@/components/PoweredBy";
 import { Mascot } from "@/components/Mascot";
 import { Panel, PixelButton, Badge } from "@/components/ui";
+import { ArrowRightIcon } from "@/components/icons";
 import { PlanUsage } from "@/components/PlanUsage";
 import { PLANS, PLAN_ORDER, formatLimit } from "@/lib/plans";
 import { usePlan } from "@/lib/use-plan";
@@ -49,9 +49,7 @@ export default function PricingPage() {
   return (
     <div>
       <div className="mx-auto max-w-6xl px-5 py-8">
-        <h1 className="font-pixel text-xs sm:text-sm mb-1">PRICING</h1>
-        <PoweredBy />
-        <p className="mt-4 font-mono text-sm text-ink-soft max-w-lg">
+        <h1 className="font-pixel text-xs sm:text-sm mb-1">PRICING</h1>        <p className="mt-4 font-mono text-sm text-ink-soft max-w-lg">
           Compose and export on Free forever. Paid plans lift the caps and let
           your agents be served over MCP.
         </p>
@@ -67,7 +65,12 @@ export default function PricingPage() {
             flow, on pre-loaded data, saving nothing.
           </p>
           <Link href="/demo">
-            <PixelButton variant={guest ? "coral" : "ghost"}>Open the demo →</PixelButton>
+            <PixelButton variant={guest ? "coral" : "ghost"}>
+              <span className="inline-flex items-center gap-1.5">
+                Open the demo
+                <ArrowRightIcon size={12} />
+              </span>
+            </PixelButton>
           </Link>
         </Panel>
 
@@ -130,7 +133,10 @@ export default function PricingPage() {
                     // is sent to the sign-in rather than bounced off it.
                     <Link href={guest ? "/login?next=%2Fnew" : "/new"} className="block">
                       <PixelButton variant="ghost" className="w-full">
-                        {guest ? "Sign in — it's free →" : "Start free →"}
+                        <span className="inline-flex items-center gap-1.5">
+                          {guest ? "Sign in — it's free" : "Start free"}
+                          <ArrowRightIcon size={12} />
+                        </span>
                       </PixelButton>
                     </Link>
                   ) : (

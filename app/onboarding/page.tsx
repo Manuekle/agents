@@ -4,7 +4,6 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { ThinkingOrb } from "thinking-orbs";
-import { PoweredBy } from "@/components/PoweredBy";
 import { Mascot } from "@/components/Mascot";
 import {
   Panel,
@@ -28,6 +27,7 @@ import { refreshPlan, usePlan } from "@/lib/use-plan";
 import { PLANS, atLimit, formatUsage } from "@/lib/plans";
 import { graphFromAgent } from "@/lib/graph";
 import { componentId } from "@/lib/aitmpl";
+import { ArrowRightIcon } from "@/components/icons";
 import { AiProviderSettings } from "@/components/AiProviderSettings";
 import { aiConfig, settingsProblem, useAiSettings } from "@/lib/ai/settings";
 import { draftPersona, pickSkills } from "@/lib/ai/draft";
@@ -189,9 +189,7 @@ export default function OnboardingPage() {
   return (
     <div>
       <div className="mx-auto max-w-3xl px-5 py-10">
-        <h1 className="font-pixel text-sm mb-1">ONBOARDING</h1>
-        <PoweredBy />
-        <p className="mt-4 font-mono text-sm text-ink-soft">
+        <h1 className="font-pixel text-sm mb-1">ONBOARDING</h1>        <p className="mt-4 font-mono text-sm text-ink-soft">
           Answer a few questions — a model drafts the persona, then searches skills.sh
           and picks the skills that fit it. Run it on ours, or on your own API key:
           Claude, ChatGPT, Kimi, Gemini, or a local model through Ollama.
@@ -257,7 +255,10 @@ export default function OnboardingPage() {
               </span>
               {outOfDrafts && (
                 <Link href="/pricing" className="text-coral-text underline">
-                  see plans →
+                  <span className="inline-flex items-center gap-1">
+                    see plans
+                    <ArrowRightIcon size={11} />
+                  </span>
                 </Link>
               )}
             </div>
@@ -279,7 +280,10 @@ export default function OnboardingPage() {
                 Drafting…
               </span>
             ) : (
-              `Draft with ${settings.mode === "byok" ? (providerOf(settings.provider)?.label ?? "your model") : "Foundry"} →`
+              <span className="inline-flex items-center gap-1.5">
+                {`Draft with ${settings.mode === "byok" ? (providerOf(settings.provider)?.label ?? "your model") : "Foundry"}`}
+                <ArrowRightIcon size={12} />
+              </span>
             )}
           </PixelButton>
         </Panel>
@@ -379,7 +383,10 @@ export default function OnboardingPage() {
               disabled={outOfAgents}
               className="mt-4 w-full"
             >
-              Use this — open in composer →
+              <span className="inline-flex items-center gap-1.5">
+                Use this — open in composer
+                <ArrowRightIcon size={12} />
+              </span>
             </PixelButton>
           </Panel>
         )}

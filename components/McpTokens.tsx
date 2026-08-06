@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { Panel, PixelButton, Badge, TextInput, Notice } from "@/components/ui";
+import { ArrowRightIcon } from "@/components/icons";
 import { supabaseBrowser } from "@/lib/supabase/client";
 import { SUPABASE_CONFIGURED } from "@/lib/supabase/env";
 import { usePlan } from "@/lib/use-plan";
@@ -106,7 +107,10 @@ export function McpTokens() {
       ) : !signedIn ? (
         <Link href="/login?next=%2Fmcp" className="block mt-4">
           <PixelButton variant="coral" className="w-full">
-            Sign in to create a token →
+            <span className="inline-flex items-center gap-1.5">
+              Sign in to create a token
+              <ArrowRightIcon size={12} />
+            </span>
           </PixelButton>
         </Link>
       ) : !canServe ? (
@@ -117,7 +121,10 @@ export function McpTokens() {
           </p>
           <Link href="/pricing" className="block mt-3">
             <PixelButton variant="ghost" className="w-full">
-              See plans →
+              <span className="inline-flex items-center gap-1.5">
+                See plans
+                <ArrowRightIcon size={12} />
+              </span>
             </PixelButton>
           </Link>
         </div>

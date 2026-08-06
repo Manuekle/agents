@@ -2,7 +2,6 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { PoweredBy } from "@/components/PoweredBy";
 import { HowItWorks } from "@/components/HowItWorks";
 import { Mascot } from "@/components/Mascot";
 import { DitherField } from "@/components/DitherField";
@@ -10,7 +9,7 @@ import { TiltCard } from "@/components/TiltCard";
 import { Panel, PixelButton, Badge, Notice } from "@/components/ui";
 import { HeartButton } from "@/components/Sponsor";
 import { UsageChip } from "@/components/PlanUsage";
-import { StarIcon, AngleDownSolidIcon } from "@/components/icons";
+import { StarIcon, AngleDownSolidIcon, ArrowRightIcon } from "@/components/icons";
 import { MASCOT_ORDER, MASCOTS } from "@/lib/mascot";
 import { useAgents, useAgentsLoading, useStoreError, deleteAgent } from "@/lib/store";
 import { TARGETS, type Agent } from "@/lib/types";
@@ -91,7 +90,12 @@ export default function Home() {
               {guest ? (
                 <>
                   <Link href="/demo">
-                    <PixelButton variant="coral">Watch it get built →</PixelButton>
+                    <PixelButton variant="coral">
+                      <span className="inline-flex items-center gap-1.5">
+                        Watch it get built
+                        <ArrowRightIcon size={12} />
+                      </span>
+                    </PixelButton>
                   </Link>
                   <Link href="/login?next=%2Fnew">
                     <PixelButton variant="ghost">Sign in to build</PixelButton>
@@ -100,7 +104,12 @@ export default function Home() {
               ) : (
                 <>
                   <Link href="/new">
-                    <PixelButton variant="coral">Forge an agent →</PixelButton>
+                    <PixelButton variant="coral">
+                      <span className="inline-flex items-center gap-1.5">
+                        Forge an agent
+                        <ArrowRightIcon size={12} />
+                      </span>
+                    </PixelButton>
                   </Link>
                   <Link href="/demo">
                     <PixelButton variant="ghost">See the demo</PixelButton>
@@ -120,9 +129,6 @@ export default function Home() {
               <span>{TARGETS.length} export targets</span>
               <span>·</span>
               <span>{PLAN_ORDER.length} plans, free to start</span>
-            </div>
-            <div className="mt-6">
-              <PoweredBy />
             </div>
           </div>
 
@@ -191,7 +197,12 @@ export default function Home() {
         <Panel className="overflow-hidden">
           <div className="flex items-center justify-between px-4 py-2 border-b-2 border-line bg-coral-text text-paper">
             <span className="font-pixel text-[10px] uppercase">Serve over MCP</span>
-            <Link href="/mcp" className="font-mono text-[10px] underline">set it up →</Link>
+            <Link href="/mcp" className="font-mono text-[10px] underline">
+              <span className="inline-flex items-center gap-1">
+                set it up
+                <ArrowRightIcon size={10} />
+              </span>
+            </Link>
           </div>
           <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center justify-between p-4">
             <p className="font-mono text-xs text-ink leading-relaxed max-w-xl">
@@ -310,7 +321,12 @@ export default function Home() {
             </p>
             <div className="mt-4 flex flex-wrap justify-center gap-2">
               <Link href="/login?next=%2Fnew">
-                <PixelButton variant="coral">Sign in with GitHub →</PixelButton>
+                <PixelButton variant="coral">
+                  <span className="inline-flex items-center gap-1.5">
+                    Sign in with GitHub
+                    <ArrowRightIcon size={12} />
+                  </span>
+                </PixelButton>
               </Link>
               <Link href="/demo">
                 <PixelButton variant="ghost">See one get built first</PixelButton>
@@ -329,7 +345,12 @@ export default function Home() {
             <Mascot state="sleeping" size={72} className="mx-auto" />
             <p className="font-mono text-sm mt-3">No agents yet — the forge is cold.</p>
             <Link href="/new" className="inline-block mt-4">
-              <PixelButton variant="coral">Forge your first →</PixelButton>
+              <PixelButton variant="coral">
+                <span className="inline-flex items-center gap-1.5">
+                  Forge your first
+                  <ArrowRightIcon size={12} />
+                </span>
+              </PixelButton>
             </Link>
           </Panel>
         ) : (
@@ -457,7 +478,12 @@ export default function Home() {
             </p>
             <div className="flex flex-wrap items-center gap-2 shrink-0">
               <a href={SITE.sponsorUrl} target="_blank" rel="noreferrer noopener">
-                <PixelButton variant="coral">Sponsor →</PixelButton>
+                <PixelButton variant="coral">
+                  <span className="inline-flex items-center gap-1.5">
+                    Sponsor
+                    <ArrowRightIcon size={12} />
+                  </span>
+                </PixelButton>
               </a>
               <HeartButton />
             </div>

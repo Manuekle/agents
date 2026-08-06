@@ -1,10 +1,10 @@
 "use client";
 
 import Link from "next/link";
-import { PoweredBy } from "@/components/PoweredBy";
 import { Mascot } from "@/components/Mascot";
 import { SkillBrowser } from "@/components/SkillBrowser";
 import { Panel, PixelButton, Badge } from "@/components/ui";
+import { ArrowRightIcon } from "@/components/icons";
 import { useSignedIn } from "@/lib/use-auth";
 
 export default function SkillsPage() {
@@ -17,9 +17,7 @@ export default function SkillsPage() {
       <div className="mx-auto max-w-6xl px-5 py-8">
         <div className="flex flex-wrap items-end justify-between gap-4 mb-6">
           <div>
-            <h1 className="font-pixel text-sm mb-1">SKILL_REGISTRY</h1>
-            <PoweredBy />
-          </div>
+            <h1 className="font-pixel text-sm mb-1">SKILL_REGISTRY</h1>          </div>
           <Badge tone="ink">skills.sh + aitmpl</Badge>
         </div>
 
@@ -58,7 +56,12 @@ export default function SkillsPage() {
           {guest ? (
             <>
               <Link href="/demo">
-                <PixelButton variant="coral">Watch an agent get composed →</PixelButton>
+                <PixelButton variant="coral">
+                  <span className="inline-flex items-center gap-1.5">
+                    Watch an agent get composed
+                    <ArrowRightIcon size={12} />
+                  </span>
+                </PixelButton>
               </Link>
               <Link href="/login?next=%2Fbuild">
                 <PixelButton variant="ghost">Sign in to compose one</PixelButton>
@@ -66,7 +69,12 @@ export default function SkillsPage() {
             </>
           ) : (
             <Link href="/build">
-              <PixelButton variant="coral">Compose an agent →</PixelButton>
+              <PixelButton variant="coral">
+                <span className="inline-flex items-center gap-1.5">
+                  Compose an agent
+                  <ArrowRightIcon size={12} />
+                </span>
+              </PixelButton>
             </Link>
           )}
         </div>

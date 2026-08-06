@@ -1,7 +1,6 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { PoweredBy } from "@/components/PoweredBy";
 import { Mascot } from "@/components/Mascot";
 import { Panel, PixelButton, Badge } from "@/components/ui";
 import { McpTokens } from "@/components/McpTokens";
@@ -101,9 +100,7 @@ export default function McpPage() {
       <div className="mx-auto max-w-6xl px-5 py-8">
         <div className="flex items-center justify-between mb-6">
           <div>
-            <h1 className="font-pixel text-sm mb-1">MCP_SERVER</h1>
-            <PoweredBy />
-          </div>
+            <h1 className="font-pixel text-sm mb-1">MCP_SERVER</h1>          </div>
           <Mascot state="headphones" size={44} />
         </div>
 

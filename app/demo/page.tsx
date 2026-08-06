@@ -3,9 +3,9 @@
 import Link from "next/link";
 import { Suspense, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
-import { PoweredBy } from "@/components/PoweredBy";
 import { Mascot } from "@/components/Mascot";
 import { AgentCanvas } from "@/components/canvas/AgentCanvas";
+import { ArrowRightIcon } from "@/components/icons";
 import { Panel, PixelButton, Badge, ResizeBox, PageLoading } from "@/components/ui";
 import { useSignedIn } from "@/lib/use-auth";
 import { clsx } from "@/lib/clsx";
@@ -287,7 +287,6 @@ function Demo() {
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-6">
           <div>
             <h1 className="font-pixel text-xs sm:text-sm mb-1">DEMO_MODE</h1>
-            <PoweredBy />
           </div>
           <div className="flex flex-wrap gap-2">
             <PixelButton variant="ghost" onClick={() => setPlaying((p) => !p)}>
@@ -299,7 +298,10 @@ function Demo() {
               }
             >
               <PixelButton variant="coral">
-                {member ? "Build one for real →" : "Sign in to build one →"}
+                <span className="inline-flex items-center gap-1.5">
+                  {member ? "Build one for real" : "Sign in to build one"}
+                  <ArrowRightIcon size={12} />
+                </span>
               </PixelButton>
             </Link>
           </div>
@@ -451,7 +453,10 @@ function Demo() {
                 className="block mt-4"
               >
                 <PixelButton variant="coral" className="w-full">
-                  {member ? "Open the composer →" : "Sign in with GitHub →"}
+                  <span className="inline-flex items-center gap-1.5">
+                    {member ? "Open the composer" : "Sign in with GitHub"}
+                    <ArrowRightIcon size={12} />
+                  </span>
                 </PixelButton>
               </Link>
               <Link href="/pricing" className="block mt-2">

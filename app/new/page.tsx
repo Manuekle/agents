@@ -1,18 +1,16 @@
 "use client";
 
 import Link from "next/link";
-import { PoweredBy } from "@/components/PoweredBy";
 import { Mascot } from "@/components/Mascot";
 import { Panel, PixelButton, Badge } from "@/components/ui";
+import { ArrowRightIcon } from "@/components/icons";
 import { PlanUsage } from "@/components/PlanUsage";
 
 export default function NewAgentPage() {
   return (
     <div>
       <div className="mx-auto max-w-4xl px-5 py-10">
-        <h1 className="font-pixel text-sm mb-1">CREATE_AGENT</h1>
-        <PoweredBy />
-        <p className="mt-4 font-mono text-sm text-ink-soft max-w-lg">
+        <h1 className="font-pixel text-sm mb-1">CREATE_AGENT</h1>        <p className="mt-4 font-mono text-sm text-ink-soft max-w-lg">
           Two ways in — let an AI draft the persona, or build every field yourself.
         </p>
 
@@ -37,7 +35,10 @@ export default function NewAgentPage() {
                 and save.
               </p>
               <PixelButton variant="coral" className="mt-4 w-full group-hover:brightness-95">
-                Start onboarding →
+                <span className="inline-flex items-center gap-1.5">
+                  Start onboarding
+                  <ArrowRightIcon size={12} />
+                </span>
               </PixelButton>
             </Panel>
           </Link>
@@ -54,7 +55,10 @@ export default function NewAgentPage() {
                 prompt, model &amp; skills yourself, field by field.
               </p>
               <PixelButton variant="ghost" className="mt-4 w-full">
-                Open composer →
+                <span className="inline-flex items-center gap-1.5">
+                  Open composer
+                  <ArrowRightIcon size={12} />
+                </span>
               </PixelButton>
             </Panel>
           </Link>

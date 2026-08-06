@@ -4,7 +4,6 @@ import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Slider } from "@heroui/react";
-import { PoweredBy } from "@/components/PoweredBy";
 import { DitherConfetti } from "@/components/DitherConfetti";
 import { Mascot } from "@/components/Mascot";
 import { VendorMark } from "@/components/brands";
@@ -76,6 +75,7 @@ import { copyText } from "@/lib/copy";
 import { decodeAgent, encodeAgent, shareUrl } from "@/lib/share";
 import {
   AngleLeftIcon,
+  ArrowRightIcon,
   DownloadIcon,
   LockIcon,
   PaperclipIcon,
@@ -427,9 +427,7 @@ function Builder() {
             share a 375px row without colliding. */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-6">
           <div>
-            <h1 className="font-pixel text-xs sm:text-sm mb-1">AGENT_COMPOSER</h1>
-            <PoweredBy />
-          </div>
+            <h1 className="font-pixel text-xs sm:text-sm mb-1">AGENT_COMPOSER</h1>          </div>
           {/* Wraps because both buttons are `whitespace-nowrap`: they need more
               room than a 320px viewport has once the page gutters are taken
               out, which pushed "Save agent" off-screen and gave the whole page
@@ -500,7 +498,10 @@ function Builder() {
             action={
               <Link href="/pricing">
                 <PixelButton variant="coral" className="!px-3 !py-1 !text-[9px]">
-                  See plans →
+                  <span className="inline-flex items-center gap-1">
+                    See plans
+                    <ArrowRightIcon size={10} />
+                  </span>
                 </PixelButton>
               </Link>
             }

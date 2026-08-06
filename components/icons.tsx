@@ -82,11 +82,8 @@ export function MoonIcon({ size = 16, className }: IconProps) {
 export function SignOutIcon({ size = 16, className }: IconProps) {
   return (
     <svg {...base(size)} className={className}>
-      {/* door frame, open on the side the arrow leaves through */}
-      <path d="M3 3h9v2H5v14h7v2H3V3Z" />
-      {/* arrow — integer grid, so the diagonal is hard-edged like the rest */}
-      <rect x="14" y="9" width="3" height="7" />
-      <polygon points="14 9 19 12 14 15" />
+      <polygon points="14 4 16 4 16 5 17 5 17 6 18 6 18 7 19 7 19 8 20 8 20 9 21 9 21 10 22 10 22 11 23 11 23 13 22 13 22 14 21 14 21 15 20 15 20 16 19 16 19 17 18 17 18 18 17 18 17 19 16 19 16 20 14 20 14 18 15 18 15 17 16 17 16 16 17 16 17 15 18 15 18 14 19 14 19 13 7 13 7 11 19 11 19 10 18 10 18 9 17 9 17 8 16 8 16 7 15 7 15 6 14 6 14 4" />
+      <rect x="1" y="2" width="2" height="20" />
     </svg>
   );
 }
@@ -144,6 +141,14 @@ export function AngleDownSolidIcon({ size = 16, className }: IconProps) {
   return (
     <svg {...base(size)} className={className}>
       <polygon points="5 7 7 7 7 8 8 8 8 9 9 9 9 10 10 10 10 11 11 11 11 12 13 12 13 11 14 11 14 10 15 10 15 9 16 9 16 8 17 8 17 7 19 7 19 8 20 8 20 10 19 10 19 11 18 11 18 12 17 12 17 13 16 13 16 14 15 14 15 15 14 15 14 16 13 16 13 17 11 17 11 16 10 16 10 15 9 15 9 14 8 14 8 13 7 13 7 12 6 12 6 11 5 11 5 10 4 10 4 8 5 8 5 7" />
+    </svg>
+  );
+}
+
+export function ArrowRightIcon({ size = 16, className }: IconProps) {
+  return (
+    <svg {...base(size)} className={className}>
+      <polygon points="23 11 23 13 22 13 22 14 21 14 21 15 20 15 20 16 19 16 19 17 18 17 18 18 17 18 17 19 16 19 16 20 15 20 15 21 14 21 14 22 13 22 13 23 12 23 12 22 11 22 11 21 12 21 12 20 13 20 13 19 14 19 14 18 15 18 15 17 16 17 16 16 17 16 17 15 18 15 18 14 19 14 19 13 1 13 1 11 19 11 19 10 18 10 18 9 17 9 17 8 16 8 16 7 15 7 15 6 14 6 14 5 13 5 13 4 12 4 12 3 11 3 11 2 12 2 12 1 13 1 13 2 14 2 14 3 15 3 15 4 16 4 16 5 17 5 17 6 18 6 18 7 19 7 19 8 20 8 20 9 21 9 21 10 22 10 22 11 23 11" />
     </svg>
   );
 }

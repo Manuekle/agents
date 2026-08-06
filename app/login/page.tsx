@@ -3,10 +3,9 @@
 import { Suspense, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { PoweredBy } from "@/components/PoweredBy";
 import { Mascot } from "@/components/Mascot";
 import { Panel, PixelButton, Badge, Notice, PageLoading } from "@/components/ui";
-import { GitHubIcon } from "@/components/icons";
+import { GitHubIcon, ArrowRightIcon } from "@/components/icons";
 import { supabaseBrowser } from "@/lib/supabase/client";
 import { SUPABASE_CONFIGURED } from "@/lib/supabase/env";
 import { useSignedIn } from "@/lib/use-auth";
@@ -58,8 +57,6 @@ function Login() {
     <div>
       <div className="mx-auto max-w-md px-5 py-12">
         <h1 className="font-pixel text-xs sm:text-sm mb-1">SIGN_IN</h1>
-        <PoweredBy />
-
         <Panel className="p-6 mt-6 text-center">
           <div className="grain mascot-stage relative pixel-border-sm p-6 inline-block">
             <Mascot state="coffee" size={88} />
@@ -92,7 +89,10 @@ function Login() {
               </p>
               <Link href={next} className="block mt-4">
                 <PixelButton variant="coral" className="w-full">
-                  {next === "/" ? "Go home →" : `Continue to ${next} →`}
+                  <span className="inline-flex items-center gap-1.5">
+                    {next === "/" ? "Go home" : `Continue to ${next}`}
+                    <ArrowRightIcon size={12} />
+                  </span>
                 </PixelButton>
               </Link>
             </div>

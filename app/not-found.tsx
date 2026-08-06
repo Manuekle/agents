@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { Panel, PixelButton, StatePanel } from "@/components/ui";
+import { ArrowRightIcon } from "@/components/icons";
 
 // A 404 wearing the site rather than Next's default page. It renders inside
 // the root layout, so the nav and footer are already there — this is only what
@@ -30,7 +31,12 @@ export default function NotFound() {
         actions={
           <>
             <Link href="/">
-              <PixelButton variant="coral">Back home →</PixelButton>
+              <PixelButton variant="coral">
+                <span className="inline-flex items-center gap-1.5">
+                  Back home
+                  <ArrowRightIcon size={12} />
+                </span>
+              </PixelButton>
             </Link>
             <Link href="/demo">
               <PixelButton variant="ghost">See the demo</PixelButton>

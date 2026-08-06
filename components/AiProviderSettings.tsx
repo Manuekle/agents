@@ -2,6 +2,7 @@
 
 import { useId, useState } from "react";
 import { Badge, Field, Panel, Segmented, Select, TextInput } from "@/components/ui";
+import { ArrowRightIcon } from "@/components/icons";
 import { PROVIDERS, isLocalUrl, providerOf } from "@/lib/ai/providers";
 import { setAiSettings, useAiSettings, type AiMode } from "@/lib/ai/settings";
 
@@ -149,7 +150,10 @@ export function AiProviderSettings() {
                 rel="noreferrer noopener"
                 className="underline hover:text-ink"
               >
-                Get a {provider.label} key →
+                <span className="inline-flex items-center gap-1">
+                  Get a {provider.label} key
+                  <ArrowRightIcon size={10} />
+                </span>
               </a>
             </p>
           )}

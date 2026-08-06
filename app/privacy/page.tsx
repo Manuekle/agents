@@ -1,5 +1,4 @@
 import type { Metadata } from "next";
-import { PoweredBy } from "@/components/PoweredBy";
 
 export const metadata: Metadata = {
   title: "Privacy — agents",
@@ -37,9 +36,7 @@ export default function PrivacyPage() {
   return (
     <div>
       <div className="mx-auto max-w-3xl px-5 py-10">
-        <h1 className="font-pixel text-xs sm:text-sm mb-1">PRIVACY</h1>
-        <PoweredBy />
-        <p className="mt-4 font-mono text-xs text-muted">
+        <h1 className="font-pixel text-xs sm:text-sm mb-1">PRIVACY</h1>        <p className="mt-4 font-mono text-xs text-muted">
           Last updated: August 2026
         </p>
 
