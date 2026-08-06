@@ -9,6 +9,7 @@ import { PlanUsage } from "@/components/PlanUsage";
 import { PLANS, PLAN_ORDER, formatLimit } from "@/lib/plans";
 import { usePlan } from "@/lib/use-plan";
 import { useSignedIn } from "@/lib/use-auth";
+import { POLAR_CONFIGURED } from "@/lib/polar/env";
 
 const MASCOT = { free: "coffee", pro: "working", max: "rocket" } as const;
 
@@ -120,9 +121,9 @@ export default function PricingPage() {
                   ))}
                 </ul>
 
-                {/* No checkout is wired up yet, so these do not pretend to be
-                    buy buttons — a dead "Subscribe" would be worse than an
-                    honest label. */}
+                {/* Until POLAR_CONFIGURED, these do not pretend to be buy
+                    buttons — a dead "Subscribe" would be worse than an honest
+                    label. See lib/polar/env.ts. */}
                 <div className="mt-5">
                   {isCurrent ? (
                     <PixelButton variant="ghost" disabled className="w-full">
@@ -139,10 +140,34 @@ export default function PricingPage() {
                         </span>
                       </PixelButton>
                     </Link>
-                  ) : (
+                  ) : !POLAR_CONFIGURED ? (
                     <PixelButton variant="coral" disabled className="w-full">
                       Coming soon
                     </PixelButton>
+                  ) : guest ? (
+                    // Checkout needs an account to attach the subscription to
+                    // (see app/api/billing/checkout/route.ts) — sent to sign
+                    // in first, same as Free.
+                    <Link href={`/login?next=%2Fpricing`} className="block">
+                      <PixelButton variant="coral" className="w-full">
+                        <span className="inline-flex items-center gap-1.5">
+                          Sign in to upgrade
+                          <ArrowRightIcon size={12} />
+                        </span>
+                      </PixelButton>
+                    </Link>
+                  ) : (
+                    // Plain <a>, not <Link>: this redirects straight into
+                    // Polar's hosted checkout, so there is nothing to
+                    // client-side navigate to.
+                    <a href={`/api/billing/checkout?plan=${id}`} className="block">
+                      <PixelButton variant="coral" className="w-full">
+                        <span className="inline-flex items-center gap-1.5">
+                          Upgrade to {plan.label}
+                          <ArrowRightIcon size={12} />
+                        </span>
+                      </PixelButton>
+                    </a>
                   )}
                 </div>
               </Panel>
@@ -223,8 +248,9 @@ export default function PricingPage() {
         </div>
 
         <p className="mt-6 font-mono text-[11px] text-muted max-w-2xl leading-relaxed">
-          Billing isn&apos;t connected yet — Pro and Max are listed, not
-          purchasable, and a plan is set on the account by hand until it is.
+          {POLAR_CONFIGURED
+            ? "Pro and Max are billed through Polar. "
+            : "Billing isn't connected yet — Pro and Max are listed, not purchasable, and a plan is set on the account by hand until it is. "}
           The caps are not decoration: the agent limit is a database trigger
           and the draft quota is checked and spent in one statement, so neither
           can be talked past from the browser.

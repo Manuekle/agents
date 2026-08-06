@@ -1,6 +1,7 @@
-// Plan definitions. Prices are display-only for now — there is no payment
-// provider wired up, so nothing here charges anyone; `plan` is set in the
-// database by hand (or, later, by a billing webhook) and never by the client.
+// Plan definitions. `plan` is set in the database by hand, or by the Polar
+// webhook once billing is configured (lib/polar/, 0005_polar_billing.sql) —
+// never by the client. See POLAR_CONFIGURED (lib/polar/env.ts) for whether
+// this deploy's /pricing offers a real checkout or an honest "Coming soon".
 
 export type PlanId = "free" | "pro" | "max";
 

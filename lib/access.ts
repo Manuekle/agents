@@ -44,6 +44,9 @@ const RULES: Rule[] = [
   // check itself (Pro/Max) lives in the route, next to the Foundry call it
   // guards — see planAllows("ai-docs").
   { path: "/api/docs/generate", access: "account", why: "runs our Foundry deployment on our bill" },
+  // externalCustomerId is set from the session, never from the query string a
+  // browser could send — see app/api/billing/checkout/route.ts.
+  { path: "/api/billing/checkout", access: "account", why: "starts a real checkout tied to your account" },
 ];
 
 /**
@@ -57,6 +60,7 @@ const RULES: Rule[] = [
  *   /privacy /terms   required to be reachable
  *   /api/skills       what /skills and the command palette search
  *   /api/mcp/agent    authenticated by bearer token, not by session
+ *   /api/billing/webhook  authenticated by Polar's webhook signature, not by session
  */
 export function accessFor(pathname: string): Access {
   let best: Rule | null = null;

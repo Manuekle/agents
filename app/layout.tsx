@@ -25,7 +25,7 @@ const pixel = Silkscreen({
   subsets: ["latin"],
 });
 
-const TITLE = "agents — build AI agents, powered by ai";
+const TITLE = "agents — build AI agents, ship your skills";
 const DESCRIPTION =
   "Craft AI agents with scraped skills for Claude Code, Codex & more. Pixel-native, MCP-ready.";
 

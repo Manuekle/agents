@@ -5,7 +5,7 @@ version: 1.0.0
 updated: 2026-08-05
 area: backend / integrations
 audience: ai-agent, backend
-source_of_truth: app/api/, lib/api-auth.ts, lib/foundry.ts, mcp/
+source_of_truth: app/api/, lib/api-auth.ts, lib/foundry.ts, lib/polar/, mcp/
 read_when: Adding or changing an endpoint, the MCP contract, auth or rate limiting.
 skip_when: UI-only or schema-only work.
 tokens_est: ~1.3k
@@ -56,6 +56,17 @@ Deliberately narrow, because an open forwarder is an SSRF hole:
 
 **Any change here is a security change.** Do not widen the allow-list, the protocol set or the address rules without saying so explicitly.
 
+## `POST /api/docs/generate` — account, Pro/Max only
+
+Fills one context-doc scaffold's `TODO`s with a model call. The scaffolds themselves (`lib/docs.ts`) render free for everyone with no API call — this route is what turns a placeholder into real prose, so it costs a Foundry call per doc and rides the same plan gate as the drafts.
+
+- Account required first; the plan check (`planAllows(plan, "ai-docs")`) runs next, and on a deploy with no accounts at all (no Supabase) nothing is gated — there is no plan system to gate by.
+- `402` when the plan doesn't include `ai-docs`; body names the cheapest plan that does.
+- `500` with `FOUNDRY_ERROR` when the deployment is unconfigured.
+- Body `{ path, agent }` — `agent` is sanitized and size-clamped before it reaches the model (name/role/prompt length caps, skills capped at 60, graph nodes capped at 80).
+- `404` when `path` doesn't match a known scaffold.
+- Does not touch `ai_usage` — this is plan-gated, not counted against the monthly draft quota.
+
 ## `GET /api/mcp/agent` — bearer token
 
 What `@manudev.jsx/agents --token …` calls so a served agent need not live in a file. Bearer token, not a session cookie — the caller is a CLI process.
@@ -72,6 +83,25 @@ Query: `?agent=<id>` (omit for the account's first agent).
 | `502` | token or agent lookup failed |
 
 Reads through the security-definer `resolve_api_token` + `agent_for_token` with a plain anon client (no cookies). Responds with `agentSpec(...)` — **the same shape as the downloaded `*.agent.json`**, so the MCP server has one format whether it read a file or fetched this. The graph is rebuilt with `normalizeGraph` so a pre-canvas or hand-edited row still serves something coherent. `cache-control: private, no-store`.
+
+## `GET /api/billing/checkout` — account
+
+Redirects into a Polar-hosted checkout for one plan. Query: `?plan=pro|max`, `422` on anything else.
+
+- `externalCustomerId` is set from the verified session (`gate.userId`), **never** from the query string — a client-supplied id here would let anyone craft a link that points a real payment at someone else's account.
+- `501` when Supabase isn't configured at all (no account to attach a subscription to). `500` with `POLAR_ERROR` when Polar isn't configured (`lib/polar/server.ts`).
+- `302` to the Polar checkout URL on success; `502` if Polar's API call fails.
+- Rate limit 10.
+
+## `POST /api/billing/webhook` — Polar webhook signature, not a session
+
+Not listed as `account` in `lib/access.ts`: Polar's servers call this with no cookies at all, authenticated instead by `@polar-sh/nextjs`'s `Webhooks()` verifying `POLAR_WEBHOOK_SECRET` against the request signature before any handler runs.
+
+- `onSubscriptionCreated` / `Updated` / `Active` — if the product id maps to a known plan (`planForProduct`, `lib/polar/env.ts`) and status is `active` or `trialing`, moves the account onto that plan.
+- `onSubscriptionRevoked` — moves the account back to `free`. (`canceled` alone is not this: it only turns off auto-renew, access continues until Polar actually revokes it.)
+- The write goes through `apply_polar_plan()`, a security-definer SQL function gated by its own secret (`PLAN_SYNC_SECRET`) rather than a session — see DATA.md and `supabase/migrations/0005_polar_billing.sql`. This project never adds the `service_role` key, so this function is the only way `profiles.plan` changes from outside the database.
+- `501` when `POLAR_WEBHOOK_SECRET` is unset.
+- Failures write to the server console (`console.error`) — there is no error reporter wired up on this deploy (see `app/error.tsx`).
 
 ## Auth routes
 

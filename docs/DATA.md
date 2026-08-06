@@ -5,7 +5,7 @@ version: 1.0.0
 updated: 2026-08-05
 area: data / backend
 audience: ai-agent, backend
-source_of_truth: supabase/migrations/, lib/store.ts, lib/plans.ts
+source_of_truth: supabase/migrations/, lib/store.ts, lib/plans.ts, lib/polar/
 read_when: Touching the schema, persistence, auth, tokens, plans or quotas.
 skip_when: Visual or export-only work.
 tokens_est: ~1.5k
@@ -46,6 +46,13 @@ Index: `(user_id, created_at desc)`. Trigger: `touch_updated_at`.
 - **Only the SHA-256 is stored.** A leaked dump yields hashes, not credentials; `prefix` is how tokens are told apart afterwards.
 - RLS: owner select + delete (list and revoke). **No insert policy** — tokens are minted by `create_api_token()` so the plaintext is hashed and never round-trips through the client.
 
+### `app_config` — `0005`
+
+`key text pk`, `value text`. One row today: `plan_sync_secret`.
+
+- RLS: **enabled, zero policies.** Not owner-scoped data — a secret the server holds, not an account holds. The only way to reach it through PostgREST is a security-definer function; every direct request from `anon` or `authenticated` is denied.
+- The row is set by hand from the SQL editor, never in a migration file (which is committed to git) — see the comment in `0005_polar_billing.sql`.
+
 ## 2. Functions (all `security definer`)
 
 | Function | Contract |
@@ -59,6 +66,7 @@ Index: `(user_id, created_at desc)`. Trigger: `touch_updated_at`.
 | `create_api_token(name)` | mints `adv_<base64 of 32 random bytes, +/= translated to xyz>`, stores the hash, returns the plaintext **once** |
 | `resolve_api_token(raw)` | hash → user |
 | `agent_for_token(raw, agent_id)` | serves one agent to the MCP endpoint. **Fixed column list** — a new agent column must be added here or served agents silently lose it (that is why `0004` drops and recreates it: `create or replace` cannot change a `returns table`) |
+| `apply_polar_plan(user_id, plan, secret)` | moves an account onto a plan, called by the billing webhook. Proves the caller holds `secret` (checked against `app_config`) rather than a session — a webhook has no session to hold. Same trade as the MCP token functions: grantable to `anon` because the secret argument is the actual gate, not the key |
 
 ## 3. Where limits are enforced
 
@@ -67,7 +75,7 @@ Limits live in **two** places on purpose:
 - `lib/plans.ts` — for the UI (`PLANS`, `formatUsage`, `atLimit`, `remaining`).
 - SQL (`plan_*_limit`, `enforce_agent_limit`, `consume_ai_draft`) — because PostgREST is reachable directly with the anon key, so an app-only check is a suggestion.
 
-Plans: **free** 3 agents / 10 drafts / no MCP · **pro** 25 / 200 / MCP · **max** unlimited / unlimited / MCP. Prices are display-only — no payment provider is wired; `plan` is set in the database by hand.
+Plans: **free** 3 agents / 10 drafts / no MCP · **pro** 25 / 200 / MCP · **max** unlimited / unlimited / MCP. `plan` is set either by hand or by the Polar webhook (`apply_polar_plan()`, `0005`) — see API.md's `/api/billing/webhook`. Until `POLAR_ACCESS_TOKEN` and the two `NEXT_PUBLIC_POLAR_*_PRODUCT_ID` vars are set, `/pricing` shows an honest "Coming soon" instead of a checkout link (`POLAR_CONFIGURED`, `lib/polar/env.ts`).
 
 ## 4. Client persistence — `lib/store.ts`
 
@@ -79,7 +87,7 @@ Plans: **free** 3 agents / 10 drafts / no MCP · **pro** 25 / 200 / MCP · **max
 
 ## 5. Migration rules
 
-- Files are ordered and additive: `0001_agents` → `0002_plans` → `0003_mcp_tokens` → `0004_agent_graph`.
+- Files are ordered and additive: `0001_agents` → `0002_plans` → `0003_mcp_tokens` → `0004_agent_graph` → `0005_polar_billing`.
 - Add a new numbered file; never edit a shipped one.
 - Adding an agent column? Update `agent_for_token`'s column list in the same migration.
 - Every new table: `enable row level security` + explicit owner policies. A write path a user must not control belongs in a `security definer` function with **no** matching RLS insert policy.

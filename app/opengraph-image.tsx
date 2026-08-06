@@ -3,7 +3,7 @@ import { BRAND, habibiFont, logoDataUri } from "@/lib/brand";
 
 export const size = { width: 1200, height: 630 };
 export const contentType = "image/png";
-export const alt = "agents — build AI agents, powered by ai";
+export const alt = "agents — build AI agents, ship your skills";
 
 export default async function OpengraphImage() {
   const logo = await logoDataUri();
