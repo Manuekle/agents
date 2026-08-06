@@ -15,6 +15,8 @@ export interface Plan {
   drafts: number | null;
   /** Serving an agent over MCP from the account. */
   mcp: boolean;
+  /** Filling the context-doc scaffolds (DESIGN.md, DATA.md, …) with a model call. */
+  aiDocs: boolean;
   features: string[];
 }
 
@@ -27,6 +29,7 @@ export const PLANS: Record<PlanId, Plan> = {
     agents: 3,
     drafts: 10,
     mcp: false,
+    aiDocs: false,
     features: [
       "3 saved agents",
       "10 AI drafts a month",
@@ -42,10 +45,12 @@ export const PLANS: Record<PlanId, Plan> = {
     agents: 25,
     drafts: 200,
     mcp: true,
+    aiDocs: true,
     features: [
       "25 saved agents",
       "200 AI drafts a month",
       "Serve agents over MCP",
+      "AI-filled context docs",
       "Everything in Free",
     ],
   },
@@ -57,10 +62,12 @@ export const PLANS: Record<PlanId, Plan> = {
     agents: null,
     drafts: null,
     mcp: true,
+    aiDocs: true,
     features: [
       "Unlimited agents",
       "Unlimited AI drafts",
       "Serve agents over MCP",
+      "AI-filled context docs",
       "Everything in Pro",
     ],
   },

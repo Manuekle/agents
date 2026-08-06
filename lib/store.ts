@@ -4,6 +4,8 @@ import { useSyncExternalStore } from "react";
 import type { Agent } from "./types";
 import { normalizeGraph } from "./graph";
 import { supabaseBrowser } from "./supabase/client";
+import { SUPABASE_CONFIGURED } from "./supabase/env";
+import { readUser } from "./supabase/answer";
 
 // Agents live in Supabase. Reads stay synchronous: the DB hydrates into an
 // in-memory cache, and writes update the cache first and persist after.
@@ -24,9 +26,25 @@ const EMPTY: Agent[] = [];
 
 let cache: Agent[] | null = null;
 let userId: string | null = null;
-let loading = false;
+
+// True from the very first read on a deploy that has accounts, because until
+// `getUser()` answers we do not know whether this browser has a session.
+//
+// It used to start false, and every consumer reads it as "the answer is in".
+// So for the few hundred milliseconds before auth resolved, a signed-in user
+// with a full account was shown the signed-out truth: the home page said "No
+// agents yet — the forge is cold", and /build?id=… said no such agent exists.
+// Both then corrected themselves, which is worse than a wait — it reads as
+// having lost the work and then got it back.
+let loading = SUPABASE_CONFIGURED;
 let started = false;
 let lastError: string | null = null;
+
+/** Nothing more is coming — either the rows landed or the attempt is over. */
+function settle() {
+  loading = false;
+  emit();
+}
 
 function emit() {
   for (const l of listeners) l();
@@ -123,22 +141,46 @@ function start() {
   started = true;
 
   const sb = supabaseBrowser();
-  if (!sb) return; // no Supabase configured — localStorage is the whole story
+  if (!sb) {
+    // No Supabase configured — localStorage is the whole story, and there is
+    // no auth answer to wait for.
+    settle();
+    return;
+  }
 
-  sb.auth.getUser().then(({ data }) => void applyUser(data.user?.id ?? null));
+  // Settling on an unknowable answer is not optional: `loading` now starts
+  // true, so an auth endpoint that is unreachable would otherwise leave every
+  // list in the app waiting for rows that are never coming. It settles without
+  // claiming a sign-out, so nothing renders "you have no agents".
+  void readUser(sb).then((answer) => {
+    if (answer.signedIn === null) return settle();
+    return applyUser(answer.userId);
+  });
   sb.auth.onAuthStateChange((_event, session) => {
     void applyUser(session?.user?.id ?? null);
   });
 }
 
+// Whether any auth answer has been applied yet. Not the same question as
+// `loading`: two answers race here — `onAuthStateChange` fires INITIAL_SESSION
+// from the stored session straight away, and `readUser` lands a moment later
+// with the verified one. Keying the early return on `loading` let the second
+// one through while the first was still fetching, and the account's rows were
+// pulled twice on every page load.
+let answered = false;
+
 async function applyUser(id: string | null) {
-  if (id === userId) return;
+  // The first answer always runs, even when it matches the initial `null`:
+  // `loading` starts true waiting for exactly this call, so returning early
+  // would strand it.
+  if (answered && id === userId) return;
+  answered = true;
   userId = id;
 
   if (!id) {
     // Signed out: the account's agents are not ours to keep in memory.
     cache = null;
-    emit();
+    settle();
     return;
   }
 
@@ -146,7 +188,7 @@ async function applyUser(id: string | null) {
   emit();
 
   const sb = supabaseBrowser();
-  if (!sb) return;
+  if (!sb) return settle();
 
   // Anything composed before signing in comes along, so a first login doesn't
   // look like it wiped the user's work.
@@ -169,14 +211,22 @@ async function applyUser(id: string | null) {
     }
   }
 
-  const { data } = await sb
+  const { data, error } = await sb
     .from("agents")
     .select("*")
     .order("created_at", { ascending: false });
 
+  // A failed read is not an empty account. Falling through to EMPTY told a
+  // signed-in user their agents were gone — the one thing this app must never
+  // say when it does not know.
+  if (error) {
+    setError("Couldn't load your agents. Check your connection and reload.");
+    settle();
+    return;
+  }
+
   cache = data && data.length > 0 ? (data as Row[]).map(toAgent) : EMPTY;
-  loading = false;
-  emit();
+  settle();
 }
 
 // ---- public API -----------------------------------------------------------

@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { Mascot } from "@/components/Mascot";
-import { Panel, PixelButton } from "@/components/ui";
+import { Panel, PixelButton, StatePanel } from "@/components/ui";
 
 // A 404 wearing the site rather than Next's default page. It renders inside
 // the root layout, so the nav and footer are already there — this is only what
@@ -24,25 +23,24 @@ const ELSEWHERE: { href: string; label: string; detail: string }[] = [
 export default function NotFound() {
   return (
     <div className="mx-auto max-w-2xl px-5 py-16">
-      <Panel className="p-8 text-center">
-        <div className="grain mascot-stage relative pixel-border-sm p-6 inline-block">
-          {/* Static: nothing on this page is in progress. */}
-          <Mascot state="sherlock" size={96} animate={false} />
-        </div>
-        <h1 className="font-pixel text-sm mt-5">404_NOT_FOUND</h1>
-        <p className="mt-3 font-mono text-xs text-ink-soft leading-relaxed">
-          That page isn&apos;t here. It may have moved, or the link may be a
-          typo — nothing has been deleted from your account.
-        </p>
-        <div className="mt-6 flex flex-wrap justify-center gap-2">
-          <Link href="/">
-            <PixelButton variant="coral">Back home →</PixelButton>
-          </Link>
-          <Link href="/demo">
-            <PixelButton variant="ghost">See the demo</PixelButton>
-          </Link>
-        </div>
-      </Panel>
+      {/* Static mascot: nothing on this page is in progress. */}
+      <StatePanel
+        mascot="sherlock"
+        title="404_NOT_FOUND"
+        actions={
+          <>
+            <Link href="/">
+              <PixelButton variant="coral">Back home →</PixelButton>
+            </Link>
+            <Link href="/demo">
+              <PixelButton variant="ghost">See the demo</PixelButton>
+            </Link>
+          </>
+        }
+      >
+        That page isn&apos;t here. It may have moved, or the link may be a typo
+        — nothing has been deleted from your account.
+      </StatePanel>
 
       <div className="mt-6 grid gap-2 sm:grid-cols-2">
         {ELSEWHERE.map((l) => (

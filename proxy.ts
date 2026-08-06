@@ -1,6 +1,7 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 import { SUPABASE_CONFIGURED, SUPABASE_KEY, SUPABASE_URL } from "@/lib/supabase/env";
+import { readUser } from "@/lib/supabase/answer";
 import { DEMO_PATH, gateReason, requiresAccount } from "@/lib/access";
 
 // Next 16 renamed Middleware to Proxy; same file-convention slot, root-level.
@@ -43,28 +44,31 @@ export async function proxy(request: NextRequest) {
   // rotates the refresh token, and work in between has been the usual cause of
   // users being logged out at random.
   //
-  // getUser, never getSession: getSession trusts the cookie as it finds it, so
-  // a forged one would read as a valid login — which matters now that this
-  // answer decides whether a page is served at all.
-  let signedIn = false;
-  try {
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-    signedIn = Boolean(user);
-  } catch {
-    // Auth unreachable (refresh endpoint down): serve the page anyway instead
-    // of 500ing the whole site. The session cookie is left as-is and the next
-    // request retries the refresh. A gated page falls through to the demo,
-    // which is the safe direction to fail in.
-  }
+  // readUser is getUser, never getSession: getSession trusts the cookie as it
+  // finds it, so a forged one would read as a valid login — which matters now
+  // that this answer decides whether a page is served at all.
+  //
+  // Three answers, not two: signed in, signed out, and *we could not tell*.
+  // The third used to collapse into "signed out" — `getUser()` reports an
+  // unreachable auth endpoint as `{ user: null, error }`, not as a throw, so a
+  // Supabase hiccup on one request bounced a signed-in user off the composer
+  // and onto the demo, where a banner told them the page needs an account they
+  // already have. readUser is what tells those three apart.
+  //
+  // Unknown now serves the page. That is not a hole: the route handlers behind
+  // it check for themselves (lib/api-auth.ts) and RLS owns the data either
+  // way, so the worst case is a signed-out visitor reaching a composer with
+  // nothing in it — against locking out real users on every wobble.
+  const { signedIn } = await readUser(supabase);
 
   // A shared cache holding a response carrying someone's session cookie would
   // hand that session to the next visitor.
   response.headers.set("Cache-Control", "private, no-store");
 
   const { pathname } = request.nextUrl;
-  if (signedIn || !requiresAccount(pathname)) return response;
+  // `signedIn !== false` — only a *confirmed* signed-out visitor is turned
+  // away. `null` (unknown) is served, same as `true`.
+  if (signedIn !== false || !requiresAccount(pathname)) return response;
 
   // An API caller gets a status it can act on; a browser gets the demo.
   if (pathname.startsWith("/api/")) {

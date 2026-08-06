@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { supabaseBrowser } from "./supabase/client";
 import { SUPABASE_CONFIGURED } from "./supabase/env";
+import { readUser } from "./supabase/answer";
 
 /**
  * Whether anyone is signed in. `null` while that is still unknown — the first
@@ -26,8 +27,14 @@ export function useSignedIn(): boolean | null {
     if (!sb) return;
     let alive = true;
 
-    sb.auth.getUser().then(({ data }) => {
-      if (alive) setSignedIn(Boolean(data.user));
+    // `readUser` and not `getUser().then(d => Boolean(d.data.user))`: an
+    // unreachable auth endpoint answers with a null user and an error, and
+    // reading only the user turned every network blip into a sign-out. On an
+    // unknowable answer this stays `null`, and every consumer treats unknown
+    // as "do not gate" — so the app looks normal rather than locking a
+    // signed-in user out of their own nav.
+    void readUser(sb).then((answer) => {
+      if (alive && answer.signedIn !== null) setSignedIn(answer.signedIn);
     });
     const { data: sub } = sb.auth.onAuthStateChange((_e, session) => {
       if (alive) setSignedIn(Boolean(session?.user));

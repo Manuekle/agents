@@ -7,7 +7,7 @@ import { HowItWorks } from "@/components/HowItWorks";
 import { Mascot } from "@/components/Mascot";
 import { DitherField } from "@/components/DitherField";
 import { TiltCard } from "@/components/TiltCard";
-import { Panel, PixelButton, Badge } from "@/components/ui";
+import { Panel, PixelButton, Badge, Notice } from "@/components/ui";
 import { HeartButton } from "@/components/Sponsor";
 import { UsageChip } from "@/components/PlanUsage";
 import { StarIcon, AngleDownSolidIcon } from "@/components/icons";
@@ -297,11 +297,7 @@ export default function Home() {
             the first-sign-in migration: agents composed on this browser before
             the account existed are upserted into it, and if that is refused
             they stay local and invisible in the list below. */}
-        {storeError && (
-          <p className="mb-4 font-mono text-xs text-coral-deep border-2 border-coral-deep px-3 py-2 leading-relaxed">
-            {storeError}
-          </p>
-        )}
+        {storeError && <Notice className="mb-4">{storeError}</Notice>}
 
         {guest ? (
           // Not "no agents yet" — a signed-out visitor has no agents *here*

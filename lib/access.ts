@@ -40,6 +40,10 @@ const RULES: Rule[] = [
   // Bring-your-own-key requests only, but it is still an outbound fetch made
   // from our address, and an open one is somebody else's free proxy.
   { path: "/api/ai/relay", access: "account", why: "forwards a request from our servers" },
+  // Account-gated so the request carries an identity to plan-check; the plan
+  // check itself (Pro/Max) lives in the route, next to the Foundry call it
+  // guards — see planAllows("ai-docs").
+  { path: "/api/docs/generate", access: "account", why: "runs our Foundry deployment on our bill" },
 ];
 
 /**
@@ -79,18 +83,27 @@ export function gateReason(pathname: string): string {
 
 /**
  * Capabilities a plan gates, as opposed to routes an account gates. Serving
- * over MCP is the only one today; the limits (agents, drafts) are numbers on
- * the plan and are enforced in SQL, not here.
+ * over MCP and filling the AI context docs are the two today; the limits
+ * (agents, drafts) are numbers on the plan and are enforced in SQL, not here.
  */
-export type Feature = "mcp";
+export type Feature = "mcp" | "ai-docs";
+
+// `Feature` is spelled the way a URL or a UI label reads ("ai-docs"); `Plan`
+// is spelled the way a TS property is ("aiDocs"). This is the one place that
+// has to know both.
+const FEATURE_FIELD: Record<Feature, "mcp" | "aiDocs"> = {
+  mcp: "mcp",
+  "ai-docs": "aiDocs",
+};
 
 export function planAllows(plan: PlanId | null | undefined, feature: Feature): boolean {
   if (!plan) return false;
-  return PLANS[plan][feature];
+  return PLANS[plan][FEATURE_FIELD[feature]];
 }
 
 /** The cheapest plan that includes a feature — what an upsell should name. */
 export function cheapestPlanWith(feature: Feature): Plan {
   // PLAN_ORDER is cheapest-first, so the first hit is the one to sell.
-  return PLAN_ORDER.map((id) => PLANS[id]).find((p) => p[feature]) ?? PLANS.max;
+  const field = FEATURE_FIELD[feature];
+  return PLAN_ORDER.map((id) => PLANS[id]).find((p) => p[field]) ?? PLANS.max;
 }

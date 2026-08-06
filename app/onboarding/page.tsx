@@ -6,7 +6,16 @@ import { useState } from "react";
 import { ThinkingOrb } from "thinking-orbs";
 import { PoweredBy } from "@/components/PoweredBy";
 import { Mascot } from "@/components/Mascot";
-import { Panel, PixelButton, Badge, Field, TextInput, TextArea, Segmented } from "@/components/ui";
+import {
+  Panel,
+  PixelButton,
+  Badge,
+  Field,
+  TextInput,
+  TextArea,
+  Segmented,
+  Notice,
+} from "@/components/ui";
 import {
   TARGETS,
   modelsFor,
@@ -234,11 +243,7 @@ export default function OnboardingPage() {
             />
           </Field>
 
-          {error && (
-            <p className="font-mono text-xs text-coral-deep border-2 border-coral-deep px-3 py-2">
-              {error}
-            </p>
-          )}
+          {error && <Notice>{error}</Notice>}
 
           {/* What a press costs, next to the button that spends it. Hidden on
               the bring-your-own-key path, which spends nothing of ours. */}
@@ -359,14 +364,14 @@ export default function OnboardingPage() {
             {/* The composer saves on entry, so a full account has to be said
                 here — the draft itself is fine, it just has nowhere to land. */}
             {outOfAgents && plan && (
-              <p className="mt-4 font-mono text-[11px] text-coral-deep border-2 border-coral-deep px-3 py-2 leading-relaxed">
+              <Notice className="mt-4">
                 {formatUsage(agents.length, plan.agents)} saved agents on{" "}
                 {plan.label} — delete one from the home page to make room, or{" "}
                 <Link href="/pricing" className="underline">
                   see plans
                 </Link>
                 .
-              </p>
+              </Notice>
             )}
             <PixelButton
               variant="coral"

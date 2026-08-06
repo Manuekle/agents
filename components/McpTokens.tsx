@@ -2,10 +2,11 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
-import { Panel, PixelButton, Badge, TextInput } from "@/components/ui";
+import { Panel, PixelButton, Badge, TextInput, Notice } from "@/components/ui";
 import { supabaseBrowser } from "@/lib/supabase/client";
 import { SUPABASE_CONFIGURED } from "@/lib/supabase/env";
 import { usePlan } from "@/lib/use-plan";
+import { useSignedIn } from "@/lib/use-auth";
 import { PLANS } from "@/lib/plans";
 import { copyText } from "@/lib/copy";
 
@@ -18,7 +19,15 @@ interface TokenRow {
 }
 
 export function McpTokens() {
-  const { plan, signedIn } = usePlan();
+  // Two different questions, answered by the hook that actually knows each.
+  //
+  // `usePlan()` used to answer both, and its `signedIn` is false until two
+  // table reads land — so this panel greeted every signed-in user with "Sign
+  // in to create a token" for as long as that took, and forever if the reads
+  // failed. `useSignedIn()` is the auth question on its own, and its `null`
+  // means "not known yet", which is a state this panel can render honestly.
+  const signedIn = useSignedIn();
+  const { plan } = usePlan();
   const [tokens, setTokens] = useState<TokenRow[]>([]);
   const [fresh, setFresh] = useState<string | null>(null);
   const [name, setName] = useState("");
@@ -43,6 +52,11 @@ export function McpTokens() {
   if (!SUPABASE_CONFIGURED) return null;
 
   const canServe = plan ? PLANS[plan].mcp : false;
+  // Signed in, but which plan has not landed. Same rule as the auth question
+  // one line up: an unknown plan must not render as "you are on a plan without
+  // this", which is what a bare `!canServe` said to every Pro user for the
+  // length of the read.
+  const planPending = signedIn === true && plan === null;
 
   const create = async () => {
     const sb = supabaseBrowser();
@@ -80,8 +94,17 @@ export function McpTokens() {
         a file on disk, so it follows you between machines.
       </p>
 
-      {!signedIn ? (
-        <Link href="/login" className="block mt-4">
+      {signedIn === null || planPending ? (
+        // Auth or the plan has not answered. Holding the slot at the height of
+        // the button that is about to fill it, rather than guessing
+        // signed-out and swapping a beat later.
+        <div className="mt-4 h-[38px] border-2 border-line bg-stone grid place-items-center">
+          <span className="font-mono text-[10px] text-muted">
+            {signedIn === null ? "checking your session…" : "reading your plan…"}
+          </span>
+        </div>
+      ) : !signedIn ? (
+        <Link href="/login?next=%2Fmcp" className="block mt-4">
           <PixelButton variant="coral" className="w-full">
             Sign in to create a token →
           </PixelButton>
@@ -112,11 +135,7 @@ export function McpTokens() {
             </PixelButton>
           </div>
 
-          {error && (
-            <p className="mt-2 font-mono text-[11px] text-coral-deep border-2 border-coral-deep px-2 py-1">
-              {error}
-            </p>
-          )}
+          {error && <Notice className="mt-2">{error}</Notice>}
 
           {fresh && (
             <div className="mt-3 border-2 border-coral p-3">

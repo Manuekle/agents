@@ -6,6 +6,7 @@ import { clsx } from "@/lib/clsx";
 import { SignOutIcon } from "@/components/icons";
 import { supabaseBrowser } from "@/lib/supabase/client";
 import { SUPABASE_CONFIGURED } from "@/lib/supabase/env";
+import { readUser } from "@/lib/supabase/answer";
 
 type User = { email: string | null; avatar: string | null; handle: string | null };
 
@@ -43,8 +44,17 @@ export function AuthButton({ compact = false }: { compact?: boolean }) {
       });
     };
 
-    sb.auth.getUser().then(({ data }) => {
-      read(data.user);
+    // The verified answer, and only when it is one. `getUser()` reports an
+    // unreachable auth endpoint as `{ user: null, error }` rather than
+    // throwing, so reading `data.user` alone put "Sign in" in the nav of a
+    // signed-in user on any network wobble — and, because it lands *after*
+    // onAuthStateChange has already painted the account from the stored
+    // session, it did it by visibly replacing their avatar with it.
+    //
+    // On an unknowable answer the slot keeps whatever onAuthStateChange has:
+    // the stored session for a signed-in user, nothing for anyone else.
+    void readUser(sb).then((answer) => {
+      if (answer.signedIn !== null) read(answer.user);
       setReady(true);
     });
     const { data: sub } = sb.auth.onAuthStateChange((_e, session) => read(session?.user ?? null));

@@ -1,0 +1,88 @@
+---
+title: DATA — schema, persistence and plan limits
+summary: Supabase tables, RLS policies, security-definer functions, the client store, and where each limit is enforced.
+version: 1.0.0
+updated: 2026-08-05
+area: data / backend
+audience: ai-agent, backend
+source_of_truth: supabase/migrations/, lib/store.ts, lib/plans.ts
+read_when: Touching the schema, persistence, auth, tokens, plans or quotas.
+skip_when: Visual or export-only work.
+tokens_est: ~1.5k
+---
+
+# DATA
+
+Everything is Postgres on Supabase, with **row level security on every table**. The anon key is browser-safe by design; RLS is the protection. **Never** put the service_role key in this project.
+
+## 1. Tables
+
+### `profiles` — `0001`
+`id uuid pk → auth.users`, `plan text ('free'|'pro'|'max', default 'free')`, `created_at`.
+
+- Exists only to hold `plan` — application columns do not belong on `auth.users`.
+- RLS: owner **reads** only. **No insert policy, no user update path to `plan`** — a profile is created by the `on_auth_user_created` trigger (`handle_new_user`, security definer), so signing up cannot self-assign a plan.
+
+### `agents` — `0001` + `0004`
+`primary key (user_id, id)` — `id` stays the **client-generated string** so an agent keeps its identity moving from localStorage into an account and `/build?id=` keeps working; it is only unique per user, hence the composite key.
+
+Columns: `name`, `role`, `system_prompt`, `target`, `model`, `temperature real`, `skills jsonb` (default `[]`), `mascot`, `accent`, `graph jsonb` (nullable), `created_at`, `updated_at`.
+Index: `(user_id, created_at desc)`. Trigger: `touch_updated_at`.
+
+- RLS: four explicit owner policies (select / insert / update / delete).
+- `graph` is a **document** — read whole, written whole, never queried by its innards. Only constraint: `agents_graph_is_object`.
+- `graph is null` = a pre-canvas agent; the client derives one from `skills` on first open. No backfill, no broken old clients.
+- `skills` stays the flat union even when `graph` exists — installers must never walk a tree.
+
+### `ai_usage` — `0002`
+`primary key (user_id, month)`, `drafts integer`. `month` is always the first of the month.
+
+- A counter, not a log: it is read on every draft and this keeps that O(1).
+- RLS: owner **reads** only (so the UI can say "7 of 10"). No insert/update policy — the only writer is `consume_ai_draft()`, so nobody can reset their own counter.
+
+### `api_tokens` — `0003`
+`id uuid`, `user_id`, `name`, `token_hash unique`, `prefix` (first 10 chars), `created_at`, `last_used`.
+
+- **Only the SHA-256 is stored.** A leaked dump yields hashes, not credentials; `prefix` is how tokens are told apart afterwards.
+- RLS: owner select + delete (list and revoke). **No insert policy** — tokens are minted by `create_api_token()` so the plaintext is hashed and never round-trips through the client.
+
+## 2. Functions (all `security definer`)
+
+| Function | Contract |
+|---|---|
+| `handle_new_user()` | trigger on `auth.users` insert → creates the profile |
+| `touch_updated_at()` | trigger on `agents` update |
+| `plan_agent_limit(p)` | free 3 · pro 25 · max `null` |
+| `plan_draft_limit(p)` | free 10 · pro 200 · max `null` |
+| `enforce_agent_limit()` | before-insert trigger on `agents`; excludes the row being written so updates never count as new |
+| `consume_ai_draft()` | check **and** increment in one statement — two concurrent drafts cannot both take the last slot. Refuses by decrementing back, so a rejected draft never burns a slot. Returns `boolean` |
+| `create_api_token(name)` | mints `adv_<base64 of 32 random bytes, +/= translated to xyz>`, stores the hash, returns the plaintext **once** |
+| `resolve_api_token(raw)` | hash → user |
+| `agent_for_token(raw, agent_id)` | serves one agent to the MCP endpoint. **Fixed column list** — a new agent column must be added here or served agents silently lose it (that is why `0004` drops and recreates it: `create or replace` cannot change a `returns table`) |
+
+## 3. Where limits are enforced
+
+Limits live in **two** places on purpose:
+
+- `lib/plans.ts` — for the UI (`PLANS`, `formatUsage`, `atLimit`, `remaining`).
+- SQL (`plan_*_limit`, `enforce_agent_limit`, `consume_ai_draft`) — because PostgREST is reachable directly with the anon key, so an app-only check is a suggestion.
+
+Plans: **free** 3 agents / 10 drafts / no MCP · **pro** 25 / 200 / MCP · **max** unlimited / unlimited / MCP. Prices are display-only — no payment provider is wired; `plan` is set in the database by hand.
+
+## 4. Client persistence — `lib/store.ts`
+
+- Agents live in Supabase. Reads stay **synchronous**: the DB hydrates an in-memory cache; writes update the cache first and persist after.
+- Exposed through `useSyncExternalStore` (`useAgents`, `useAgentsLoading`, `useStoreError`). Snapshots are compared by identity — every empty path must return the same `EMPTY` array or React loops.
+- `loading` starts `true` whenever `SUPABASE_CONFIGURED`, because until `getUser()` answers we do not know if this browser has a session. Starting `false` briefly showed signed-in users the signed-out truth ("no agents yet"), which reads as having lost the work.
+- **localStorage (`agents-dev:agents`) is a migration path, not a mode.** Nothing new is written there; the upsert in `applyUser` carries pre-account agents into the account on first sign-in. Removing it strands them.
+- With Supabase unset, nothing is gated and localStorage is the whole store — which is what a self-hosted, account-less instance wants.
+
+## 5. Migration rules
+
+- Files are ordered and additive: `0001_agents` → `0002_plans` → `0003_mcp_tokens` → `0004_agent_graph`.
+- Add a new numbered file; never edit a shipped one.
+- Adding an agent column? Update `agent_for_token`'s column list in the same migration.
+- Every new table: `enable row level security` + explicit owner policies. A write path a user must not control belongs in a `security definer` function with **no** matching RLS insert policy.
+
+## Related
+[ARCHITECTURE.md](ARCHITECTURE.md) · [API.md](API.md)

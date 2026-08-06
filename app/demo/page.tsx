@@ -6,7 +6,8 @@ import { useSearchParams } from "next/navigation";
 import { PoweredBy } from "@/components/PoweredBy";
 import { Mascot } from "@/components/Mascot";
 import { AgentCanvas } from "@/components/canvas/AgentCanvas";
-import { Panel, PixelButton, Badge, ResizeBox } from "@/components/ui";
+import { Panel, PixelButton, Badge, ResizeBox, PageLoading } from "@/components/ui";
+import { useSignedIn } from "@/lib/use-auth";
 import { clsx } from "@/lib/clsx";
 import { MASCOTS } from "@/lib/mascot";
 import { TARGETS } from "@/lib/types";
@@ -192,6 +193,7 @@ function DelegatePanel() {
 
 function ExportPanel() {
   const agent = demoAgentAt(4);
+  const signedIn = useSignedIn();
   return (
     <div className="space-y-3">
       <div className="grid gap-2 sm:grid-cols-2">
@@ -223,8 +225,10 @@ function ExportPanel() {
       </div>
       <p className="font-mono text-[10px] text-muted leading-relaxed">
         The panel on the right is the real file, generated from the graph above
-        by the same code the composer uses. Sign in and it is yours to edit,
-        save and serve over MCP.
+        by the same code the composer uses.{" "}
+        {signedIn === true
+          ? "In the composer it is yours to edit, save and serve over MCP."
+          : "Sign in and it is yours to edit, save and serve over MCP."}
       </p>
     </div>
   );
@@ -238,6 +242,17 @@ function Demo() {
   // sign-in below can put them back where they were going.
   const raw = params.get("from");
   const from = raw && raw.startsWith("/") && !raw.startsWith("//") ? raw : null;
+
+  // This page is reachable signed *in* — it is a tab in ⌘K, a link in the
+  // footer, and the thing people send each other. Every call to action on it
+  // said "Sign in" regardless, so a signed-in user watching the demo was told
+  // twice to do something they had already done. `null` (unknown) keeps the
+  // signed-out copy, which is the safe way round: it is the only version that
+  // makes sense to a visitor with no account.
+  const member = useSignedIn() === true;
+  // Where the CTA goes for someone who already has a session: on to the thing
+  // they were blocked from, or the composer.
+  const onward = from ?? "/build";
 
   const [step, setStep] = useState(0);
   const [playing, setPlaying] = useState(true);
@@ -278,8 +293,14 @@ function Demo() {
             <PixelButton variant="ghost" onClick={() => setPlaying((p) => !p)}>
               {playing ? "Pause" : "Play"}
             </PixelButton>
-            <Link href={`/login${from ? `?next=${encodeURIComponent(from)}` : ""}`}>
-              <PixelButton variant="coral">Sign in to build one →</PixelButton>
+            <Link
+              href={
+                member ? onward : `/login${from ? `?next=${encodeURIComponent(from)}` : ""}`
+              }
+            >
+              <PixelButton variant="coral">
+                {member ? "Build one for real →" : "Sign in to build one →"}
+              </PixelButton>
             </Link>
           </div>
         </div>
@@ -289,7 +310,19 @@ function Demo() {
         <Panel className="p-4 mb-5 flex flex-wrap items-center gap-x-3 gap-y-2">
           <Badge tone="coral">Simulation</Badge>
           <p className="font-mono text-xs text-ink-soft flex-1 min-w-[16rem] leading-relaxed">
-            {from ? (
+            {from && member ? (
+              // Signed in but standing on the redirect: they were turned away
+              // before signing in, or signed in on another tab. Telling them
+              // the page needs an account they now have is the wrong sentence.
+              <>
+                You&apos;re signed in —{" "}
+                <Link href={from} className="text-coral-text underline">
+                  <code>{from}</code>
+                </Link>{" "}
+                is open to you. Everything below is still the pre-loaded
+                simulation.
+              </>
+            ) : from ? (
               <>
                 <code className="text-coral-text">{from}</code> needs an account —
                 it saves agents and spends AI drafts. This is the same flow, run
@@ -407,15 +440,18 @@ function Demo() {
               </div>
               <h2 className="font-sans font-bold text-base mt-3">Your turn</h2>
               <p className="font-mono text-[11px] text-muted mt-1.5 leading-relaxed">
-                An account is free: 3 saved agents and 10 AI drafts a month, the
-                whole registry, every export target.
+                {member
+                  ? "You have an account — the composer does all of this for real, and saves it."
+                  : "An account is free: 3 saved agents and 10 AI drafts a month, the whole registry, every export target."}
               </p>
               <Link
-                href={`/login${from ? `?next=${encodeURIComponent(from)}` : ""}`}
+                href={
+                  member ? onward : `/login${from ? `?next=${encodeURIComponent(from)}` : ""}`
+                }
                 className="block mt-4"
               >
                 <PixelButton variant="coral" className="w-full">
-                  Sign in with GitHub →
+                  {member ? "Open the composer →" : "Sign in with GitHub →"}
                 </PixelButton>
               </Link>
               <Link href="/pricing" className="block mt-2">
@@ -433,7 +469,7 @@ function Demo() {
 
 export default function DemoPage() {
   return (
-    <Suspense fallback={<div className="p-10 font-mono text-sm">loading demo…</div>}>
+    <Suspense fallback={<PageLoading what="the demo" />}>
       <Demo />
     </Suspense>
   );

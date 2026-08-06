@@ -43,25 +43,25 @@ export async function POST(req: Request) {
 
   // Every draft that gets here belongs to an account, so every draft comes out
   // of that account's monthly plan quota.
-  const supabase = await supabaseServer();
+  //
+  // Whose account is decided once, by the gate above — this used to ask
+  // `getUser()` again, and that second call answers a failed request with
+  // `user: null`, which read here as "no account to charge" and handed out a
+  // free draft. `gate.userId` is the id the gate already verified; it is null
+  // only on a deploy with no Supabase at all, where there is no quota to spend.
+  const supabase = gate.userId ? await supabaseServer() : null;
   if (supabase) {
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-
-    if (user) {
-      // One statement checks and increments, so two drafts racing for the last
-      // slot cannot both be granted it.
-      const { data: allowed, error } = await supabase.rpc("consume_ai_draft");
-      if (!error && allowed === false) {
-        return NextResponse.json(
-          {
-            error:
-              "You're out of AI drafts for this month. The composer still works — or see /pricing.",
-          },
-          { status: 402 },
-        );
-      }
+    // One statement checks and increments, so two drafts racing for the last
+    // slot cannot both be granted it.
+    const { data: allowed, error } = await supabase.rpc("consume_ai_draft");
+    if (!error && allowed === false) {
+      return NextResponse.json(
+        {
+          error:
+            "You're out of AI drafts for this month. The composer still works — or see /pricing.",
+        },
+        { status: 402 },
+      );
     }
   }
 

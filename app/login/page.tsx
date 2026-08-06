@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { PoweredBy } from "@/components/PoweredBy";
 import { Mascot } from "@/components/Mascot";
-import { Panel, PixelButton, Badge } from "@/components/ui";
+import { Panel, PixelButton, Badge, Notice, PageLoading } from "@/components/ui";
 import { GitHubIcon } from "@/components/icons";
 import { supabaseBrowser } from "@/lib/supabase/client";
 import { SUPABASE_CONFIGURED } from "@/lib/supabase/env";
@@ -72,7 +72,17 @@ function Login() {
             browser before comes with you.
           </p>
 
-          {SUPABASE_CONFIGURED && signedIn ? (
+          {SUPABASE_CONFIGURED && signedIn === null ? (
+            // Auth has not answered yet. Showing the GitHub button here and
+            // replacing it with "Signed in" a beat later is the same flicker
+            // the nav's AuthButton already guards against, and on this page it
+            // is the whole content of the card.
+            <div className="mt-5 h-[42px] border-2 border-line bg-stone grid place-items-center">
+              <span className="font-mono text-[10px] text-muted" role="status">
+                checking your session…
+              </span>
+            </div>
+          ) : SUPABASE_CONFIGURED && signedIn ? (
             <div className="mt-5">
               <Badge tone="coral">Signed in</Badge>
               <p className="font-mono text-[11px] text-muted mt-2 leading-relaxed">
@@ -100,9 +110,7 @@ function Login() {
                 </span>
               </PixelButton>
               {error && (
-                <p className="mt-3 font-mono text-[11px] text-coral-deep border-2 border-coral-deep px-3 py-2">
-                  {error}
-                </p>
+                <Notice className="mt-3 text-left">{error}</Notice>
               )}
             </>
           ) : (
@@ -127,7 +135,7 @@ function Login() {
 
 export default function LoginPage() {
   return (
-    <Suspense fallback={<div className="p-10 font-mono text-sm">loading…</div>}>
+    <Suspense fallback={<PageLoading what="sign-in" />}>
       <Login />
     </Suspense>
   );

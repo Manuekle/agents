@@ -3,6 +3,8 @@
 import { useEffect, useId, useLayoutEffect, useRef, useState } from "react";
 import { clsx } from "@/lib/clsx";
 import { AngleDownSolidIcon, CheckIcon } from "@/components/icons";
+import { Mascot } from "@/components/Mascot";
+import type { MascotState } from "@/lib/mascot";
 import type { ButtonHTMLAttributes, ReactNode } from "react";
 
 // Animated confirmation tick. `shown` false keeps it at opacity 0 with the
@@ -457,6 +459,112 @@ export function Select<T extends string>({
           })}
         </div>
       )}
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------- messages
+//
+// Every failure the user can see used to be written inline at its call site:
+// six near-identical `<p className="font-mono text-xs text-coral-deep border-2
+// …">` blocks that had each drifted a little — different padding, different
+// weight, one of them a `<div>` with a button glued on. Read one after another
+// they did not look like the same app talking. These two are that message,
+// once, so a save that was refused and a draft that ran out of quota are told
+// in the same voice.
+
+const NOTICE_TONE = {
+  /** Something failed or was refused. */
+  error: "border-coral-deep text-coral-deep bg-paper",
+  /** Not a failure — a state worth saying out loud (missing agent, share link). */
+  info: "border-line text-ink bg-stone",
+} as const;
+
+export function Notice({
+  children,
+  tone = "error",
+  /** Marks it as live for assistive tech — use for anything that appears after an action. */
+  live = true,
+  action,
+  className,
+}: {
+  children: ReactNode;
+  tone?: keyof typeof NOTICE_TONE;
+  live?: boolean;
+  /** A single control on the right — "See plans →" and friends. */
+  action?: ReactNode;
+  className?: string;
+}) {
+  return (
+    <div
+      // `alert` on the error tone, `status` on the info one: an error that
+      // appears after a press has to interrupt, a note about the page as it
+      // loaded should not.
+      role={live ? (tone === "error" ? "alert" : "status") : undefined}
+      className={clsx(
+        "flex flex-wrap items-center gap-x-3 gap-y-1.5 border-2 px-3 py-2",
+        NOTICE_TONE[tone],
+        className,
+      )}
+    >
+      <div className="font-mono text-xs flex-1 min-w-[16rem] leading-relaxed">{children}</div>
+      {action && <div className="shrink-0">{action}</div>}
+    </div>
+  );
+}
+
+/**
+ * A whole route in one state — an error, a 404, a page still resolving. The
+ * three used to be written separately, and only two of them wore the site:
+ * the loading fallbacks were bare `loading composer…` text on white, which
+ * looks like the stylesheet failed rather than like the app working.
+ *
+ * `title` is written in the SCREAMING_SNAKE the pixel face is set in.
+ */
+export function StatePanel({
+  mascot,
+  title,
+  children,
+  actions,
+  footnote,
+  /** Off for anything transient — a bobbing sprite under a one-second wait is noise. */
+  animate = false,
+}: {
+  mascot: MascotState;
+  title: string;
+  children?: ReactNode;
+  actions?: ReactNode;
+  footnote?: ReactNode;
+  animate?: boolean;
+}) {
+  return (
+    <Panel className="p-8 text-center">
+      <div className="grain mascot-stage relative pixel-border-sm p-6 inline-block">
+        <Mascot state={mascot} size={96} animate={animate} />
+      </div>
+      <h1 className="font-pixel text-sm mt-5">{title}</h1>
+      {children && (
+        <div className="mt-3 font-mono text-xs text-ink-soft leading-relaxed">{children}</div>
+      )}
+      {actions && <div className="mt-6 flex flex-wrap justify-center gap-2">{actions}</div>}
+      {footnote && <div className="mt-3 font-mono text-[10px] text-muted">{footnote}</div>}
+    </Panel>
+  );
+}
+
+/**
+ * What a route shows while it resolves. Used as the Suspense fallback on the
+ * three pages that read search params — the composer, the demo and sign-in —
+ * all of which suspend on first paint and used to fall back to unstyled text.
+ */
+export function PageLoading({ what }: { what: string }) {
+  return (
+    <div className="mx-auto max-w-2xl px-5 py-16">
+      <StatePanel mascot="thinking" title="LOADING" animate>
+        {/* aria-live so a screen reader is told the wait exists rather than
+            landing on a page that reads as empty. */}
+        <span role="status">Opening {what}…</span>
+      </StatePanel>
     </div>
   );
 }

@@ -19,6 +19,8 @@ import {
   Select,
   SuccessCheck,
   ResizeBox,
+  Notice,
+  PageLoading,
 } from "@/components/ui";
 import { MASCOT_ORDER, MASCOTS, type MascotState } from "@/lib/mascot";
 import { SkillBrowser } from "@/components/SkillBrowser";
@@ -67,9 +69,20 @@ import {
   agentSpecJson,
   mcpServeCommand,
 } from "@/lib/export";
+import { docPack, formatTokens, packTokens, type DocFile } from "@/lib/docs";
+import { zipBlob } from "@/lib/zip";
+import { planAllows, cheapestPlanWith } from "@/lib/access";
 import { copyText } from "@/lib/copy";
 import { decodeAgent, encodeAgent, shareUrl } from "@/lib/share";
-import { AngleDownIcon, AngleLeftIcon, PaperclipIcon, PlusIcon, SaveIcon, ShareIcon } from "@/components/icons";
+import {
+  AngleLeftIcon,
+  DownloadIcon,
+  LockIcon,
+  PaperclipIcon,
+  PlusIcon,
+  SaveIcon,
+  ShareIcon,
+} from "@/components/icons";
 
 // The tick is always in the DOM — it just sits at opacity 0 until `done`, so
 // the button keeps one width and never reflows as the check draws itself in.
@@ -283,6 +296,57 @@ function Builder() {
   const newProj = useMemo(() => newProjectCommand(agent), [agent]);
   const repos = agentRepos(agent);
 
+  // The file the target tool loads on every turn — what the context pack tells
+  // the reader to keep short. The MCP target exports an `mcp.json`, which no
+  // model reads as instructions, so the pack names the file that tool's own
+  // client would put alongside it instead.
+  const entryFile = agent.target === "generic-mcp" ? "AGENTS.md" : output.filename;
+  const docs = useMemo(() => docPack(agent, entryFile), [agent, entryFile]);
+
+  // ---- AI-filled context docs -----------------------------------------------
+  //
+  // The scaffolds above render for free, no API call, no plan check. Filling
+  // one in is a Foundry call, so it rides the same gate the hosted drafts do —
+  // `aiDocs` holds what came back, keyed by path, and wins over the static
+  // scaffold at that path wherever one exists.
+  const { plan: planId } = usePlan();
+  const aiDocsAllowed = planAllows(planId, "ai-docs");
+  const [aiDocs, setAiDocs] = useState<Record<string, DocFile>>({});
+  const [generatingDoc, setGeneratingDoc] = useState<string | null>(null);
+  const [docError, setDocError] = useState<string | null>(null);
+
+  // A different agent loading in — not an edit to this one — makes any draft
+  // stale for content it never saw, so it goes with it. `agent.id` only
+  // changes on a load, never on a field edit.
+  useEffect(() => {
+    setAiDocs({});
+    setDocError(null);
+  }, [agent.id]);
+
+  const displayDocs = useMemo(() => docs.map((d) => aiDocs[d.path] ?? d), [docs, aiDocs]);
+  const docsTokens = useMemo(() => packTokens(displayDocs), [displayDocs]);
+
+  const generateDoc = async (path: string) => {
+    setGeneratingDoc(path);
+    setDocError(null);
+    try {
+      const res = await fetch("/api/docs/generate", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ path, agent }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data?.error || "generation failed");
+      setAiDocs((prev) => ({ ...prev, [path]: data.doc as DocFile }));
+      setPreviewState("rocket");
+      setTimeout(() => setPreviewState(agent.mascot), 900);
+    } catch (e) {
+      setDocError(e instanceof Error ? e.message : "generation failed");
+    } finally {
+      setGeneratingDoc(null);
+    }
+  };
+
   // ---- the plan's agent cap ------------------------------------------------
   //
   // The cap binds in the database (a before-insert trigger), and the store
@@ -290,7 +354,7 @@ function Builder() {
   // an error where a saved agent should have been. This is the same rule, read
   // ahead of the press: an *existing* agent can always be saved again, because
   // an update is not a new row, so only a first save is ever blocked.
-  const { plan: planId } = usePlan();
+  // (`planId` itself comes from usePlan() above, next to the other reader.)
   const agentCap = planId ? PLANS[planId].agents : null;
   const isNewAgent = !agents.some((a) => a.id === agent.id);
   const capReached = isNewAgent && atLimit(agents.length, agentCap);
@@ -318,8 +382,7 @@ function Builder() {
     setTimeout(() => setPreviewState(agent.mascot), 900);
   };
 
-  const download = (filename: string, text: string) => {
-    const blob = new Blob([text], { type: "application/json" });
+  const downloadBlob = (filename: string, blob: Blob) => {
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
@@ -329,8 +392,20 @@ function Builder() {
     setPreviewState("rocket");
     setTimeout(() => setPreviewState(agent.mascot), 900);
   };
+  const download = (filename: string, text: string) =>
+    downloadBlob(filename, new Blob([text], { type: "application/json" }));
+
   const downloadManifest = () => download("agents-dev.skills.json", skillsManifest(agent));
   const downloadAgent = () => download("agents-dev.agent.json", agentSpecJson(agent));
+
+  // The pack is a folder, so it goes out as a zip — a browser download cannot
+  // carry `docs/` in a filename, and eight flat files are the user's problem
+  // to reassemble.
+  const downloadDocs = () =>
+    downloadBlob(
+      "agent-docs.zip",
+      zipBlob(displayDocs.map((d) => ({ path: d.path, content: d.content }))),
+    );
 
   // Built on the client so the link carries whatever origin the user is
   // actually on — localhost while developing, the deploy URL in production.
@@ -400,47 +475,45 @@ function Builder() {
             Save quietly created a second agent instead of editing the one the
             link pointed at. */}
         {missingAgent && (
-          <p className="mb-5 font-mono text-xs border-2 border-line bg-stone px-3 py-2 leading-relaxed">
+          <Notice tone="info" className="mb-5">
             No agent <code className="text-coral-text">{editId}</code> in this
             account — it may have been deleted, or belong to another one. What
             is open below is a new, unsaved agent.
-          </p>
+          </Notice>
         )}
 
         {/* Nothing is stored yet — a shared agent lives in this tab until the
             recipient saves it, and saying so avoids them closing it. */}
         {fromShare && (
-          <p className="mb-5 font-mono text-xs border-2 border-line bg-stone px-3 py-2">
+          <Notice tone="info" className="mb-5">
             Opened from a shared link. Edit anything you like — it is not saved
             to your account until you press <strong>Save agent</strong>.
-          </p>
+          </Notice>
         )}
 
         {/* Said before the press rather than after it — everything on this page
             still works, the agent just has nowhere to go until a slot frees up,
             and exporting or sharing it does not need one. */}
         {capReached && (
-          <div className="mb-5 border-2 border-coral-deep px-3 py-2 flex flex-wrap items-center gap-x-3 gap-y-1.5">
-            <p className="font-mono text-xs text-coral-deep flex-1 min-w-[16rem] leading-relaxed">
-              {formatUsage(agents.length, agentCap)} saved agents on{" "}
-              {planId ? PLANS[planId].label : "your plan"} — delete one from the
-              home page to free a slot, or upgrade. Export and share still work.
-            </p>
-            <Link href="/pricing">
-              <PixelButton variant="coral" className="!px-3 !py-1 !text-[9px]">
-                See plans →
-              </PixelButton>
-            </Link>
-          </div>
+          <Notice
+            className="mb-5"
+            action={
+              <Link href="/pricing">
+                <PixelButton variant="coral" className="!px-3 !py-1 !text-[9px]">
+                  See plans →
+                </PixelButton>
+              </Link>
+            }
+          >
+            {formatUsage(agents.length, agentCap)} saved agents on{" "}
+            {planId ? PLANS[planId].label : "your plan"} — delete one from the
+            home page to free a slot, or upgrade. Export and share still work.
+          </Notice>
         )}
 
         {/* A rejected write has already been rolled back in the store, so this
             is the only thing telling the user their save did not stick. */}
-        {storeError && (
-          <p className="mb-5 font-mono text-xs text-coral-deep border-2 border-coral-deep px-3 py-2">
-            {storeError}
-          </p>
-        )}
+        {storeError && <Notice className="mb-5">{storeError}</Notice>}
 
         {/* min-w-0 on both columns: grid items default to min-width:auto, so the
             export <pre> and the nowrap install <code> below size the track to
@@ -818,13 +891,13 @@ function Builder() {
                     className="w-full"
                   >
                     <span className="inline-flex items-center gap-1">
-                      <AngleDownIcon size={12} />
+                      <DownloadIcon size={12} />
                       .skills.json
                     </span>
                   </PixelButton>
                   <PixelButton variant="ghost" onClick={downloadAgent} className="w-full">
                     <span className="inline-flex items-center gap-1">
-                      <AngleDownIcon size={12} />
+                      <DownloadIcon size={12} />
                       agent.json
                     </span>
                   </PixelButton>
@@ -855,6 +928,90 @@ function Builder() {
                 </div>
               </div>
             </Panel>
+
+            {/* CONTEXT DOCS — the `.md` files the repo needs so the entry file
+                can stay short. Which ones appear is read off the agent: an
+                agent that never mentions the database gets no DATA.md. */}
+            <Panel className="overflow-hidden">
+              <div className="flex items-center justify-between px-3 py-2 border-b-2 border-line bg-stone">
+                <span className="font-pixel text-[10px] uppercase">Context docs</span>
+                <Badge>{formatTokens(docsTokens)} tokens</Badge>
+              </div>
+              <div className="p-3 space-y-3">
+                <p className="font-mono text-[9px] text-muted leading-relaxed">
+                  One file per task, each with frontmatter saying when to read it and
+                  when to skip it — so <b>{entryFile}</b> stays short and a model loads
+                  one doc instead of the whole repo.
+                </p>
+
+                <ul className="space-y-1.5">
+                  {docs.map((doc) => {
+                    const ai = aiDocs[doc.path];
+                    const shown = ai ?? doc;
+                    const isGenerating = generatingDoc === doc.path;
+                    return (
+                      <li key={doc.path} className="bg-stone border-2 border-line p-2 space-y-1.5">
+                        <div className="min-w-0">
+                          <div className="font-mono text-[10px] truncate flex items-center gap-1.5">
+                            {doc.path}
+                            {ai && <Badge tone="coral">AI</Badge>}
+                          </div>
+                          <div className="font-mono text-[9px] text-muted truncate">
+                            {doc.why} · {formatTokens(shown.tokens)}
+                          </div>
+                        </div>
+                        <div className="flex items-stretch gap-1.5">
+                          {aiDocsAllowed ? (
+                            <PixelButton
+                              variant="ghost"
+                              onClick={() => generateDoc(doc.path)}
+                              disabled={isGenerating}
+                              className="flex-1 min-w-0 !px-2 !py-1 !text-[9px]"
+                            >
+                              {isGenerating ? "Writing…" : ai ? "Regenerate" : "Generate with AI"}
+                            </PixelButton>
+                          ) : (
+                            <Link href="/pricing" className="flex-1 min-w-0">
+                              <PixelButton variant="ghost" className="w-full !px-2 !py-1 !text-[9px]">
+                                <span className="inline-flex items-center gap-1">
+                                  <LockIcon size={10} />
+                                  AI fill — {cheapestPlanWith("ai-docs").label}
+                                </span>
+                              </PixelButton>
+                            </Link>
+                          )}
+                          <PixelButton
+                            onClick={() => doCopy(shown.content, doc.path)}
+                            className={`!px-2 !py-1 !text-[9px] shrink-0 ${copiedKey === doc.path ? "!bg-ok !text-paper" : ""}`}
+                          >
+                            <CopyLabel done={copiedKey === doc.path} />
+                          </PixelButton>
+                        </div>
+                      </li>
+                    );
+                  })}
+                </ul>
+
+                {docError && (
+                  <Notice tone="error" className="!text-[9px]">
+                    {docError}
+                  </Notice>
+                )}
+
+                <PixelButton variant="ghost" onClick={downloadDocs} className="w-full">
+                  <span className="inline-flex items-center gap-1">
+                    <DownloadIcon size={12} />
+                    docs.zip
+                  </span>
+                </PixelButton>
+
+                <p className="font-mono text-[9px] text-muted leading-relaxed">
+                  Scaffolds, not claims — every section says what belongs in it and
+                  leaves a <b>TODO</b> for the facts. This app knows your agent, never
+                  the repo it lands in.
+                </p>
+              </div>
+            </Panel>
           </div>
         </div>
       </div>
@@ -864,7 +1021,7 @@ function Builder() {
 
 export default function BuildPage() {
   return (
-    <Suspense fallback={<div className="p-10 font-mono text-sm">loading composer…</div>}>
+    <Suspense fallback={<PageLoading what="the composer" />}>
       <Builder />
     </Suspense>
   );
