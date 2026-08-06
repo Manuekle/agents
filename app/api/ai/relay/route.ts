@@ -3,6 +3,9 @@ import { lookup } from "node:dns/promises";
 import { isIP } from "node:net";
 import { clientIp, rateLimit } from "@/lib/foundry";
 import { requireAccount } from "@/lib/api-auth";
+import { cheapestPlanWith, planAllows } from "@/lib/access";
+import { planOf } from "@/lib/plans";
+import { supabaseServer } from "@/lib/supabase/server";
 
 // Forwards one bring-your-own-key request to the provider the browser could
 // not reach itself. Some vendors send no CORS headers at all, so a page cannot
@@ -94,6 +97,25 @@ export async function POST(req: Request) {
   // bring-your-own-key draft on /onboarding, which needs an account anyway.
   const gate = await requireAccount("relay a request to your provider");
   if (!gate.ok) return gate.response;
+
+  // Bring-your-own-key is a paid capability, and this hop is the part of it we
+  // actually own: a browser can always call a provider itself, but it cannot
+  // borrow our address without coming through here.
+  const supabase = await supabaseServer();
+  if (supabase && gate.userId) {
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("plan")
+      .eq("id", gate.userId)
+      .maybeSingle();
+    const plan = planOf(profile?.plan as string | undefined).id;
+    if (!planAllows(plan, "byok")) {
+      return NextResponse.json(
+        { error: `Bringing your own key is on ${cheapestPlanWith("byok").label}. See /pricing.` },
+        { status: 402, headers: { "cache-control": "private, no-store" } },
+      );
+    }
+  }
 
   // A ceiling on top of that: an account is not a licence to hammer it.
   const limit = rateLimit("relay", clientIp(req), 20);

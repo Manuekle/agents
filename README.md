@@ -13,7 +13,7 @@ Scrape skills, compose agents, export to Claude Code, Codex & any MCP model.
 [![MCP](https://img.shields.io/badge/serve-via%20MCP-17150f?style=flat-square)](mcp/README.md)
 [![Next.js 16](https://img.shields.io/badge/Next.js-16-17150f?style=flat-square)](https://nextjs.org)
 [![React 19](https://img.shields.io/badge/React-19-17150f?style=flat-square)](https://react.dev)
-[![License: MIT](https://img.shields.io/badge/license-MIT-17150f?style=flat-square)](LICENSE)
+[![License: FSL-1.1-MIT](https://img.shields.io/badge/license-FSL--1.1--MIT-17150f?style=flat-square)](LICENSE)
 
 </div>
 
@@ -97,7 +97,7 @@ npx -y @manudev.jsx/creagent --agent ./creagent.agent.json
 
 <img src="docs/screenshots/pricing.png" alt="Plans — Free, Pro, Max" width="100%" />
 
-Free is free forever: 3 saved agents, 10 AI drafts a month, the whole registry, every export target. Bring your own key — Claude, ChatGPT, Kimi, DeepSeek, Gemini, Groq, OpenRouter, Ollama or LM Studio — and drafting is unmetered.
+Free is free forever: 3 saved agents, 10 AI drafts a month, the whole registry, every export target. Paid plans bring your own key — Claude, ChatGPT, Kimi, DeepSeek, Gemini, Groq, OpenRouter, Ollama or LM Studio — and drafting on it is unmetered.
 
 ## Dark, too
 
@@ -122,4 +122,14 @@ For devs: [`docs/`](docs/README.md) · [`mcp/README.md`](mcp/README.md) · [`.en
 
 ## License
 
-MIT — see [`LICENSE`](LICENSE).
+**[FSL-1.1-MIT](LICENSE)** — read it, run it, fork it, modify it, use it inside your
+company. The one thing it withholds is standing up a commercial service that
+substitutes for creagent. Every version becomes plain MIT two years after it
+ships, so nothing here is locked away for good.
+
+The MCP server in [`mcp/`](mcp/README.md) is **[MIT](mcp/LICENSE)**, separately and on
+purpose: it is a client, and a client nobody is free to embed is a client
+nobody uses.
+
+The name, the logo and the mascot are trademarks and are not covered by either
+licence — see [`TRADEMARK.md`](TRADEMARK.md). Fork the code, rename the thing.

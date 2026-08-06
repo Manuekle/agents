@@ -13,6 +13,10 @@ import { POLAR_CONFIGURED } from "@/lib/polar/env";
 
 const MASCOT = { free: "coffee", pro: "working", max: "rocket" } as const;
 
+// Your own key has no ceiling by construction — we are not paying for those
+// calls — so the cell that has it says so rather than "yes".
+const byok = (allowed: boolean) => (allowed ? "unmetered" : "—");
+
 // What each tier actually reaches, route by route. "Guest" is not a plan — it
 // is having no account at all — but it is the column people are standing in
 // when they read this page, so leaving it out would answer the wrong question.
@@ -25,9 +29,13 @@ const MATRIX: { feature: string; where: string; guest: string; free: string; pro
   { feature: "Compose & export agents", where: "/build", guest: "—", free: "yes", pro: "yes", max: "yes" },
   { feature: "Saved agents", where: "/build", guest: "—", free: formatLimit(PLANS.free.agents), pro: formatLimit(PLANS.pro.agents), max: formatLimit(PLANS.max.agents) },
   { feature: "AI drafts a month", where: "/onboarding", guest: "—", free: formatLimit(PLANS.free.drafts), pro: formatLimit(PLANS.pro.drafts), max: formatLimit(PLANS.max.drafts) },
-  { feature: "Bring your own API key", where: "/onboarding", guest: "—", free: "unmetered", pro: "unmetered", max: "unmetered" },
+  { feature: "Bring your own API key", where: "/onboarding", guest: "—", free: byok(PLANS.free.byok), pro: byok(PLANS.pro.byok), max: byok(PLANS.max.byok) },
   { feature: "Share links", where: "/build", guest: "—", free: "yes", pro: "yes", max: "yes" },
   { feature: "Serve agents over MCP", where: "/mcp", guest: "—", free: PLANS.free.mcp ? "yes" : "—", pro: PLANS.pro.mcp ? "yes" : "—", max: PLANS.max.mcp ? "yes" : "—" },
+  // Gated in app/api/docs/generate; it was missing from this table while the
+  // plan cards sold it, which is the one direction a pricing page must not be
+  // wrong in.
+  { feature: "AI-filled context docs", where: "/build", guest: "—", free: PLANS.free.aiDocs ? "yes" : "—", pro: PLANS.pro.aiDocs ? "yes" : "—", max: PLANS.max.aiDocs ? "yes" : "—" },
 ];
 
 function Cell({ value }: { value: string }) {

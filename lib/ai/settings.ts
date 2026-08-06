@@ -114,6 +114,17 @@ export function aiConfig(s: AiSettings): AiConfig {
   };
 }
 
+/**
+ * The mode a plan actually allows. Settings outlive entitlements — `byok` sits
+ * in this browser's localStorage and stays there when a subscription lapses —
+ * so every read of the mode goes through here rather than trusting what was
+ * stored. Takes the boolean rather than the plan so this module keeps knowing
+ * nothing about plans.
+ */
+export function effectiveMode(s: AiSettings, byokAllowed: boolean): AiMode {
+  return byokAllowed ? s.mode : "hosted";
+}
+
 /** Null when the settings are usable, otherwise why they are not. */
 export function settingsProblem(s: AiSettings): string | null {
   if (s.mode !== "byok") return null;

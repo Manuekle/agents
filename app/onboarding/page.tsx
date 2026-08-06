@@ -29,7 +29,8 @@ import { graphFromAgent } from "@/lib/graph";
 import { componentId } from "@/lib/aitmpl";
 import { ArrowRightIcon } from "@/components/icons";
 import { AiProviderSettings } from "@/components/AiProviderSettings";
-import { aiConfig, settingsProblem, useAiSettings } from "@/lib/ai/settings";
+import { aiConfig, effectiveMode, settingsProblem, useAiSettings } from "@/lib/ai/settings";
+import { planAllows } from "@/lib/access";
 import { draftPersona, pickSkills } from "@/lib/ai/draft";
 import { providerOf } from "@/lib/ai/providers";
 
@@ -72,7 +73,12 @@ export default function OnboardingPage() {
   const { plan: planId, draftsUsed } = usePlan();
   const agents = useAgents();
   const plan = planId ? PLANS[planId] : null;
-  const hosted = settings.mode !== "byok";
+  // `byok` can still be sitting in this browser from a lapsed subscription, so
+  // the entitlement decides which mode this page is actually in — not the
+  // stored setting. Everything downstream reads `mode`, never `settings.mode`.
+  const byokAllowed = planAllows(planId, "byok");
+  const mode = effectiveMode(settings, byokAllowed);
+  const hosted = mode === "hosted";
   const outOfDrafts = hosted && !!plan && atLimit(draftsUsed ?? 0, plan.drafts);
   // The composer saves the drafted agent on the way in, so the agent cap is
   // this page's problem too — and finding out after nine seconds of drafting
@@ -115,14 +121,16 @@ export default function OnboardingPage() {
       setError("Tell it what the agent should do first.");
       return;
     }
-    const problem = settingsProblem(settings);
+    const problem = settingsProblem({ ...settings, mode });
     if (problem) {
       setError(problem);
       return;
     }
     if (outOfDrafts) {
       setError(
-        "You're out of AI drafts for this month. Bring your own API key above, or see /pricing.",
+        byokAllowed
+          ? "You're out of AI drafts for this month. Bring your own API key above, or see /pricing."
+          : "You're out of AI drafts for this month. Upgrade for more, or for your own API key — see /pricing.",
       );
       return;
     }
@@ -131,7 +139,7 @@ export default function OnboardingPage() {
     setError(null);
     setDrafted(null);
 
-    const byok = settings.mode === "byok";
+    const byok = mode === "byok";
     const config = aiConfig(settings);
 
     try {
@@ -191,8 +199,10 @@ export default function OnboardingPage() {
       <div className="mx-auto max-w-3xl px-5 py-10">
         <h1 className="font-pixel text-sm mb-1">ONBOARDING</h1>        <p className="mt-4 font-mono text-sm text-ink-soft">
           Answer a few questions — a model drafts the persona, then searches skills.sh
-          and picks the skills that fit it. Run it on ours, or on your own API key:
-          Claude, ChatGPT, Kimi, Gemini, or a local model through Ollama.
+          and picks the skills that fit it.{" "}
+          {byokAllowed
+            ? "Run it on ours, or on your own API key: Claude, ChatGPT, Kimi, Gemini, or a local model through Ollama."
+            : "It runs on ours and spends one of this month's drafts."}
         </p>
 
         <div className="mt-6">
@@ -281,7 +291,7 @@ export default function OnboardingPage() {
               </span>
             ) : (
               <span className="inline-flex items-center gap-1.5">
-                {`Draft with ${settings.mode === "byok" ? (providerOf(settings.provider)?.label ?? "your model") : "Foundry"}`}
+                {`Draft with ${mode === "byok" ? (providerOf(settings.provider)?.label ?? "your model") : "Foundry"}`}
                 <ArrowRightIcon size={12} />
               </span>
             )}

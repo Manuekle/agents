@@ -99,7 +99,7 @@ Feature gating (`planAllows`) is separate from access gating: today the only fea
 
 ## 6. The four flows
 
-**Draft** — `/onboarding` → `POST /api/onboarding` → Azure Foundry (`AZURE_FOUNDRY_*`) **or** the visitor's own key via `POST /api/ai/relay`. Bring-your-own-key is unmetered and never stored server-side; the hosted path consumes a monthly draft (`consume_ai_draft()`).
+**Draft** — `/onboarding` → `POST /api/onboarding` → Azure Foundry (`AZURE_FOUNDRY_*`) **or** the visitor's own key via `POST /api/ai/relay`. Bring-your-own-key is a plan feature (`planAllows(plan, "byok")`, Pro and up), unmetered and never stored server-side; the hosted path consumes a monthly draft (`consume_ai_draft()`).
 
 **Compose** — `/build` mutates an `Agent` + its `AgentGraph`; `lib/store.ts` writes the in-memory cache first, persists after; `agent.skills` is the flat union of graph components so no installer has to walk the tree.
 

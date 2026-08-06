@@ -18,6 +18,12 @@ export interface Plan {
   mcp: boolean;
   /** Filling the context-doc scaffolds (DESIGN.md, DATA.md, …) with a model call. */
   aiDocs: boolean;
+  /**
+   * Pointing the draft at your own provider instead of ours — unmetered,
+   * because it never touches our model bill. Paid because it is the way past
+   * the monthly draft cap, and a cap anyone can step around is not a cap.
+   */
+  byok: boolean;
   features: string[];
 }
 
@@ -31,6 +37,7 @@ export const PLANS: Record<PlanId, Plan> = {
     drafts: 10,
     mcp: false,
     aiDocs: false,
+    byok: false,
     features: [
       "3 saved agents",
       "10 AI drafts a month",
@@ -47,9 +54,11 @@ export const PLANS: Record<PlanId, Plan> = {
     drafts: 200,
     mcp: true,
     aiDocs: true,
+    byok: true,
     features: [
       "25 saved agents",
       "200 AI drafts a month",
+      "Bring your own API key",
       "Serve agents over MCP",
       "AI-filled context docs",
       "Everything in Free",
@@ -64,9 +73,11 @@ export const PLANS: Record<PlanId, Plan> = {
     drafts: null,
     mcp: true,
     aiDocs: true,
+    byok: true,
     features: [
       "Unlimited agents",
       "Unlimited AI drafts",
+      "Bring your own API key",
       "Serve agents over MCP",
       "AI-filled context docs",
       "Everything in Pro",

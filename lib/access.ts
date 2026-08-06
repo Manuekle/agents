@@ -86,18 +86,23 @@ export function gateReason(pathname: string): string {
 // ------------------------------------------------------------------ features
 
 /**
- * Capabilities a plan gates, as opposed to routes an account gates. Serving
- * over MCP and filling the AI context docs are the two today; the limits
+ * Capabilities a plan gates, as opposed to routes an account gates. The limits
  * (agents, drafts) are numbers on the plan and are enforced in SQL, not here.
+ *
+ * `byok` is the one that cannot be fully bound server-side: a browser holding
+ * the visitor's own key can call their provider directly, and no check of ours
+ * sits on that path. What this gates is everything we do own — the UI that
+ * offers it, and /api/ai/relay, the one hop that spends our address.
  */
-export type Feature = "mcp" | "ai-docs";
+export type Feature = "mcp" | "ai-docs" | "byok";
 
 // `Feature` is spelled the way a URL or a UI label reads ("ai-docs"); `Plan`
 // is spelled the way a TS property is ("aiDocs"). This is the one place that
 // has to know both.
-const FEATURE_FIELD: Record<Feature, "mcp" | "aiDocs"> = {
+const FEATURE_FIELD: Record<Feature, "mcp" | "aiDocs" | "byok"> = {
   mcp: "mcp",
   "ai-docs": "aiDocs",
+  byok: "byok",
 };
 
 export function planAllows(plan: PlanId | null | undefined, feature: Feature): boolean {

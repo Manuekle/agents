@@ -220,7 +220,7 @@ export function Segmented<T extends string>({
   value,
   onChange,
 }: {
-  options: { id: T; label: string }[];
+  options: { id: T; label: string; disabled?: boolean }[];
   value: T;
   onChange: (v: T) => void;
 }) {
@@ -283,8 +283,12 @@ export function Segmented<T extends string>({
             key={o.id}
             data-seg={o.id}
             onClick={() => onChange(o.id)}
+            // A disabled tab still renders: the point of a locked option is
+            // that the reader sees what they do not have.
+            disabled={o.disabled}
             className={clsx(
               "relative z-10 font-mono text-xs px-3 py-1.5 transition-colors cursor-pointer",
+              "disabled:cursor-not-allowed disabled:text-muted disabled:hover:bg-transparent",
               "grow basis-[calc(50%-2px)] sm:grow-0 sm:basis-auto",
               // Mobile draws grid lines: a divider down the middle and one
               // under every row but the last. Desktop reverts to a single row

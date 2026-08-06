@@ -1,20 +1,18 @@
 "use client";
 
 import { useId, useState } from "react";
+import Link from "next/link";
 import { Badge, Field, Panel, Segmented, Select, TextInput } from "@/components/ui";
 import { ArrowRightIcon } from "@/components/icons";
 import { PROVIDERS, isLocalUrl, providerOf } from "@/lib/ai/providers";
-import { setAiSettings, useAiSettings, type AiMode } from "@/lib/ai/settings";
+import { effectiveMode, setAiSettings, useAiSettings, type AiMode } from "@/lib/ai/settings";
+import { cheapestPlanWith, planAllows } from "@/lib/access";
+import { usePlan } from "@/lib/use-plan";
 import { SITE_URL } from "@/lib/site";
 
 // Where a visitor points the onboarding draft at their own model instead of
 // ours. The panel is deliberately blunt about where the key goes, because
 // "paste your API key here" is a request that has to earn trust in one screen.
-
-const MODES: { id: AiMode; label: string }[] = [
-  { id: "hosted", label: "Use creagent" },
-  { id: "byok", label: "Use my own API" },
-];
 
 function Check({
   label,
@@ -45,9 +43,20 @@ function Check({
 
 export function AiProviderSettings() {
   const settings = useAiSettings();
+  const { plan } = usePlan();
   const provider = providerOf(settings.provider) ?? PROVIDERS[0];
   const [showKey, setShowKey] = useState(false);
   const modelsId = useId();
+
+  // Your own key is unmetered, which makes it the way around the monthly draft
+  // cap — so it rides the same plan gate the cap does.
+  const byokAllowed = planAllows(plan, "byok");
+  const mode = effectiveMode(settings, byokAllowed);
+  const upsell = cheapestPlanWith("byok");
+  const MODES: { id: AiMode; label: string; disabled?: boolean }[] = [
+    { id: "hosted", label: "Use creagent" },
+    { id: "byok", label: "Use my own API", disabled: !byokAllowed },
+  ];
 
   const effectiveBase = settings.baseUrl.trim() || provider.baseUrl;
   // Checked against the URL, not the provider row: a custom entry aimed at
@@ -58,20 +67,35 @@ export function AiProviderSettings() {
     <Panel className="p-5 space-y-4">
       <div className="flex items-center justify-between gap-3 flex-wrap">
         <h2 className="font-pixel text-[10px] uppercase tracking-wide">Model</h2>
-        {settings.mode === "byok" && <Badge tone="coral">Your key</Badge>}
+        {mode === "byok" && <Badge tone="coral">Your key</Badge>}
       </div>
 
       <Segmented<AiMode>
         options={MODES}
-        value={settings.mode}
-        onChange={(mode) => setAiSettings({ mode })}
+        value={mode}
+        onChange={(next) => setAiSettings({ mode: next })}
       />
 
-      {settings.mode === "hosted" ? (
-        <p className="font-mono text-xs text-ink-soft leading-relaxed">
-          Drafts run on our Azure AI Foundry deployment and count against your monthly
-          draft allowance. Nothing to configure.
-        </p>
+      {mode === "hosted" ? (
+        <>
+          <p className="font-mono text-xs text-ink-soft leading-relaxed">
+            Drafts run on our Azure AI Foundry deployment and count against your monthly
+            draft allowance. Nothing to configure.
+          </p>
+          {/* Only when the option above is locked — on Pro and Max the tab is
+              live and an upsell would be selling something already owned. */}
+          {!byokAllowed && (
+            <p className="font-mono text-[11px] text-muted leading-relaxed">
+              Your own key — Claude, ChatGPT, Kimi, Gemini or a local model through
+              Ollama — runs unmetered and never touches your draft allowance. It is
+              on {upsell.label}.{" "}
+              <Link href="/pricing" className="underline hover:text-coral">
+                See the plans
+              </Link>
+              .
+            </p>
+          )}
+        </>
       ) : (
         <>
           <p className="font-mono text-xs text-ink-soft leading-relaxed">

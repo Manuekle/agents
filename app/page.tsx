@@ -21,7 +21,7 @@ import { SITE, fmtCount } from "@/lib/site";
 import { clsx } from "@/lib/clsx";
 
 const FAQS = [
-  { q: "Is it really free?", a: "Yes — the Free plan is $0: 3 saved agents, 10 AI drafts a month, the full skills.sh registry and every export target. Pro adds 25 agents, 200 drafts and MCP serving for $12." },
+  { q: "Is it really free?", a: "Yes — the Free plan is $0: 3 saved agents, 10 AI drafts a month, the full skills.sh registry and every export target. Pro adds 25 agents, 200 drafts, your own API key and MCP serving for $12." },
   { q: "Do I need an account?", a: "To build one, yes — the composer saves agents and the drafts run on our model, so both need an account to attribute them to. Without one you get /demo: the whole flow, start to finish, on pre-loaded data." },
   { q: "What does signing in give me?", a: "The composer, the AI drafts and MCP tokens. Agents save to your account (GitHub OAuth, via Supabase) and follow you across devices — including anything you composed here before accounts existed." },
   { q: "How does sharing work?", a: "A shared agent travels in the URL — no database row. The recipient opens the exact same build and saves their own copy." },
