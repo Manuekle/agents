@@ -227,12 +227,14 @@ function Builder() {
   };
 
   /**
-   * A new specialist under the active agent. `at` comes from a double-click or
-   * the canvas context menu, and puts the node where the pointer was rather
-   * than in the next free slot — the point of asking for one *there*.
+   * A new specialist. `at` comes from a double-click or the canvas' "add
+   * subagent here", and puts the node where the pointer was rather than in the
+   * next free slot — the point of asking for one *there*. `ownerId` comes from
+   * the menu's "under this", which names its owner outright because the
+   * selection it would otherwise be read from has not landed yet.
    */
-  const addSubagent = (at?: { x: number; y: number }) => {
-    const owner = activeNode ?? root;
+  const addSubagent = (at?: { x: number; y: number }, ownerId?: string) => {
+    const owner = (ownerId ? nodeById(graph, ownerId) : null) ?? activeNode ?? root;
     if (!owner || locked) return;
     const slot = at ?? slotUnder(graph, owner.id);
     // The graph goes in so the new specialist takes the next mascot in the
@@ -241,6 +243,27 @@ function Builder() {
     setGraph(addNode(graph, node, owner.id));
     setSelection([node.id]);
     setPreviewState("wizard");
+  };
+
+  /**
+   * "Edit this one's fields", from the canvas menu. The canvas can rename a
+   * node in place but not write its prompt, so it hands the node over and this
+   * takes the page the rest of the way: select it, bring the panel into view,
+   * put the caret in the first field.
+   */
+  const editNodeFields = (id: string) => {
+    setSelection([id]);
+    // Next frame: the panel below re-renders around the new selection, and
+    // scrolling to where the old one was is a jump to the wrong place.
+    requestAnimationFrame(() => {
+      const el = document.getElementById("node-name") as HTMLInputElement | null;
+      if (!el) return;
+      const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+      el.scrollIntoView({ behavior: reduced ? "auto" : "smooth", block: "center" });
+      // The scroll above owns the movement; focus must not fight it with a
+      // second, instant one.
+      el.focus({ preventScroll: true });
+    });
   };
 
   const deleteSelected = () => {
@@ -529,6 +552,7 @@ function Builder() {
               selection={selection}
               onSelectionChange={setSelection}
               onAddSubagent={addSubagent}
+              onEditNode={editNodeFields}
               locked={locked}
               onLockedChange={setLocked}
               history={history}
@@ -616,7 +640,10 @@ function Builder() {
 
               <div className="grid sm:grid-cols-2 gap-4">
                 <Field label="Name">
+                  {/* Named so the canvas' "edit fields" has something to scroll
+                      to and focus — see `editNodeFields`. */}
                   <TextInput
+                    id="node-name"
                     value={activeNode?.name ?? ""}
                     onFocus={() => setPreviewState("thinking")}
                     onChange={(e) => patchActive({ name: e.target.value })}

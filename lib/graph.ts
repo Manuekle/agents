@@ -1,5 +1,11 @@
 import { SUBAGENT_MASCOTS, mascotForSeed, type MascotState } from "./mascot";
 import { AITMPL_KINDS, componentId, kindOfArg, type AitmplKind } from "./aitmpl";
+import {
+  annotationsBounds,
+  normalizeAnnotations,
+  type Annotation,
+  type InkColor,
+} from "./annotations";
 import type { Agent, PickedSkill } from "./types";
 
 // The composer's canvas model.
@@ -50,6 +56,19 @@ export interface GraphNode {
   /** Display name. For a component this is the component's own name. */
   name: string;
 
+  /**
+   * A colour tag, by token. Purely organisational — nothing exports it. On a
+   * graph with twenty nodes it is the difference between "the red branch" and
+   * reading four names to find the one you meant.
+   */
+  tint?: InkColor;
+  /**
+   * Folded: this node's descendants are not drawn. Stored on the node rather
+   * than in canvas state so a folded branch stays folded after a reload, which
+   * is the whole point of folding one on a graph you come back to.
+   */
+  collapsed?: boolean;
+
   // --- agent nodes only ---
   role?: string;
   systemPrompt?: string;
@@ -81,6 +100,13 @@ export interface GraphEdge {
 export interface AgentGraph {
   nodes: GraphNode[];
   edges: GraphEdge[];
+  /**
+   * The drawing layer — pen strokes, shapes, labels, sticky notes. Optional
+   * because every graph written before it existed has none, and because a
+   * graph with nothing drawn on it should not carry an empty array through
+   * every save. See `lib/annotations.ts`.
+   */
+  annotations?: Annotation[];
 }
 
 // The canvas works in grid units so a drag can snap without fighting float
@@ -93,6 +119,21 @@ export const COMPONENT_NODE_H = 7; // 56px
 export function nodeHeight(kind: NodeKind): number {
   return isAgentKind(kind) ? AGENT_NODE_H : COMPONENT_NODE_H;
 }
+
+/**
+ * What a node calls itself on screen. Here rather than in the canvas because
+ * the image export draws the same caption and the two must never drift.
+ */
+export const KIND_LABEL: Record<NodeKind, string> = {
+  orchestrator: "orchestrator",
+  subagent: "subagent",
+  skills: "skill",
+  agents: "subagent pkg",
+  commands: "command",
+  mcps: "mcp",
+  hooks: "hook",
+  settings: "setting",
+};
 
 // ------------------------------------------------------------------ helpers
 
@@ -434,6 +475,186 @@ export function addNode(graph: AgentGraph, node: GraphNode, ownerId?: string): A
   return ownerId ? connect(withNode, ownerId, node.id) : withNode;
 }
 
+/**
+ * Cut a node loose from whoever owns it, keeping everything under it. The way
+ * to move a specialist from one orchestrator branch to another without
+ * deleting it and picking its six components again.
+ */
+export function detachNode(graph: AgentGraph, id: string): AgentGraph {
+  if (!graph.edges.some((e) => e.to === id)) return graph;
+  return { ...graph, edges: graph.edges.filter((e) => e.to !== id) };
+}
+
+// ------------------------------------------------------------------ folding
+
+/**
+ * Every node hidden by a fold: the descendants of each collapsed node, never
+ * the collapsed node itself. Nested folds need no special case — a branch
+ * inside a folded branch is hidden by the outer one either way.
+ */
+export function hiddenNodeIds(graph: AgentGraph): Set<string> {
+  const hidden = new Set<string>();
+  for (const n of graph.nodes) {
+    if (!n.collapsed) continue;
+    for (const id of subtreeOf(graph, n.id)) if (id !== n.id) hidden.add(id);
+  }
+  return hidden;
+}
+
+/** How many nodes a fold is hiding — the count the folded node wears. */
+export function collapsedCount(graph: AgentGraph, id: string): number {
+  return subtreeOf(graph, id).size - 1;
+}
+
+/**
+ * The graph as the canvas should draw it. Everything that answers "what is on
+ * screen" — hit-testing, the marquee, alignment guides, fit, the minimap —
+ * reads this; everything that edits reads the real graph. Folding is a view
+ * concern, and a node you cannot see must not be selectable, snappable or
+ * counted in the bounds.
+ */
+export function visibleGraph(graph: AgentGraph): AgentGraph {
+  const hidden = hiddenNodeIds(graph);
+  if (hidden.size === 0) return graph;
+  return {
+    ...graph,
+    nodes: graph.nodes.filter((n) => !hidden.has(n.id)),
+    edges: graph.edges.filter((e) => !hidden.has(e.from) && !hidden.has(e.to)),
+  };
+}
+
+/** Fold or unfold a branch. Only a node with something under it can fold. */
+export function toggleCollapse(graph: AgentGraph, id: string): AgentGraph {
+  const node = nodeById(graph, id);
+  if (!node) return graph;
+  if (!node.collapsed && collapsedCount(graph, id) === 0) return graph;
+  return updateNode(graph, id, { collapsed: !node.collapsed });
+}
+
+// ----------------------------------------------------------------- alignment
+
+export type AlignEdge = "left" | "center-x" | "right" | "top" | "middle" | "bottom";
+
+/**
+ * Line a selection up on one edge. Two nodes of different heights centred by
+ * hand are always a pixel or two out, and on a pixel grid that is visible.
+ */
+export function alignNodes(graph: AgentGraph, ids: string[], edge: AlignEdge): AgentGraph {
+  const nodes = ids.map((id) => nodeById(graph, id)).filter((n): n is GraphNode => !!n);
+  if (nodes.length < 2) return graph;
+
+  const lefts = nodes.map((n) => n.x);
+  const rights = nodes.map((n) => n.x + NODE_W);
+  const tops = nodes.map((n) => n.y);
+  const bottoms = nodes.map((n) => n.y + nodeHeight(n.kind));
+
+  const at = (n: GraphNode): { x?: number; y?: number } => {
+    switch (edge) {
+      case "left":
+        return { x: Math.min(...lefts) };
+      case "right":
+        return { x: Math.max(...rights) - NODE_W };
+      case "center-x": {
+        const c = (Math.min(...lefts) + Math.max(...rights)) / 2;
+        return { x: Math.round(c - NODE_W / 2) };
+      }
+      case "top":
+        return { y: Math.min(...tops) };
+      case "bottom":
+        return { y: Math.max(...bottoms) - nodeHeight(n.kind) };
+      case "middle": {
+        const c = (Math.min(...tops) + Math.max(...bottoms)) / 2;
+        return { y: Math.round(c - nodeHeight(n.kind) / 2) };
+      }
+    }
+  };
+
+  const moved = new Map(nodes.map((n) => [n.id, at(n)]));
+  return {
+    ...graph,
+    nodes: graph.nodes.map((n) => (moved.has(n.id) ? { ...n, ...moved.get(n.id) } : n)),
+  };
+}
+
+/**
+ * Equal gaps between the outermost two, along one axis. Distributing by
+ * *gap* rather than by centre is what makes a row of mixed-height nodes read
+ * as evenly spaced instead of merely evenly numbered.
+ */
+export function distributeNodes(graph: AgentGraph, ids: string[], axis: "x" | "y"): AgentGraph {
+  const nodes = ids
+    .map((id) => nodeById(graph, id))
+    .filter((n): n is GraphNode => !!n)
+    .sort((a, b) => (axis === "x" ? a.x - b.x : a.y - b.y));
+  if (nodes.length < 3) return graph;
+
+  const span = (n: GraphNode) => (axis === "x" ? NODE_W : nodeHeight(n.kind));
+  const start = axis === "x" ? nodes[0].x : nodes[0].y;
+  const last = nodes[nodes.length - 1];
+  const end = (axis === "x" ? last.x : last.y) + span(last);
+  const used = nodes.reduce((sum, n) => sum + span(n), 0);
+  const gap = (end - start - used) / (nodes.length - 1);
+
+  const moved = new Map<string, { x?: number; y?: number }>();
+  let cursor = start;
+  for (const n of nodes) {
+    moved.set(n.id, axis === "x" ? { x: Math.round(cursor) } : { y: Math.round(cursor) });
+    cursor += span(n) + gap;
+  }
+  return {
+    ...graph,
+    nodes: graph.nodes.map((n) => (moved.has(n.id) ? { ...n, ...moved.get(n.id) } : n)),
+  };
+}
+
+// ---------------------------------------------------------------- annotations
+//
+// Thin wrappers, so nothing outside has to know that the drawing layer is an
+// optional array on the same document the nodes live on.
+
+export function graphAnnotations(graph: AgentGraph): Annotation[] {
+  return graph.annotations ?? [];
+}
+
+export function addAnnotation(graph: AgentGraph, a: Annotation): AgentGraph {
+  return { ...graph, annotations: [...graphAnnotations(graph), a] };
+}
+
+export function updateAnnotation(
+  graph: AgentGraph,
+  id: string,
+  patch: Partial<Annotation>,
+): AgentGraph {
+  return {
+    ...graph,
+    annotations: graphAnnotations(graph).map((a) => (a.id === id ? { ...a, ...patch } : a)),
+  };
+}
+
+export function removeAnnotations(graph: AgentGraph, ids: string[]): AgentGraph {
+  if (ids.length === 0) return graph;
+  const doomed = new Set(ids);
+  const next = graphAnnotations(graph).filter((a) => !doomed.has(a.id));
+  if (next.length === graphAnnotations(graph).length) return graph;
+  return { ...graph, annotations: next };
+}
+
+/**
+ * Paint order is array order, so "bring forward" is a move within the list.
+ * One step at a time rather than straight to the end: overlapping drawings are
+ * usually two or three deep, and jumping to the top loses the stack you built.
+ */
+export function reorderAnnotation(graph: AgentGraph, id: string, dir: "up" | "down"): AgentGraph {
+  const list = graphAnnotations(graph);
+  const i = list.findIndex((a) => a.id === id);
+  if (i === -1) return graph;
+  const j = dir === "up" ? i + 1 : i - 1;
+  if (j < 0 || j >= list.length) return graph;
+  const next = [...list];
+  [next[i], next[j]] = [next[j], next[i]];
+  return { ...graph, annotations: next };
+}
+
 // ------------------------------------------------------------------- layout
 
 /**
@@ -452,18 +673,26 @@ export function slotUnder(graph: AgentGraph, ownerId: string): { x: number; y: n
   };
 }
 
-/** Bounding box of every node, in grid units. Empty graphs get a unit box. */
+/**
+ * Bounding box of everything drawn, in grid units. Empty graphs get a unit box.
+ *
+ * Annotations count: "fit" means get everything on screen, and a note written
+ * off to the side of the tree is something the author put there on purpose.
+ */
 export function graphBounds(graph: AgentGraph): {
   minX: number;
   minY: number;
   maxX: number;
   maxY: number;
 } {
-  if (graph.nodes.length === 0) return { minX: 0, minY: 0, maxX: NODE_W, maxY: AGENT_NODE_H };
-  let minX = Infinity;
-  let minY = Infinity;
-  let maxX = -Infinity;
-  let maxY = -Infinity;
+  const ink = annotationsBounds(graph.annotations ?? []);
+  if (graph.nodes.length === 0) {
+    return ink ?? { minX: 0, minY: 0, maxX: NODE_W, maxY: AGENT_NODE_H };
+  }
+  let minX = ink?.minX ?? Infinity;
+  let minY = ink?.minY ?? Infinity;
+  let maxX = ink?.maxX ?? -Infinity;
+  let maxY = ink?.maxY ?? -Infinity;
   for (const n of graph.nodes) {
     minX = Math.min(minX, n.x);
     minY = Math.min(minY, n.y);
@@ -643,7 +872,11 @@ export function normalizeGraph(raw: unknown, fallback: Agent): AgentGraph {
     edges.push({ id: typeof edge.id === "string" ? edge.id : newEdgeId(), from: edge.from, to: edge.to });
   }
 
-  return { nodes, edges };
+  // The drawing layer is dropped entirely when it is empty rather than kept as
+  // `[]`, so a graph that has never been drawn on serialises exactly as it did
+  // before annotations existed.
+  const annotations = normalizeAnnotations(g.annotations);
+  return annotations.length > 0 ? { nodes, edges, annotations } : { nodes, edges };
 }
 
 // ------------------------------------------------------------- agent <-> graph

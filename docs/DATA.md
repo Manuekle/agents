@@ -33,6 +33,7 @@ Index: `(user_id, created_at desc)`. Trigger: `touch_updated_at`.
 - `graph` is a **document** — read whole, written whole, never queried by its innards. Only constraint: `agents_graph_is_object`.
 - `graph is null` = a pre-canvas agent; the client derives one from `skills` on first open. No backfill, no broken old clients.
 - `skills` stays the flat union even when `graph` exists — installers must never walk a tree.
+- `graph.annotations` (optional) is the canvas' drawing layer — pen strokes, shapes, labels, sticky notes. It rides in the same document because it is written and read on exactly the same beat as the nodes, and it exports to nothing: no installer, manifest or MCP payload ever reads it. Absent, not `[]`, on a graph nobody has drawn on, so an untouched agent serialises as it always did. `normalizeAnnotations` drops anything malformed rather than repairing it — nothing downstream depends on a drawing existing.
 
 ### `ai_usage` — `0002`
 `primary key (user_id, month)`, `drafts integer`. `month` is always the first of the month.

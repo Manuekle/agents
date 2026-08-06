@@ -5,21 +5,40 @@ import { clsx } from "@/lib/clsx";
 import { cssTimeMs } from "@/lib/motion";
 import { Mascot } from "@/components/Mascot";
 import {
+  ArrowDiagIcon,
+  CircleIcon,
   CollapseIcon,
+  CursorIcon,
+  DownloadIcon,
+  EraserIcon,
   ExpandIcon,
+  HandIcon,
+  LineIcon,
   LockIcon,
   LockOpenIcon,
+  MarkerIcon,
   MinusIcon,
+  NoteIcon,
+  PenIcon,
   PlusIcon,
+  SquareIcon,
+  TextIcon,
 } from "@/components/icons";
 import { KIND_META } from "@/lib/aitmpl";
 import {
   GRID,
+  KIND_LABEL,
   NODE_W,
+  addAnnotation,
+  alignNodes,
   autoLayout,
+  collapsedCount,
   connect,
+  detachNode,
   disconnect,
+  distributeNodes,
   duplicateMany,
+  graphAnnotations,
   graphBounds,
   isAgentKind,
   isComponentKind,
@@ -29,25 +48,61 @@ import {
   nodeHeight,
   nodeRef,
   nodesInRect,
+  removeAnnotations,
   removeNode,
+  reorderAnnotation,
   snapTo,
+  subtreeOf,
+  toggleCollapse,
+  updateAnnotation,
+  updateNode,
+  visibleGraph,
   type AgentGraph,
+  type AlignEdge,
   type GraphNode,
-  type NodeKind,
 } from "@/lib/graph";
+import {
+  INK_COLORS,
+  NOTE_H,
+  NOTE_W,
+  TEXT_H,
+  TEXT_W,
+  WEIGHTS,
+  annotationBounds,
+  duplicateAnnotation,
+  hitAnnotation,
+  inkCss,
+  isTextKind,
+  moveAnnotation,
+  newAnnotationId,
+  pushPoint,
+  quantize,
+  type Annotation,
+  type AnnotationKind,
+  type InkColor,
+  type Point,
+} from "@/lib/annotations";
+import { exportCanvas } from "@/lib/canvas-export";
+import { AnnotationEditor, AnnotationLayer } from "@/components/canvas/Annotations";
+import { ContextMenu, type MenuEntry } from "@/components/canvas/ContextMenu";
 import type { GraphHistory } from "@/lib/use-graph-history";
 
 // The composer's canvas. Nodes are real DOM elements inside one transformed
 // world, not shapes in a <canvas>: they have to be focusable, readable by a
 // screen reader and movable from the keyboard, and a bitmap surface gives up
-// all three. The SVG layer under them draws the wires and nothing else.
+// all three. The SVG layers under them draw the wires and the ink.
 //
 // Interaction follows the editor everyone already knows: left-drag on empty
 // space is a marquee, space or middle-drag pans, ⌘Z undoes, ⌘D duplicates,
-// nodes snap to their neighbours' edges and centres.
+// nodes snap to their neighbours' edges and centres, right-click opens the
+// commands for whatever is under the pointer, and a tool from the dock draws
+// on top of all of it.
 
 const MIN_ZOOM = 0.4;
 const MAX_ZOOM = 2;
+
+/** How near, in device pixels, a click has to be to grab a drawing. */
+const INK_HIT_PX = 7;
 
 interface Viewport {
   x: number;
@@ -55,25 +110,42 @@ interface Viewport {
   z: number;
 }
 
-interface Point {
-  x: number;
-  y: number;
-}
+/** Everything the dock can put the pointer into. */
+type Tool = "select" | "hand" | "eraser" | AnnotationKind;
+
+const INK_TOOLS: AnnotationKind[] = [
+  "pen",
+  "marker",
+  "line",
+  "arrow",
+  "rect",
+  "ellipse",
+  "text",
+  "note",
+];
+
+const isInkTool = (t: Tool): t is AnnotationKind => (INK_TOOLS as string[]).includes(t);
+/** Tools that keep drawing after a stroke, instead of falling back to select. */
+const isRepeatTool = (t: Tool) => t === "pen" || t === "marker" || t === "eraser";
 
 /** A drag in flight. `null` when the pointer is not doing anything. */
 type Drag =
   | { mode: "pan"; startX: number; startY: number; originX: number; originY: number }
   | { mode: "node"; id: string; grabX: number; grabY: number; origins: Map<string, Point> }
   | { mode: "link"; from: string; x: number; y: number }
-  | { mode: "marquee"; from: Point; to: Point; base: string[] };
+  | { mode: "marquee"; from: Point; to: Point; base: string[] }
+  | { mode: "draw"; anchor: Point }
+  | { mode: "ink"; id: string; grab: Point; origin: Annotation }
+  | { mode: "erase" };
 
-/** Right-click target: a node, a wire, or bare canvas. */
+/** Right-click target: a node, a wire, a drawing, or bare canvas. */
 interface Menu {
   x: number;
   y: number;
   world: Point;
   nodeId: string | null;
   edgeId: string | null;
+  inkId: string | null;
 }
 
 export interface AgentCanvasProps {
@@ -83,13 +155,25 @@ export interface AgentCanvasProps {
   /** Every selected node. The first is what the inspector edits. */
   selection: string[];
   onSelectionChange: (ids: string[]) => void;
-  /** Create a specialist at a canvas point — the page owns what a new one is. */
-  onAddSubagent?: (at: Point) => void;
   /**
-   * Frozen layout: nodes cannot be moved, wired, added or deleted. Selecting,
-   * panning, zooming and editing a node's fields all still work — this is the
-   * "stop me nudging the tree while I read it" lock, not read-only mode.
-   * Controlled by the page so its own toolbar buttons can grey out too.
+   * Create a specialist — the page owns what a new one is. `at` places it at
+   * a pointer; `ownerId` names who owns it. The menu's "under this" passes an
+   * owner and no point, because "under this" means that node's next free slot
+   * and not wherever the menu happened to be opened. Neither is passed by the
+   * double-click path, which means "here, under whoever is active".
+   */
+  onAddSubagent?: (at?: Point, ownerId?: string) => void;
+  /**
+   * "Take me to this node's fields." The canvas can rename a node in place but
+   * not write its prompt, so the menu hands that off to whoever owns the form.
+   */
+  onEditNode?: (id: string) => void;
+  /**
+   * Frozen layout: nodes cannot be moved, wired, added or deleted, and nothing
+   * can be drawn. Selecting, panning, zooming and editing a node's fields all
+   * still work — this is the "stop me nudging the tree while I read it" lock,
+   * not read-only mode. Controlled by the page so its own toolbar buttons can
+   * grey out too.
    */
   locked?: boolean;
   onLockedChange?: (locked: boolean) => void;
@@ -109,17 +193,6 @@ export interface AgentCanvasProps {
   className?: string;
 }
 
-const KIND_LABEL: Record<NodeKind, string> = {
-  orchestrator: "orchestrator",
-  subagent: "subagent",
-  skills: "skill",
-  agents: "subagent pkg",
-  commands: "command",
-  mcps: "mcp",
-  hooks: "hook",
-  settings: "setting",
-};
-
 /** Ctrl on Windows and Linux, ⌘ on a Mac — one predicate for every shortcut. */
 const mod = (e: React.KeyboardEvent) => e.metaKey || e.ctrlKey;
 
@@ -129,6 +202,7 @@ export function AgentCanvas({
   selection,
   onSelectionChange,
   onAddSubagent,
+  onEditNode,
   locked = false,
   onLockedChange,
   refitOn,
@@ -146,7 +220,7 @@ export function AgentCanvas({
   const [view, setView] = useState<Viewport>({ x: 40, y: 40, z: 1 });
   const [drag, setDrag] = useState<Drag | null>(null);
   const [hoverId, setHoverId] = useState<string | null>(null);
-  const [tool, setTool] = useState<"select" | "hand">("select");
+  const [tool, setTool] = useState<Tool>("select");
   const [spaceHeld, setSpaceHeld] = useState(false);
   const [guides, setGuides] = useState<{ vx: number | null; hy: number | null }>({
     vx: null,
@@ -155,6 +229,19 @@ export function AgentCanvas({
   const [edgeId, setEdgeId] = useState<string | null>(null);
   const [menu, setMenu] = useState<Menu | null>(null);
   const [size, setSize] = useState({ w: 0, h: 0 });
+
+  // ---- the ink ------------------------------------------------------------
+  // Colour and weight are the pen's, not the drawing's: picking coral once and
+  // then drawing four arrows is the common case, and a per-stroke picker would
+  // make it four trips to the palette.
+  const [color, setColor] = useState<InkColor>("ink");
+  const [weight, setWeight] = useState<number>(WEIGHTS[0]);
+  /** The stroke under the pointer right now. Not in the graph until pointerup. */
+  const [draft, setDraft] = useState<Annotation | null>(null);
+  const [inkSel, setInkSel] = useState<string | null>(null);
+  const [editingInk, setEditingInk] = useState<string | null>(null);
+  const [renaming, setRenaming] = useState<string | null>(null);
+
   // True only while a *programmatic* camera move is in flight — fit, reveal,
   // a minimap jump. Those move the view on the user's behalf and read as a cut
   // without a tween, whereas a drag or a wheel is the user moving the camera
@@ -174,12 +261,9 @@ export function AgentCanvas({
   const spaceRef = useRef(false);
   const lockedRef = useRef(locked);
   lockedRef.current = locked;
-  // A node's focus and click handlers exist for the keyboard. The pointer has
-  // already decided the selection by the time they fire — mousedown focuses the
-  // button *between* our pointerdown and pointerup — so without this a
-  // shift-click would toggle a node into the selection and then immediately
-  // reset the selection to that one node.
-  const pointerSelect = useRef(false);
+  // True once the user has taken the camera themselves. Until then the canvas
+  // keeps reframing the graph as the surface settles — see the fit effects.
+  const userMoved = useRef(false);
 
   // Copy/paste is in-canvas, not the system clipboard: what is being copied is
   // a subtree of a graph this page owns, and serialising it out to text only to
@@ -187,6 +271,16 @@ export function AgentCanvas({
   const clipboard = useRef<string[]>([]);
 
   const selected = useMemo(() => new Set(selection), [selection]);
+  const drawings = graphAnnotations(graph);
+
+  /**
+   * The graph as it is drawn. A folded branch is hidden from hit-testing, the
+   * marquee, the guides, the minimap and `fit` — everything that answers "what
+   * is on screen" — while every edit still goes through the real graph.
+   */
+  const shown = useMemo(() => visibleGraph(graph), [graph]);
+  const shownRef = useRef(shown);
+  shownRef.current = shown;
 
   // ---- coordinate helpers -------------------------------------------------
 
@@ -201,6 +295,9 @@ export function AgentCanvas({
       y: (clientY - box.top - v.y) / (v.z * GRID),
     };
   }, []);
+
+  /** The grab radius for a drawing, in grid units at the current zoom. */
+  const inkTol = () => INK_HIT_PX / (viewRef.current.z * GRID);
 
   // ---- viewport -----------------------------------------------------------
 
@@ -238,6 +335,7 @@ export function AgentCanvas({
 
   /** A user-driven view change. Cancels any tween still running. */
   const setViewNow = useCallback((next: Viewport | ((v: Viewport) => Viewport)) => {
+    userMoved.current = true;
     if (easeTimer.current) {
       clearTimeout(easeTimer.current);
       easeTimer.current = null;
@@ -247,6 +345,7 @@ export function AgentCanvas({
   }, []);
 
   const zoomAt = useCallback((factor: number, clientX?: number, clientY?: number) => {
+    userMoved.current = true;
     setEasing(false);
     setView((v) => {
       const host = hostRef.current;
@@ -269,7 +368,12 @@ export function AgentCanvas({
     // shell is still scaling up from --modal-scale, and a measured rect would
     // frame the graph against a box 4% smaller than the one it lands in.
     const box = { width: host.clientWidth, height: host.clientHeight };
-    const b = graphBounds(graphRef.current);
+    // An unmeasured surface would frame the graph against nothing and land on
+    // MIN_ZOOM. It happens for a frame on mount before the stylesheet applies
+    // the shell's height, and a canvas that opens at 40% for no reason reads
+    // as broken.
+    if (box.width < 2 || box.height < 2) return;
+    const b = graphBounds(shownRef.current);
     const w = (b.maxX - b.minX) * GRID;
     const h = (b.maxY - b.minY) * GRID;
     const pad = 48;
@@ -290,7 +394,7 @@ export function AgentCanvas({
   /** Pan just enough to bring a node on screen. No zoom change, ever. */
   const reveal = useCallback((id: string) => {
     const host = hostRef.current;
-    const node = nodeById(graphRef.current, id);
+    const node = nodeById(shownRef.current, id);
     if (!host || !node) return;
     // Same reason as `fit`: the transform must not change what "on screen" means.
     const box = { width: host.clientWidth, height: host.clientHeight };
@@ -321,12 +425,33 @@ export function AgentCanvas({
 
   // Frame the graph once, on mount. Re-fitting on every change would yank the
   // view out from under someone who has just panned somewhere deliberately.
+  //
+  // Waits for the surface to have a size: the first pass can run against a box
+  // the stylesheet has not given a height to yet, and the latch would then burn
+  // the one fit this canvas gets on a measurement of nothing.
   const fitted = useRef(false);
   useEffect(() => {
-    if (fitted.current || graph.nodes.length === 0) return;
+    if (fitted.current || graph.nodes.length === 0 || size.w < 2 || size.h < 2) return;
     fitted.current = true;
     fit();
-  }, [fit, graph.nodes.length]);
+  }, [fit, graph.nodes.length, size.w, size.h]);
+
+  // …and again on every later size change, until the user takes the camera.
+  //
+  // Having a size is not the same as having the *final* size: the first
+  // measurement routinely lands before the web fonts, the page's scrollbar and
+  // the shell's own height have finished moving the box, and the one fit above
+  // then frames the graph against a surface tens of pixels smaller than the one
+  // it ends up in — visibly off-centre, for the rest of the session. Panning,
+  // zooming or a wheel gesture ends this: from that point the view is the
+  // user's, and reframing it would be the canvas fighting them.
+  // Size only, deliberately: this must not become a second "refit when the
+  // graph changes", which is the thing the composer cannot have.
+  useEffect(() => {
+    if (!fitted.current || userMoved.current) return;
+    if (size.w < 2 || size.h < 2 || shownRef.current.nodes.length === 0) return;
+    fit();
+  }, [fit, size.w, size.h]);
 
   // …and again on every `refitOn` change, for owners that have asked for it.
   // Separate effect rather than a condition inside the one above: that one is
@@ -369,6 +494,13 @@ export function AgentCanvas({
 
   const deleteSelection = useCallback(() => {
     if (lockedRef.current) return;
+    // Whatever is highlighted, in the order the eye would expect: the drawing
+    // you just clicked, then the wire, then the nodes.
+    if (inkSel) {
+      onChange(removeAnnotations(graphRef.current, [inkSel]));
+      setInkSel(null);
+      return;
+    }
     if (edgeId) {
       onChange(disconnect(graphRef.current, edgeId), undefined);
       setEdgeId(null);
@@ -379,7 +511,7 @@ export function AgentCanvas({
     if (next === graphRef.current) return;
     onChange(next);
     onSelectionChange([]);
-  }, [edgeId, onChange, onSelectionChange]);
+  }, [edgeId, inkSel, onChange, onSelectionChange]);
 
   const duplicateIds = useCallback(
     (ids: string[]) => {
@@ -392,10 +524,168 @@ export function AgentCanvas({
     [onChange, onSelectionChange],
   );
 
+  /**
+   * Paste at the pointer rather than beside the original. `duplicateMany` puts
+   * a copy one node-width to the right, which is right for ⌘D and wrong for a
+   * paste aimed somewhere on purpose — so the fresh subtree is translated as a
+   * whole to land its top-left corner where the menu was opened.
+   */
+  const pasteAt = useCallback(
+    (at: Point) => {
+      if (lockedRef.current || clipboard.current.length === 0) return;
+      const result = duplicateMany(graphRef.current, clipboard.current);
+      if (result.ids.length === 0) return;
+      const members = new Set<string>();
+      for (const id of result.ids) for (const m of subtreeOf(result.graph, id)) members.add(m);
+      let minX = Infinity;
+      let minY = Infinity;
+      for (const n of result.graph.nodes) {
+        if (!members.has(n.id)) continue;
+        minX = Math.min(minX, n.x);
+        minY = Math.min(minY, n.y);
+      }
+      const moved = moveNodes(
+        result.graph,
+        members,
+        Math.round(at.x - minX),
+        Math.round(at.y - minY),
+      );
+      onChange(moved);
+      onSelectionChange(result.ids);
+    },
+    [onChange, onSelectionChange],
+  );
+
+  /** Every node this command should touch: the selection, or the one clicked. */
+  const targets = useCallback(
+    (id: string | null): string[] => {
+      if (id && !selectionRef.current.includes(id)) return [id];
+      return selectionRef.current.length > 0 ? selectionRef.current : id ? [id] : [];
+    },
+    [],
+  );
+
+  // ---- the ink ------------------------------------------------------------
+
+  const startInk = (at: Point, tool: AnnotationKind): Annotation => ({
+    id: newAnnotationId(),
+    kind: tool,
+    color,
+    weight,
+    ...(tool === "pen" || tool === "marker"
+      ? { points: [quantize(at)] }
+      : tool === "line" || tool === "arrow"
+        ? { points: [quantize(at), quantize(at)] }
+        : tool === "note"
+          ? { x: Math.round(at.x), y: Math.round(at.y), w: NOTE_W, h: NOTE_H, text: "" }
+          : tool === "text"
+            ? { x: Math.round(at.x), y: Math.round(at.y), w: TEXT_W, h: TEXT_H, text: "" }
+            : { x: at.x, y: at.y, w: 0, h: 0 }),
+  });
+
+  /** Drop a note or a label somewhere and open it for typing straight away. */
+  const placeText = useCallback(
+    (at: Point, kind: "text" | "note") => {
+      if (lockedRef.current) return;
+      const a = startInk(at, kind);
+      onChange(addAnnotation(graphRef.current, a));
+      setInkSel(a.id);
+      setEditingInk(a.id);
+      setTool("select");
+    },
+    // `startInk` closes over the current colour and weight, which is the point.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [onChange, color, weight],
+  );
+
+  const eraseAt = (at: Point) => {
+    const hit = hitAnnotation(graphAnnotations(graphRef.current), at, inkTol());
+    if (!hit) return;
+    // One tag for the whole sweep: dragging the eraser across six strokes is
+    // one thing the user did, and ⌘Z should take back all six.
+    onChange(removeAnnotations(graphRef.current, [hit]), "erase");
+  };
+
+  /**
+   * Take the gesture if a drawing tool is armed. Called from both the surface
+   * and the nodes, because ink goes on top of everything — a pen that stops
+   * working over a node is not a pen.
+   */
+  const beginInk = (e: React.PointerEvent): boolean => {
+    if (locked || e.button !== 0) return false;
+    if (!isInkTool(tool) && tool !== "eraser") return false;
+    e.stopPropagation();
+    e.preventDefault(); // no focus ring jumping onto the node underneath
+    (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+    const at = toWorld(e.clientX, e.clientY);
+
+    if (tool === "eraser") {
+      setDrag({ mode: "erase" });
+      eraseAt(at);
+      return true;
+    }
+    if (tool === "text" || tool === "note") {
+      placeText(at, tool);
+      return true;
+    }
+    setDraft(startInk(at, tool));
+    setDrag({ mode: "draw", anchor: quantize(at) });
+    setInkSel(null);
+    return true;
+  };
+
+  /**
+   * The draft, advanced to a pointer position. Shared by the move and the up,
+   * because the last pointermove of a fast drag lands short of where the
+   * button was released — without folding the release in, a dragged arrow
+   * stops a few pixels before the thing it was aimed at.
+   */
+  const advanceDraft = (cur: Annotation, at: Point, anchor: Point, shift: boolean): Annotation => {
+    if (cur.kind === "pen" || cur.kind === "marker") {
+      return { ...cur, points: pushPoint(cur.points ?? [], at) };
+    }
+    if (cur.kind === "line" || cur.kind === "arrow") {
+      const end = quantize(at);
+      // Shift constrains to the nearest 45°, the way every drawing tool does —
+      // an arrow between two nodes usually wants to be straight.
+      return { ...cur, points: [anchor, shift ? octant(anchor, end) : end] };
+    }
+    // Quantised like the freehand tools, so a box's edges land on the same
+    // half-unit lattice as everything else and never between device pixels.
+    const q = quantize(at);
+    const x = Math.min(anchor.x, q.x);
+    const y = Math.min(anchor.y, q.y);
+    let w = Math.abs(q.x - anchor.x);
+    let h = Math.abs(q.y - anchor.y);
+    if (shift) {
+      const side = Math.min(w, h);
+      w = side;
+      h = side;
+    }
+    return { ...cur, x, y, w, h };
+  };
+
+  /** Commit whatever the draft became, if it is worth keeping. */
+  const finishDraw = (a: Annotation | null) => {
+    setDraft(null);
+    if (!a) return;
+    const b = annotationBounds(a);
+    const big = (b.maxX - b.minX) * (b.maxY - b.minY) > 0.25;
+    const drawn = a.points ? a.points.length > 1 : big;
+    if (!drawn) return;
+    onChange(addAnnotation(graphRef.current, a));
+    setInkSel(a.id);
+    // Pen, marker and eraser stay armed — you draw several strokes in a row.
+    // A shape or a label is placed once, so the pointer goes back to select
+    // rather than leaving the next click drawing another rectangle.
+    if (!isRepeatTool(tool)) setTool("select");
+  };
+
   // ---- pointer ------------------------------------------------------------
 
   const panning = drag?.mode === "pan";
   const handMode = tool === "hand" || spaceHeld;
+  const inking = !locked && (isInkTool(tool) || tool === "eraser");
 
   const onBackgroundPointerDown = (e: React.PointerEvent) => {
     setMenu(null);
@@ -408,9 +698,29 @@ export function AgentCanvas({
       return;
     }
     if (e.button !== 0) return;
+    if (beginInk(e)) return;
 
     setEdgeId(null);
     const at = toWorld(e.clientX, e.clientY);
+
+    // A drawing under the pointer wins over the marquee. Nodes never get here
+    // — they stop the event themselves — so this is genuinely "empty canvas or
+    // something drawn on it".
+    const hit = hitAnnotation(drawings, at, inkTol());
+    if (hit) {
+      const a = drawings.find((x) => x.id === hit);
+      setInkSel(hit);
+      onSelectionChange([]);
+      (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+      if (a && !locked) {
+        const b = annotationBounds(a);
+        setDrag({ mode: "ink", id: hit, grab: { x: at.x - b.minX, y: at.y - b.minY }, origin: a });
+      }
+      return;
+    }
+    setInkSel(null);
+    setEditingInk(null);
+
     const additive = e.shiftKey;
     if (!additive) onSelectionChange([]);
     setDrag({ mode: "marquee", from: at, to: at, base: additive ? selectionRef.current : [] });
@@ -419,10 +729,11 @@ export function AgentCanvas({
 
   const onNodePointerDown = (e: React.PointerEvent, node: GraphNode) => {
     if (e.button !== 0) return;
+    if (beginInk(e)) return;
     e.stopPropagation();
     setMenu(null);
     setEdgeId(null);
-    pointerSelect.current = true;
+    setInkSel(null);
 
     if (handMode) {
       const v = viewRef.current;
@@ -481,6 +792,25 @@ export function AgentCanvas({
 
     const w = toWorld(e.clientX, e.clientY);
 
+    if (drag.mode === "erase") {
+      eraseAt(w);
+      return;
+    }
+
+    if (drag.mode === "draw") {
+      const shift = e.shiftKey;
+      setDraft((cur) => (cur ? advanceDraft(cur, w, drag.anchor, shift) : cur));
+      return;
+    }
+
+    if (drag.mode === "ink") {
+      const b = annotationBounds(drag.origin);
+      const to = quantize({ x: w.x - drag.grab.x, y: w.y - drag.grab.y });
+      const moved = moveAnnotation(drag.origin, to.x - b.minX, to.y - b.minY);
+      onChange(updateAnnotation(graphRef.current, drag.id, moved), `ink:${drag.id}`);
+      return;
+    }
+
     if (drag.mode === "link") {
       setDrag({ ...drag, x: w.x, y: w.y });
       return;
@@ -488,7 +818,7 @@ export function AgentCanvas({
 
     if (drag.mode === "marquee") {
       setDrag({ ...drag, to: w });
-      const hit = nodesInRect(graphRef.current, drag.from, w);
+      const hit = nodesInRect(shownRef.current, drag.from, w);
       const merged = drag.base.length ? Array.from(new Set([...drag.base, ...hit])) : hit;
       onSelectionChange(merged);
       return;
@@ -503,7 +833,7 @@ export function AgentCanvas({
     // selection to one member's neighbours moves the others somewhere nobody
     // asked for, which reads as the canvas fighting the drag.
     if (drag.origins.size === 1 && !e.altKey) {
-      const snapped = snapTo(graphRef.current, drag.id, x, y, new Set(drag.origins.keys()));
+      const snapped = snapTo(shownRef.current, drag.id, x, y, new Set(drag.origins.keys()));
       x = Math.round(snapped.x);
       y = Math.round(snapped.y);
       setGuides({ vx: snapped.vx, hy: snapped.hy });
@@ -521,6 +851,10 @@ export function AgentCanvas({
   };
 
   const onPointerUp = (e: React.PointerEvent) => {
+    if (drag?.mode === "draw") {
+      const at = toWorld(e.clientX, e.clientY);
+      finishDraw(draft ? advanceDraft(draft, at, drag.anchor, e.shiftKey) : null);
+    }
     if (drag?.mode === "link") {
       // Which node the pointer is actually over, read off the DOM rather than
       // tracked during the drag — elementFromPoint is the only thing that
@@ -531,14 +865,30 @@ export function AgentCanvas({
     }
     setDrag(null);
     setGuides({ vx: null, hy: null });
-    pointerSelect.current = false;
   };
 
   const onDoubleClick = (e: React.MouseEvent) => {
-    if (!onAddSubagent || locked) return;
+    // A double-tap with the pen armed is two strokes, not a rename request.
+    if (locked || inking) return;
     const el = e.target as HTMLElement;
-    if (el.closest("[data-node-id]")) return; // double-click on a node is a rename gesture elsewhere
-    onAddSubagent(toWorld(e.clientX, e.clientY));
+    const nodeId = el.closest<HTMLElement>("[data-node-id]")?.dataset.nodeId;
+    // Double-click a node to rename it in place — the gesture every canvas
+    // editor has, and the shortest path from "that name is wrong" to fixed.
+    if (nodeId) {
+      setRenaming(nodeId);
+      onSelectionChange([nodeId]);
+      return;
+    }
+    const at = toWorld(e.clientX, e.clientY);
+    const hit = hitAnnotation(drawings, at, inkTol());
+    const a = hit ? drawings.find((x) => x.id === hit) : undefined;
+    if (a && isTextKind(a.kind)) {
+      setInkSel(a.id);
+      setEditingInk(a.id);
+      return;
+    }
+    if (hit) return; // a stroke has nothing to open
+    onAddSubagent?.(at);
   };
 
   const onContextMenu = (e: React.MouseEvent) => {
@@ -549,20 +899,35 @@ export function AgentCanvas({
     const el = e.target as HTMLElement;
     const nodeId = el.closest<HTMLElement>("[data-node-id]")?.dataset.nodeId ?? null;
     const overEdge = el.closest<SVGElement>("[data-edge-id]")?.dataset.edgeId ?? null;
+    const world = toWorld(e.clientX, e.clientY);
+    const overInk = nodeId || overEdge ? null : hitAnnotation(drawings, world, inkTol());
     // Right-clicking a node that is not in the selection acts on that node —
     // the menu must never operate on something the user cannot see is targeted.
     if (nodeId && !selectionRef.current.includes(nodeId)) onSelectionChange([nodeId]);
     if (overEdge) setEdgeId(overEdge);
-    setMenu({
-      x: e.clientX - box.left,
-      y: e.clientY - box.top,
-      world: toWorld(e.clientX, e.clientY),
-      nodeId,
-      edgeId: overEdge,
-    });
+    if (overInk) {
+      setInkSel(overInk);
+      onSelectionChange([]);
+    }
+    setMenu({ x: e.clientX - box.left, y: e.clientY - box.top, world, nodeId, edgeId: overEdge, inkId: overInk });
   };
 
   // ---- keyboard -----------------------------------------------------------
+
+  /** Single-key tool shortcuts, in the order the dock shows them. */
+  const TOOL_KEYS: Record<string, Tool> = {
+    v: "select",
+    h: "hand",
+    p: "pen",
+    m: "marker",
+    e: "eraser",
+    t: "text",
+    n: "note",
+    r: "rect",
+    o: "ellipse",
+    l: "line",
+    a: "arrow",
+  };
 
   const onKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === " " && !spaceRef.current) {
@@ -572,11 +937,25 @@ export function AgentCanvas({
       return;
     }
     if (e.key === "Escape") {
-      // Clear what is highlighted first; only a second press leaves fullscreen,
-      // so escaping a menu never also throws away the enlarged view.
-      const hadFocus = menu || edgeId || selection.length > 0;
+      // Peel one layer at a time. Escaping a menu, a half-drawn stroke or an
+      // open note must never also throw away the enlarged view.
+      if (draft) {
+        setDraft(null);
+        setDrag(null);
+        return;
+      }
+      if (editingInk) {
+        setEditingInk(null);
+        return;
+      }
+      if (renaming) {
+        setRenaming(null);
+        return;
+      }
+      const hadFocus = menu || edgeId || inkSel || selection.length > 0;
       onSelectionChange([]);
       setEdgeId(null);
+      setInkSel(null);
       setMenu(null);
       if (!hadFocus) exitFullscreen();
       return;
@@ -595,11 +974,20 @@ export function AgentCanvas({
     }
     if (mod(e) && e.key.toLowerCase() === "a") {
       e.preventDefault();
-      onSelectionChange(graph.nodes.map((n) => n.id));
+      onSelectionChange(shown.nodes.map((n) => n.id));
       return;
     }
     if (mod(e) && e.key.toLowerCase() === "d") {
       e.preventDefault();
+      if (inkSel) {
+        const a = drawings.find((x) => x.id === inkSel);
+        if (a && !locked) {
+          const copy = duplicateAnnotation(a);
+          onChange(addAnnotation(graph, copy));
+          setInkSel(copy.id);
+        }
+        return;
+      }
       duplicateIds(selection);
       return;
     }
@@ -621,6 +1009,22 @@ export function AgentCanvas({
     if (e.key === "Delete" || e.key === "Backspace") {
       e.preventDefault();
       deleteSelection();
+      return;
+    }
+
+    if (e.key === "F2" && selection.length === 1 && !locked) {
+      e.preventDefault();
+      setRenaming(selection[0]);
+      return;
+    }
+
+    // Tool shortcuts. Modifier-free and lowercase only, so ⌘A stays select-all
+    // and a capital letter typed into a field that bubbled here does nothing.
+    if (!mod(e) && !e.altKey && !e.shiftKey && TOOL_KEYS[e.key]) {
+      const next = TOOL_KEYS[e.key];
+      if (locked && next !== "select" && next !== "hand") return;
+      e.preventDefault();
+      setTool(next);
       return;
     }
 
@@ -716,18 +1120,25 @@ export function AgentCanvas({
     return () => window.removeEventListener("blur", release);
   }, []);
 
+  // The lock takes the pen out of your hand: a locked canvas that is still
+  // armed with the eraser is one stray click from an edit it promised to
+  // refuse.
+  useEffect(() => {
+    if (locked && tool !== "select" && tool !== "hand") setTool("select");
+  }, [locked, tool]);
+
   // ---- wires --------------------------------------------------------------
 
   const wires = useMemo(() => {
     const out: { id: string; d: string; from: GraphNode; to: GraphNode }[] = [];
-    for (const e of graph.edges) {
-      const from = nodeById(graph, e.from);
-      const to = nodeById(graph, e.to);
+    for (const e of shown.edges) {
+      const from = nodeById(shown, e.from);
+      const to = nodeById(shown, e.to);
       if (!from || !to) continue;
       out.push({ id: e.id, d: wirePath(from, to), from, to });
     }
     return out;
-  }, [graph]);
+  }, [shown]);
 
   const linkPreview =
     drag?.mode === "link"
@@ -751,7 +1162,475 @@ export function AgentCanvas({
       : null;
 
   const canDelete =
-    !locked && (selection.some((id) => nodeById(graph, id)?.kind !== "orchestrator") || !!edgeId);
+    !locked &&
+    (selection.some((id) => nodeById(graph, id)?.kind !== "orchestrator") || !!edgeId || !!inkSel);
+
+  const editingAnnotation = editingInk ? drawings.find((a) => a.id === editingInk) : undefined;
+
+  // ---- the menu -----------------------------------------------------------
+
+  /**
+   * What right-click offers, built fresh for whatever is under the pointer.
+   * The menu component knows how to render and drive a list of entries; only
+   * this has the graph, the selection and the history it takes to fill one in.
+   */
+  const menuEntries = (m: Menu): MenuEntry[] => {
+    const ink = m.inkId ? drawings.find((a) => a.id === m.inkId) : undefined;
+
+    // --- a drawing -------------------------------------------------------
+    if (ink) {
+      return [
+        { kind: "head", id: "h", label: ink.kind },
+        ...(isTextKind(ink.kind)
+          ? ([
+              {
+                kind: "item",
+                id: "edit",
+                label: "edit text",
+                hint: "dbl",
+                disabled: locked,
+                run: () => setEditingInk(ink.id),
+              },
+            ] as MenuEntry[])
+          : []),
+        {
+          kind: "sub",
+          id: "colour",
+          label: "colour",
+          disabled: locked,
+          items: INK_COLORS.map((c) => ({
+            kind: "item" as const,
+            id: `c-${c.id}`,
+            label: c.label.toLowerCase(),
+            swatch: c.css,
+            checked: ink.color === c.id,
+            run: () => onChange(updateAnnotation(graph, ink.id, { color: c.id })),
+          })),
+        },
+        {
+          kind: "sub",
+          id: "weight",
+          label: "weight",
+          disabled: locked,
+          items: WEIGHTS.map((w, i) => ({
+            kind: "item" as const,
+            id: `w-${w}`,
+            label: ["thin", "medium", "thick"][i],
+            checked: ink.weight === w,
+            run: () => onChange(updateAnnotation(graph, ink.id, { weight: w })),
+          })),
+        },
+        { kind: "rule", id: "r1" },
+        {
+          kind: "item",
+          id: "front",
+          label: "bring forward",
+          disabled: locked,
+          run: () => onChange(reorderAnnotation(graph, ink.id, "up")),
+        },
+        {
+          kind: "item",
+          id: "back",
+          label: "send back",
+          disabled: locked,
+          run: () => onChange(reorderAnnotation(graph, ink.id, "down")),
+        },
+        {
+          kind: "item",
+          id: "dup",
+          label: "duplicate",
+          hint: "⌘D",
+          disabled: locked,
+          run: () => {
+            const copy = duplicateAnnotation(ink);
+            onChange(addAnnotation(graph, copy));
+            setInkSel(copy.id);
+          },
+        },
+        { kind: "rule", id: "r2" },
+        {
+          kind: "item",
+          id: "del",
+          label: "delete drawing",
+          hint: "⌫",
+          disabled: locked,
+          run: () => {
+            onChange(removeAnnotations(graph, [ink.id]));
+            setInkSel(null);
+          },
+        },
+      ];
+    }
+
+    // --- a wire ----------------------------------------------------------
+    if (m.edgeId) {
+      const edge = graph.edges.find((x) => x.id === m.edgeId);
+      return [
+        { kind: "head", id: "h", label: "wire" },
+        {
+          kind: "item",
+          id: "cut",
+          label: "disconnect wire",
+          hint: "⌫",
+          disabled: locked,
+          run: () => {
+            onChange(disconnect(graph, m.edgeId as string));
+            setEdgeId(null);
+          },
+        },
+        {
+          kind: "item",
+          id: "ends",
+          label: "select both ends",
+          disabled: !edge,
+          run: () => edge && onSelectionChange([edge.from, edge.to]),
+        },
+        { kind: "rule", id: "r1" },
+        ...canvasEntries(m),
+      ];
+    }
+
+    // --- a node ----------------------------------------------------------
+    const node = nodeById(graph, m.nodeId);
+    if (node) {
+      const ids = targets(node.id);
+      const many = ids.length > 1;
+      const agentish = isAgentKind(node.kind);
+      const hidden = collapsedCount(graph, node.id);
+      const removable = ids.some((id) => nodeById(graph, id)?.kind !== "orchestrator");
+      const owned = graph.edges.some((e) => e.to === node.id);
+
+      return [
+        { kind: "head", id: "h", label: `${KIND_LABEL[node.kind]} · ${node.name}` },
+        {
+          kind: "item",
+          id: "rename",
+          label: "rename",
+          hint: "F2",
+          disabled: locked,
+          run: () => setRenaming(node.id),
+        },
+        ...(onEditNode
+          ? ([
+              {
+                kind: "item",
+                id: "fields",
+                label: agentish ? "edit prompt & model" : "show in panel",
+                run: () => {
+                  onSelectionChange([node.id]);
+                  onEditNode(node.id);
+                },
+              },
+            ] as MenuEntry[])
+          : []),
+        ...(agentish && (hidden > 0 || node.collapsed)
+          ? ([
+              {
+                kind: "item",
+                id: "fold",
+                label: node.collapsed ? `unfold ${hidden} hidden` : `fold ${hidden} below`,
+                run: () => {
+                  onChange(toggleCollapse(graph, node.id));
+                  // Anything folded away must not stay selected — the panels
+                  // below would keep editing a node nobody can see.
+                  if (!node.collapsed) onSelectionChange([node.id]);
+                },
+              },
+            ] as MenuEntry[])
+          : []),
+        {
+          kind: "sub",
+          id: "tint",
+          label: many ? `colour tag (${ids.length})` : "colour tag",
+          disabled: locked,
+          items: [
+            {
+              kind: "item" as const,
+              id: "t-none",
+              label: "none",
+              checked: !node.tint,
+              run: () => {
+                let next = graph;
+                for (const id of ids) next = updateNode(next, id, { tint: undefined });
+                onChange(next);
+              },
+            },
+            ...INK_COLORS.filter((c) => c.id !== "paper").map((c) => ({
+              kind: "item" as const,
+              id: `t-${c.id}`,
+              label: c.label.toLowerCase(),
+              swatch: c.css,
+              checked: node.tint === c.id,
+              run: () => {
+                let next = graph;
+                for (const id of ids) next = updateNode(next, id, { tint: c.id });
+                onChange(next);
+              },
+            })),
+          ],
+        },
+        { kind: "rule", id: "r1" },
+        {
+          kind: "item",
+          id: "dup",
+          label: many ? `duplicate ${ids.length}` : "duplicate",
+          hint: "⌘D",
+          disabled: locked || !removable,
+          run: () => duplicateIds(ids),
+        },
+        {
+          kind: "item",
+          id: "copy",
+          label: "copy",
+          hint: "⌘C",
+          run: () => {
+            clipboard.current = ids;
+          },
+        },
+        ...(agentish && onAddSubagent
+          ? ([
+              {
+                kind: "item",
+                id: "add",
+                label: "add subagent under this",
+                disabled: locked,
+                run: () => {
+                  onSelectionChange([node.id]);
+                  // The owner goes across explicitly: the page reads it from
+                  // the selection otherwise, and the selection it would read
+                  // is the one from before the line above.
+                  onAddSubagent(undefined, node.id);
+                },
+              },
+            ] as MenuEntry[])
+          : []),
+        {
+          kind: "item",
+          id: "detach",
+          label: "detach from parent",
+          disabled: locked || !owned,
+          run: () => {
+            let next = graph;
+            for (const id of ids) next = detachNode(next, id);
+            onChange(next);
+          },
+        },
+        {
+          kind: "sub",
+          id: "select",
+          label: "select",
+          items: [
+            {
+              kind: "item" as const,
+              id: "s-sub",
+              label: "this branch",
+              run: () => onSelectionChange([...subtreeOf(shown, node.id)]),
+            },
+            {
+              kind: "item" as const,
+              id: "s-kind",
+              label: `every ${KIND_LABEL[node.kind]}`,
+              run: () =>
+                onSelectionChange(shown.nodes.filter((n) => n.kind === node.kind).map((n) => n.id)),
+            },
+            {
+              kind: "item" as const,
+              id: "s-all",
+              label: "everything",
+              run: () => onSelectionChange(shown.nodes.map((n) => n.id)),
+            },
+          ],
+        },
+        {
+          kind: "sub",
+          id: "align",
+          label: "align",
+          // Two nodes is the smallest thing that can be out of line with
+          // something; below that the whole submenu is a no-op.
+          disabled: locked || ids.length < 2,
+          items: [
+            ...(
+              [
+                ["left", "left edges"],
+                ["center-x", "centres ↕"],
+                ["right", "right edges"],
+                ["top", "top edges"],
+                ["middle", "centres ↔"],
+                ["bottom", "bottom edges"],
+              ] as [AlignEdge, string][]
+            ).map(([edge, label]) => ({
+              kind: "item" as const,
+              id: `a-${edge}`,
+              label,
+              run: () => onChange(alignNodes(graph, ids, edge)),
+            })),
+            { kind: "rule" as const, id: "a-r" },
+            {
+              kind: "item" as const,
+              id: "d-x",
+              label: "space across",
+              disabled: ids.length < 3,
+              run: () => onChange(distributeNodes(graph, ids, "x")),
+            },
+            {
+              kind: "item" as const,
+              id: "d-y",
+              label: "space down",
+              disabled: ids.length < 3,
+              run: () => onChange(distributeNodes(graph, ids, "y")),
+            },
+          ],
+        },
+        { kind: "rule", id: "r2" },
+        {
+          kind: "item",
+          id: "del",
+          label: many ? `delete ${ids.length}` : "delete",
+          hint: "⌫",
+          disabled: !canDelete || !removable,
+          run: () => {
+            let next = graph;
+            for (const id of ids) next = removeNode(next, id);
+            onChange(next);
+            onSelectionChange([]);
+          },
+        },
+      ];
+    }
+
+    // --- bare canvas -----------------------------------------------------
+    return canvasEntries(m);
+  };
+
+  /** The exported file's name — the agent's, not "canvas". */
+  const exportName = () => {
+    const root = graph.nodes.find((n) => n.kind === "orchestrator");
+    const slug = (root?.name ?? "agent")
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-|-$/g, "");
+    return `${slug || "agent"}-canvas`;
+  };
+
+  /** The commands that belong to the surface itself, not to anything on it. */
+  const canvasEntries = (m: Menu): MenuEntry[] => [
+    { kind: "head", id: "hc", label: "canvas" },
+    ...(onAddSubagent
+      ? ([
+          {
+            kind: "item",
+            id: "sub",
+            label: "add subagent here",
+            hint: "dbl",
+            disabled: locked,
+            run: () => onAddSubagent(m.world),
+          },
+        ] as MenuEntry[])
+      : []),
+    {
+      kind: "item",
+      id: "note",
+      label: "add note here",
+      hint: "N",
+      disabled: locked,
+      run: () => placeText(m.world, "note"),
+    },
+    {
+      kind: "item",
+      id: "label",
+      label: "add label here",
+      hint: "T",
+      disabled: locked,
+      run: () => placeText(m.world, "text"),
+    },
+    {
+      kind: "item",
+      id: "paste",
+      label: "paste here",
+      hint: "⌘V",
+      disabled: locked || clipboard.current.length === 0,
+      run: () => pasteAt(m.world),
+    },
+    { kind: "rule", id: "rc1" },
+    {
+      kind: "item",
+      id: "all",
+      label: "select all",
+      hint: "⌘A",
+      run: () => onSelectionChange(shown.nodes.map((n) => n.id)),
+    },
+    {
+      kind: "item",
+      id: "tidy",
+      label: "tidy into a tree",
+      disabled: locked,
+      run: () => onChange(autoLayout(graph)),
+    },
+    {
+      kind: "sub",
+      id: "export",
+      label: "export image",
+      items: [
+        {
+          kind: "item" as const,
+          id: "x-png",
+          label: "png (2×)",
+          run: () => void exportCanvas(graph, "png", exportName()),
+        },
+        {
+          kind: "item" as const,
+          id: "x-svg",
+          label: "svg (vector)",
+          run: () => void exportCanvas(graph, "svg", exportName()),
+        },
+      ],
+    },
+    {
+      kind: "sub",
+      id: "view",
+      label: "view",
+      items: [
+        { kind: "item" as const, id: "fit", label: "fit to view", hint: "⌘0", run: fit },
+        {
+          kind: "item" as const,
+          id: "z100",
+          label: "zoom to 100%",
+          run: () => zoomAt(1 / viewRef.current.z),
+        },
+        {
+          kind: "item" as const,
+          id: "fsx",
+          label: fullscreen ? "leave fullscreen" : "fullscreen",
+          run: fullscreen ? exitFullscreen : enterFullscreen,
+        },
+      ],
+    },
+    ...(onLockedChange
+      ? ([
+          {
+            kind: "item",
+            id: "lock",
+            label: locked ? "unlock canvas" : "lock canvas",
+            run: () => onLockedChange(!locked),
+          },
+        ] as MenuEntry[])
+      : []),
+    ...(drawings.length > 0
+      ? ([
+          { kind: "rule", id: "rc2" },
+          {
+            kind: "item",
+            id: "clear",
+            label: `clear ${drawings.length} drawing${drawings.length === 1 ? "" : "s"}`,
+            disabled: locked,
+            run: () => {
+              onChange({ ...graph, annotations: [] });
+              setInkSel(null);
+            },
+          },
+        ] as MenuEntry[])
+      : []),
+  ];
 
   return (
     <>
@@ -769,23 +1648,10 @@ export function AgentCanvas({
           className,
         )}
       >
-        {/* TOOLBAR */}
+        {/* TOOLBAR — the view, not the tools. What the pointer does lives in
+            the dock on the surface, where it is next to the thing it acts on
+            and does not fight the toolbar for width on a phone. */}
         <div className="flex items-center gap-1.5 px-2 py-1.5 border-b-2 border-line bg-stone overflow-x-auto">
-          <CanvasButton
-            onClick={() => setTool("select")}
-            label="Select tool (V) — drag to marquee"
-            active={tool === "select"}
-          >
-            select
-          </CanvasButton>
-          <CanvasButton
-            onClick={() => setTool("hand")}
-            label="Hand tool (hold space) — drag to pan"
-            active={tool === "hand"}
-          >
-            hand
-          </CanvasButton>
-          <Divider />
           <CanvasButton onClick={() => zoomAt(1 / 1.2)} label="Zoom out">
             <MinusIcon size={10} />
           </CanvasButton>
@@ -817,6 +1683,15 @@ export function AgentCanvas({
             </>
           )}
           <Divider />
+          {/* PNG on the press, both formats on the right-click menu: one is the
+              answer 90% of the time, and a toolbar with two export buttons on it
+              is a toolbar nobody reads. */}
+          <CanvasButton
+            onClick={() => void exportCanvas(graph, "png", exportName())}
+            label="Export the canvas as a PNG — right-click the canvas for SVG"
+          >
+            <DownloadIcon size={11} />
+          </CanvasButton>
           {/* One button, two states. The icon shows what the next press does, so
               the lock reads at a glance without a label taking toolbar width.
               Disabled when the owner passes no handler — the demo mounts this
@@ -881,6 +1756,8 @@ export function AgentCanvas({
             handMode && "is-hand",
             panning && "is-panning",
             locked && "is-locked",
+            inking && "is-inking",
+            tool === "eraser" && "is-erasing",
             // The grid has to travel with the world, or a tweened camera slides
             // the nodes while the dots underneath them jump.
             easing && "is-easing",
@@ -911,10 +1788,11 @@ export function AgentCanvas({
                     d={w.d}
                     data-edge-id={w.id}
                     className="t-wire-hit"
-                    style={{ pointerEvents: "stroke" }}
+                    style={{ pointerEvents: inking ? "none" : "stroke" }}
                     onPointerDown={(e) => {
                       e.stopPropagation();
                       setEdgeId(w.id);
+                      setInkSel(null);
                       onSelectionChange([]);
                     }}
                   />
@@ -938,23 +1816,33 @@ export function AgentCanvas({
                 <line
                   className="t-guide"
                   x1={guides.vx * GRID}
-                  y1={(graphBounds(graph).minY - 4) * GRID}
+                  y1={(graphBounds(shown).minY - 4) * GRID}
                   x2={guides.vx * GRID}
-                  y2={(graphBounds(graph).maxY + 4) * GRID}
+                  y2={(graphBounds(shown).maxY + 4) * GRID}
                 />
               )}
               {guides.hy !== null && (
                 <line
                   className="t-guide"
-                  x1={(graphBounds(graph).minX - 4) * GRID}
+                  x1={(graphBounds(shown).minX - 4) * GRID}
                   y1={guides.hy * GRID}
-                  x2={(graphBounds(graph).maxX + 4) * GRID}
+                  x2={(graphBounds(shown).maxX + 4) * GRID}
                   y2={guides.hy * GRID}
                 />
               )}
             </svg>
 
-            {graph.nodes.map((n) => (
+            {/* INK — over the wires, under the nodes. A drawing is a comment on
+                the graph, so it must be readable across it without ever being
+                in the way of clicking one. */}
+            <AnnotationLayer
+              annotations={drawings}
+              draft={draft}
+              selected={inkSel}
+              editingId={editingInk}
+            />
+
+            {shown.nodes.map((n) => (
               <CanvasNode
                 key={n.id}
                 node={n}
@@ -962,16 +1850,45 @@ export function AgentCanvas({
                 hovered={hoverId === n.id}
                 linking={drag?.mode === "link"}
                 dragging={drag?.mode === "node" && selected.has(n.id)}
+                hiddenCount={n.collapsed ? collapsedCount(graph, n.id) : 0}
+                renaming={renaming === n.id}
+                onRename={(name) => {
+                  onChange(updateNode(graph, n.id, { name }), `rename:${n.id}`);
+                }}
+                onRenameDone={() => setRenaming(null)}
+                onToggleFold={() => onChange(toggleCollapse(graph, n.id))}
                 onPointerDown={(e) => onNodePointerDown(e, n)}
                 onPortPointerDown={(e) => onPortPointerDown(e, n)}
                 onEnter={() => setHoverId(n.id)}
                 onLeave={() => setHoverId((id) => (id === n.id ? null : id))}
-                onSelect={() => {
-                  if (pointerSelect.current) return;
-                  onSelectionChange([n.id]);
-                }}
+                onSelect={() => onSelectionChange([n.id])}
               />
             ))}
+
+            {/* The live text editor sits above the nodes: a note being typed
+                into is the only thing on the canvas that owns the keyboard. */}
+            {editingAnnotation && (
+              <AnnotationEditor
+                a={editingAnnotation}
+                onChange={(text) =>
+                  onChange(
+                    updateAnnotation(graph, editingAnnotation.id, { text }),
+                    `text:${editingAnnotation.id}`,
+                  )
+                }
+                onDone={() => {
+                  setEditingInk(null);
+                  // An empty label is an accident — a click with the text tool
+                  // still armed. Leaving it would litter the canvas with
+                  // invisible, un-clickable boxes.
+                  if (!editingAnnotation.text?.trim()) {
+                    onChange(removeAnnotations(graph, [editingAnnotation.id]));
+                    setInkSel(null);
+                  }
+                  hostRef.current?.focus();
+                }}
+              />
+            )}
 
             {marquee && (
               <div
@@ -980,6 +1897,19 @@ export function AgentCanvas({
               />
             )}
           </div>
+
+          {/* TOOL DOCK — pinned to the surface, top-left, where every editor
+              this borrows from puts it. Two columns rather than one so eleven
+              tools do not run past the bottom of a 420px canvas. */}
+          <ToolDock
+            tool={tool}
+            onTool={setTool}
+            locked={locked}
+            color={color}
+            onColor={setColor}
+            weight={weight}
+            onWeight={setWeight}
+          />
 
           {/* Legend, pinned to the surface so it never pans away.
               Backed like the minimap rather than floating bare: the world pans
@@ -995,52 +1925,203 @@ export function AgentCanvas({
               <>
                 read-only — select, pan and zoom still work
                 <br />
-                nothing here can be moved, wired or deleted
+                nothing here can be moved, wired, drawn on or deleted
               </>
             ) : locked ? (
               <>
                 canvas locked — nodes stay put. select, pan and zoom still work
                 <br />
-                unlock from the toolbar to move or wire anything
+                unlock from the toolbar to move, wire or draw
+              </>
+            ) : isInkTool(tool) || tool === "eraser" ? (
+              <>
+                {tool} — drag to draw · shift constrains · Esc cancels
+                <br />
+                right-click any drawing to recolour, restack or delete it
               </>
             ) : (
               <>
                 drag to select · space or middle-drag to pan · ⌘scroll to zoom
                 <br />
-                drag the ▾ port to wire · ⌘D duplicate · ⌘Z undo · double-click for a subagent
+                right-click for everything · double-click a node to rename · P to draw
               </>
             )}
           </div>
 
           {/* Eased, not instant: clicking the map is asking the canvas to take
               you somewhere, and a cut loses which direction you travelled. */}
-          <Minimap graph={graph} view={view} size={size} selected={selected} onJump={easeViewTo} />
+          <Minimap graph={shown} view={view} size={size} selected={selected} onJump={easeViewTo} />
 
           {menu && (
             <ContextMenu
-              menu={menu}
-              graph={graph}
+              at={{ x: menu.x, y: menu.y }}
               size={size}
-              selection={selection}
-              canDelete={canDelete}
-              locked={locked}
-              onClose={() => setMenu(null)}
-              onDuplicate={() => duplicateIds(selection)}
-              onDelete={deleteSelection}
-              onDisconnect={() => {
-                if (!menu.edgeId) return;
-                onChange(disconnect(graph, menu.edgeId));
-                setEdgeId(null);
+              entries={menuEntries(menu)}
+              onClose={() => {
+                setMenu(null);
+                hostRef.current?.focus();
               }}
-              onAddSubagent={onAddSubagent ? () => onAddSubagent(menu.world) : undefined}
-              onSelectAll={() => onSelectionChange(graph.nodes.map((n) => n.id))}
-              onTidy={() => onChange(autoLayout(graph))}
-              onFit={fit}
             />
           )}
         </div>
       </div>
     </>
+  );
+}
+
+/** The nearest 45° from `from`, for shift-constrained lines and arrows. */
+function octant(from: Point, to: Point): Point {
+  const dx = to.x - from.x;
+  const dy = to.y - from.y;
+  const angle = Math.round(Math.atan2(dy, dx) / (Math.PI / 4)) * (Math.PI / 4);
+  const len = Math.hypot(dx, dy);
+  return quantize({ x: from.x + Math.cos(angle) * len, y: from.y + Math.sin(angle) * len });
+}
+
+// ---------------------------------------------------------------- tool dock
+
+const DOCK: { id: Tool; label: string; key: string; icon: React.ReactNode }[] = [
+  { id: "pen", label: "Pen — pixel freehand", key: "P", icon: <PenIcon size={11} /> },
+  { id: "marker", label: "Marker — wide, translucent", key: "M", icon: <MarkerIcon size={11} /> },
+  { id: "eraser", label: "Eraser — drag over a drawing", key: "E", icon: <EraserIcon size={11} /> },
+  { id: "text", label: "Label — type on the canvas", key: "T", icon: <TextIcon size={11} /> },
+  { id: "note", label: "Sticky note", key: "N", icon: <NoteIcon size={11} /> },
+  { id: "rect", label: "Rectangle", key: "R", icon: <SquareIcon size={11} /> },
+  { id: "ellipse", label: "Ellipse", key: "O", icon: <CircleIcon size={11} /> },
+  { id: "line", label: "Line", key: "L", icon: <LineIcon size={11} /> },
+  { id: "arrow", label: "Arrow", key: "A", icon: <ArrowDiagIcon size={11} /> },
+];
+
+function ToolDock({
+  tool,
+  onTool,
+  locked,
+  color,
+  onColor,
+  weight,
+  onWeight,
+}: {
+  tool: Tool;
+  onTool: (t: Tool) => void;
+  locked: boolean;
+  color: InkColor;
+  onColor: (c: InkColor) => void;
+  weight: number;
+  onWeight: (w: number) => void;
+}) {
+  const drawing = isInkTool(tool) || tool === "eraser";
+  return (
+    <div
+      className="t-dock absolute top-2 left-2 flex flex-col gap-1 p-1 border-2 border-line"
+      onPointerDown={(e) => e.stopPropagation()}
+      onDoubleClick={(e) => e.stopPropagation()}
+      role="toolbar"
+      aria-label="Canvas tools"
+      aria-orientation="vertical"
+    >
+      <div className="grid grid-cols-2 gap-1">
+        <DockButton
+          active={tool === "select"}
+          label="Select (V) — drag to marquee"
+          onClick={() => onTool("select")}
+        >
+          <CursorIcon size={11} />
+        </DockButton>
+        <DockButton
+          active={tool === "hand"}
+          label="Hand (H, or hold space) — drag to pan"
+          onClick={() => onTool("hand")}
+        >
+          <HandIcon size={11} />
+        </DockButton>
+        {/* Nothing here can run on a locked canvas, and a row of buttons that
+            all refuse is worse than a row that is not there. */}
+        {!locked &&
+          DOCK.map((t) => (
+            <DockButton
+              key={t.id}
+              active={tool === t.id}
+              label={`${t.label} (${t.key})`}
+              onClick={() => onTool(t.id)}
+            >
+              {t.icon}
+            </DockButton>
+          ))}
+      </div>
+
+      {/* The ink options only exist while something can be drawn with them. */}
+      {drawing && !locked && (
+        <div className="pt-1 border-t-2 border-line flex flex-col gap-1">
+          <div className="grid grid-cols-5 gap-1">
+            {INK_COLORS.map((c) => (
+              <button
+                key={c.id}
+                type="button"
+                title={c.label}
+                aria-label={`${c.label} ink`}
+                aria-pressed={color === c.id}
+                onClick={() => onColor(c.id)}
+                className={clsx(
+                  "w-4 h-4 border-2 cursor-pointer transition-colors duration-100",
+                  color === c.id ? "border-coral" : "border-line",
+                )}
+                style={{ background: c.css }}
+              />
+            ))}
+          </div>
+          <div className="grid grid-cols-3 gap-1">
+            {WEIGHTS.map((w, i) => (
+              <button
+                key={w}
+                type="button"
+                title={["Thin", "Medium", "Thick"][i]}
+                aria-label={`${["Thin", "Medium", "Thick"][i]} stroke`}
+                aria-pressed={weight === w}
+                onClick={() => onWeight(w)}
+                className={clsx(
+                  "h-4 grid place-items-center border-2 cursor-pointer transition-colors duration-100",
+                  weight === w ? "border-coral bg-stone" : "border-line bg-paper",
+                )}
+              >
+                <span
+                  aria-hidden="true"
+                  className="block w-2.5 bg-ink"
+                  style={{ height: Math.max(1, w / 2) }}
+                />
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function DockButton({
+  active,
+  label,
+  onClick,
+  children,
+}: {
+  active?: boolean;
+  label: string;
+  onClick: () => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <button
+      type="button"
+      title={label}
+      aria-label={label}
+      aria-pressed={active}
+      onClick={onClick}
+      className={clsx(
+        "w-6 h-6 grid place-items-center border-2 border-line cursor-pointer transition-colors duration-100",
+        active ? "bg-fill text-on-fill" : "bg-paper hover:bg-stone",
+      )}
+    >
+      {children}
+    </button>
   );
 }
 
@@ -1052,6 +2133,12 @@ interface CanvasNodeProps {
   hovered: boolean;
   linking: boolean;
   dragging: boolean;
+  /** How many nodes this one is folding away. 0 when it is not folded. */
+  hiddenCount: number;
+  renaming: boolean;
+  onRename: (name: string) => void;
+  onRenameDone: () => void;
+  onToggleFold: () => void;
   onPointerDown: (e: React.PointerEvent) => void;
   onPortPointerDown: (e: React.PointerEvent) => void;
   onEnter: () => void;
@@ -1065,6 +2152,11 @@ function CanvasNode({
   hovered,
   linking,
   dragging,
+  hiddenCount,
+  renaming,
+  onRename,
+  onRenameDone,
+  onToggleFold,
   onPointerDown,
   onPortPointerDown,
   onEnter,
@@ -1081,7 +2173,7 @@ function CanvasNode({
         "t-node absolute border-2 bg-paper select-none",
         agentish ? "pixel-border-sm" : "",
         node.kind === "orchestrator" && "t-node--root",
-        selected ? "border-coral is-selected" : "border-line",
+        selected ? "border-coral is-selected" : node.tint ? "has-tint" : "border-line",
         dragging && "is-dragging",
         linking && hovered && "is-droppable",
       )}
@@ -1090,6 +2182,9 @@ function CanvasNode({
         top: node.y * GRID,
         width: NODE_W * GRID,
         height: nodeHeight(node.kind) * GRID,
+        // The tag is a border colour, not a fill: a filled node stops being a
+        // card in this system and starts being a button.
+        ...(node.tint ? ({ "--tint": inkCss(node.tint) } as React.CSSProperties) : {}),
       }}
       onPointerDown={onPointerDown}
       onPointerEnter={onEnter}
@@ -1097,11 +2192,24 @@ function CanvasNode({
     >
       {/* The focusable surface. A button rather than the box itself so the
           whole node is reachable by Tab and activatable by Enter, while the
-          pointer drag stays on the wrapper. */}
+          pointer drag stays on the wrapper.
+
+          Both handlers are for the *keyboard* only. Every pointer route to a
+          selection — plain click, shift-click, right-click, the start of a drag
+          — is already resolved on pointerdown, by code that knows about the
+          modifier and about what was selected before. Letting the click through
+          as well would overwrite that with "just this node", which is how
+          shift-clicking a second node used to end up selecting only the second
+          one, and how right-clicking a multi-selection used to collapse it and
+          grey out the align commands the menu was opened for. */}
       <button
         type="button"
-        onClick={onSelect}
-        onFocus={onSelect}
+        // detail 0 is an activation with no pointer behind it: Enter or Space.
+        onClick={(e) => e.detail === 0 && onSelect()}
+        // …and focus counts only when it arrived by Tab. A pointer press
+        // focuses the button too, right after the pointerdown that already
+        // decided the selection.
+        onFocus={(e) => e.target.matches(":focus-visible") && onSelect()}
         aria-pressed={selected}
         className="absolute inset-0 w-full h-full text-left px-2 py-1.5 cursor-grab active:cursor-grabbing"
       >
@@ -1145,8 +2253,52 @@ function CanvasNode({
         </span>
       </button>
 
-      {/* Wire port. Only agent nodes can own things, so only they get one. */}
-      {agentish && (
+      {/* Rename in place. An input on top of the node rather than a dialog:
+          the name is right there, and a modal for one field is a modal too
+          many. Rendered over the button so the drag handler underneath cannot
+          steal the click that puts the caret somewhere. */}
+      {renaming && (
+        <input
+          autoFocus
+          defaultValue={node.name}
+          aria-label="Node name"
+          onPointerDown={(e) => e.stopPropagation()}
+          onKeyDown={(e) => {
+            e.stopPropagation();
+            if (e.key === "Enter") {
+              onRename((e.target as HTMLInputElement).value.trim() || node.name);
+              onRenameDone();
+            }
+            if (e.key === "Escape") onRenameDone();
+          }}
+          onBlur={(e) => {
+            onRename(e.target.value.trim() || node.name);
+            onRenameDone();
+          }}
+          className="t-node-rename absolute left-1 right-1 top-1/2 -translate-y-1/2 px-1 py-0.5 font-mono text-[11px] border-2 border-coral bg-paper text-ink outline-none"
+        />
+      )}
+
+      {/* Folded: the node wears the count of what it is hiding, and pressing it
+          puts the branch back. Rendered as its own control so the fold can be
+          undone without going back to the menu that made it. */}
+      {hiddenCount > 0 && (
+        <button
+          type="button"
+          onPointerDown={(e) => e.stopPropagation()}
+          onClick={onToggleFold}
+          title={`Unfold ${hiddenCount} hidden node${hiddenCount === 1 ? "" : "s"}`}
+          aria-label={`Unfold ${hiddenCount} hidden nodes`}
+          className="t-fold absolute -bottom-[9px] left-1/2 -translate-x-1/2 px-1 font-pixel text-[7px] uppercase border-2 border-line bg-stone text-ink cursor-pointer"
+        >
+          +{hiddenCount}
+        </button>
+      )}
+
+      {/* Wire port. Only agent nodes can own things, so only they get one.
+          A folded node has no port: wiring something onto a branch you cannot
+          see is a change with no feedback. */}
+      {agentish && hiddenCount === 0 && (
         <button
           type="button"
           aria-label={`Wire from ${node.name}`}
@@ -1184,6 +2336,7 @@ function Minimap({
   onJump: (v: Viewport) => void;
 }) {
   const g = useMemo(() => graphBounds(graph), [graph]);
+  const ink = graphAnnotations(graph);
   if (graph.nodes.length === 0 || size.w === 0) return null;
 
   // The viewport, in world units, is what the surface currently shows.
@@ -1235,6 +2388,22 @@ function Minimap({
       role="img"
       aria-label={`Graph overview: ${graph.nodes.length} nodes`}
     >
+      {/* Drawings first and faint: they set the extent of the map, so leaving
+          them out entirely would make the box lie about how far the world goes. */}
+      {ink.map((a) => {
+        const box = annotationBounds(a);
+        const at = toMap(box.minX, box.minY);
+        return (
+          <rect
+            key={a.id}
+            x={at.x}
+            y={at.y}
+            width={Math.max(1, (box.maxX - box.minX) * scale)}
+            height={Math.max(1, (box.maxY - box.minY) * scale)}
+            className="t-minimap-ink"
+          />
+        );
+      })}
       {graph.nodes.map((n) => {
         const at = toMap(n.x, n.y);
         return (
@@ -1263,142 +2432,7 @@ function Minimap({
   );
 }
 
-// ---------------------------------------------------------------- menu
-
-// Roughly what the menu measures. Used only to keep it inside the surface —
-// close enough beats a layout pass that would flash the menu in the wrong place
-// before moving it.
-const MENU_W = 168;
-const MENU_H = 190;
-
-function ContextMenu({
-  menu,
-  graph,
-  size,
-  selection,
-  canDelete,
-  locked,
-  onClose,
-  onDuplicate,
-  onDelete,
-  onDisconnect,
-  onAddSubagent,
-  onSelectAll,
-  onTidy,
-  onFit,
-}: {
-  menu: Menu;
-  graph: AgentGraph;
-  size: { w: number; h: number };
-  selection: string[];
-  canDelete: boolean;
-  locked: boolean;
-  onClose: () => void;
-  onDuplicate: () => void;
-  onDelete: () => void;
-  onDisconnect: () => void;
-  onAddSubagent?: () => void;
-  onSelectAll: () => void;
-  onTidy: () => void;
-  onFit: () => void;
-}) {
-  const ref = useRef<HTMLDivElement>(null);
-
-  // Focus the menu so Escape and Tab behave, and so a click anywhere else
-  // closes it through the blur rather than a document-wide listener.
-  useEffect(() => {
-    ref.current?.focus();
-  }, []);
-
-  const target = nodeById(graph, menu.nodeId);
-  const dupable = !locked && selection.some((id) => nodeById(graph, id)?.kind !== "orchestrator");
-
-  const run = (fn?: () => void) => () => {
-    fn?.();
-    onClose();
-  };
-
-  return (
-    <div
-      ref={ref}
-      tabIndex={-1}
-      role="menu"
-      onBlur={(e) => {
-        if (!e.currentTarget.contains(e.relatedTarget as Node)) onClose();
-      }}
-      onKeyDown={(e) => {
-        if (e.key === "Escape") onClose();
-      }}
-      onPointerDown={(e) => e.stopPropagation()}
-      className="t-menu absolute z-10 min-w-[164px] border-2 border-line bg-paper py-1 outline-none"
-      style={{
-        left: Math.max(0, Math.min(menu.x, size.w - MENU_W)),
-        top: Math.max(0, Math.min(menu.y, size.h - MENU_H)),
-      }}
-    >
-      {menu.edgeId && (
-        <MenuItem onClick={run(onDisconnect)} disabled={locked}>
-          disconnect wire
-        </MenuItem>
-      )}
-      {target && (
-        <>
-          <MenuItem onClick={run(onDuplicate)} disabled={!dupable} hint="⌘D">
-            duplicate
-          </MenuItem>
-          <MenuItem onClick={run(onDelete)} disabled={!canDelete} hint="⌫">
-            delete
-          </MenuItem>
-          <Rule />
-        </>
-      )}
-      {onAddSubagent && (
-        <MenuItem onClick={run(onAddSubagent)} disabled={locked}>
-          add subagent here
-        </MenuItem>
-      )}
-      <MenuItem onClick={run(onSelectAll)} hint="⌘A">
-        select all
-      </MenuItem>
-      <Rule />
-      <MenuItem onClick={run(onTidy)} disabled={locked}>
-        tidy
-      </MenuItem>
-      <MenuItem onClick={run(onFit)} hint="⌘0">
-        fit to view
-      </MenuItem>
-    </div>
-  );
-}
-
-function MenuItem({
-  onClick,
-  disabled,
-  hint,
-  children,
-}: {
-  onClick: () => void;
-  disabled?: boolean;
-  hint?: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <button
-      type="button"
-      role="menuitem"
-      disabled={disabled}
-      onClick={onClick}
-      className="flex w-full items-center justify-between gap-4 px-2.5 py-1 font-mono text-[10px] text-left hover:bg-stone disabled:opacity-40 disabled:pointer-events-none cursor-pointer"
-    >
-      {children}
-      {hint && <span className="text-muted">{hint}</span>}
-    </button>
-  );
-}
-
-function Rule() {
-  return <div className="my-1 border-t-2 border-line" aria-hidden="true" />;
-}
+// ---------------------------------------------------------------- chrome
 
 function Divider() {
   return <span className="w-px self-stretch bg-line" aria-hidden="true" />;

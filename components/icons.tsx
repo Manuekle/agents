@@ -228,6 +228,152 @@ export function LockIcon({ size = 16, className }: IconProps) {
   );
 }
 
+// ---------------------------------------------------------------- canvas ink
+//
+// The drawing tools. Every one of these is a stack of whole-pixel rects rather
+// than a path with diagonals: a 12px toolbar glyph drawn as a smooth diagonal
+// is a grey smear, and the same glyph drawn as four steps is a pen.
+
+export function CursorIcon({ size = 16, className }: IconProps) {
+  return (
+    <svg {...base(size)} className={className}>
+      <polygon points="5 2 5 20 9 16 12 23 15 22 12 15 19 15" />
+    </svg>
+  );
+}
+
+export function HandIcon({ size = 16, className }: IconProps) {
+  return (
+    <svg {...base(size)} className={className}>
+      <rect x="5" y="8" width="2" height="7" />
+      <rect x="8" y="3" width="2" height="11" />
+      <rect x="11" y="2" width="2" height="12" />
+      <rect x="14" y="4" width="2" height="10" />
+      <rect x="17" y="7" width="2" height="7" />
+      <rect x="5" y="14" width="14" height="6" />
+      <rect x="7" y="20" width="10" height="2" />
+    </svg>
+  );
+}
+
+export function PenIcon({ size = 16, className }: IconProps) {
+  return (
+    <svg {...base(size)} className={className}>
+      <rect x="2" y="20" width="2" height="2" />
+      <rect x="4" y="17" width="3" height="3" />
+      <rect x="6" y="14" width="4" height="4" />
+      <rect x="9" y="11" width="4" height="4" />
+      <rect x="12" y="8" width="4" height="4" />
+      <rect x="15" y="5" width="4" height="4" />
+      <rect x="17" y="2" width="5" height="5" />
+    </svg>
+  );
+}
+
+export function MarkerIcon({ size = 16, className }: IconProps) {
+  return (
+    <svg {...base(size)} className={className}>
+      <rect x="2" y="18" width="4" height="4" />
+      <rect x="5" y="13" width="6" height="6" />
+      <rect x="10" y="8" width="6" height="6" />
+      <rect x="15" y="3" width="7" height="7" />
+    </svg>
+  );
+}
+
+export function EraserIcon({ size = 16, className }: IconProps) {
+  return (
+    <svg {...base(size)} className={className}>
+      <rect x="3" y="15" width="6" height="5" />
+      <rect x="7" y="11" width="6" height="5" />
+      <rect x="11" y="7" width="6" height="5" />
+      <rect x="15" y="3" width="6" height="5" />
+      {/* the line it is rubbing out */}
+      <rect x="2" y="21" width="20" height="2" />
+    </svg>
+  );
+}
+
+export function TextIcon({ size = 16, className }: IconProps) {
+  return (
+    <svg {...base(size)} className={className}>
+      <rect x="3" y="3" width="18" height="3" />
+      <rect x="10" y="6" width="4" height="15" />
+    </svg>
+  );
+}
+
+export function NoteIcon({ size = 16, className }: IconProps) {
+  return (
+    <svg {...base(size)} className={className}>
+      <rect x="2" y="2" width="20" height="2" />
+      <rect x="2" y="4" width="2" height="18" />
+      <rect x="20" y="4" width="2" height="12" />
+      <rect x="4" y="20" width="12" height="2" />
+      {/* the dog-eared corner — what says "note" and not "box" */}
+      <polygon points="16 16 22 16 22 18 18 18 18 22 16 22" />
+    </svg>
+  );
+}
+
+export function SquareIcon({ size = 16, className }: IconProps) {
+  return (
+    <svg {...base(size)} className={className}>
+      <rect x="2" y="4" width="20" height="2" />
+      <rect x="2" y="18" width="20" height="2" />
+      <rect x="2" y="4" width="2" height="16" />
+      <rect x="20" y="4" width="2" height="16" />
+    </svg>
+  );
+}
+
+// An octagon, not a circle: twelve rects is the largest ring that still reads
+// as round at 12px, and a real circle would be the one soft edge in the app.
+export function CircleIcon({ size = 16, className }: IconProps) {
+  return (
+    <svg {...base(size)} className={className}>
+      <rect x="9" y="2" width="6" height="2" />
+      <rect x="6" y="4" width="3" height="2" />
+      <rect x="15" y="4" width="3" height="2" />
+      <rect x="4" y="6" width="2" height="3" />
+      <rect x="18" y="6" width="2" height="3" />
+      <rect x="2" y="9" width="2" height="6" />
+      <rect x="20" y="9" width="2" height="6" />
+      <rect x="4" y="15" width="2" height="3" />
+      <rect x="18" y="15" width="2" height="3" />
+      <rect x="6" y="18" width="3" height="2" />
+      <rect x="15" y="18" width="3" height="2" />
+      <rect x="9" y="20" width="6" height="2" />
+    </svg>
+  );
+}
+
+export function LineIcon({ size = 16, className }: IconProps) {
+  return (
+    <svg {...base(size)} className={className}>
+      <rect x="2" y="18" width="4" height="4" />
+      <rect x="6" y="14" width="4" height="4" />
+      <rect x="10" y="10" width="4" height="4" />
+      <rect x="14" y="6" width="4" height="4" />
+      <rect x="18" y="2" width="4" height="4" />
+    </svg>
+  );
+}
+
+export function ArrowDiagIcon({ size = 16, className }: IconProps) {
+  return (
+    <svg {...base(size)} className={className}>
+      <rect x="2" y="18" width="4" height="4" />
+      <rect x="6" y="14" width="4" height="4" />
+      <rect x="10" y="10" width="4" height="4" />
+      <rect x="14" y="6" width="4" height="4" />
+      {/* the head: two runs off the same corner */}
+      <rect x="12" y="2" width="10" height="2" />
+      <rect x="20" y="2" width="2" height="10" />
+    </svg>
+  );
+}
+
 // Pixel check, same grid as the rest of the set. The success-check animation
 // (fade + rotate + bob) still runs on the wrapper; the old stroke-draw no
 // longer applies to a filled polygon, so the check is simply there.
