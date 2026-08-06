@@ -5,23 +5,15 @@ import { clsx } from "@/lib/clsx";
 import { cssTimeMs } from "@/lib/motion";
 import { Mascot } from "@/components/Mascot";
 import {
-  ArrowDiagIcon,
-  CircleIcon,
   CollapseIcon,
   CursorIcon,
   DownloadIcon,
-  EraserIcon,
   ExpandIcon,
   HandIcon,
-  LineIcon,
   LockIcon,
   LockOpenIcon,
-  MarkerIcon,
   MinusIcon,
-  NoteIcon,
-  PenIcon,
   PlusIcon,
-  SquareIcon,
   TextIcon,
 } from "@/components/icons";
 import { KIND_META } from "@/lib/aitmpl";
@@ -50,36 +42,27 @@ import {
   nodesInRect,
   removeAnnotations,
   removeNode,
-  reorderAnnotation,
   snapTo,
   subtreeOf,
   toggleCollapse,
   updateAnnotation,
   updateNode,
   visibleGraph,
+  TINT_COLORS,
+  tintCss,
   type AgentGraph,
   type AlignEdge,
   type GraphNode,
 } from "@/lib/graph";
 import {
-  INK_COLORS,
-  NOTE_H,
-  NOTE_W,
-  TEXT_H,
-  TEXT_W,
-  WEIGHTS,
+  LABEL_H,
+  LABEL_W,
   annotationBounds,
   duplicateAnnotation,
   hitAnnotation,
-  inkCss,
-  isTextKind,
   moveAnnotation,
   newAnnotationId,
-  pushPoint,
-  quantize,
   type Annotation,
-  type AnnotationKind,
-  type InkColor,
   type Point,
 } from "@/lib/annotations";
 import { exportCanvas } from "@/lib/canvas-export";
@@ -94,14 +77,13 @@ import type { GraphHistory } from "@/lib/use-graph-history";
 //
 // Interaction follows the editor everyone already knows: left-drag on empty
 // space is a marquee, space or middle-drag pans, ⌘Z undoes, ⌘D duplicates,
-// nodes snap to their neighbours' edges and centres, right-click opens the
-// commands for whatever is under the pointer, and a tool from the dock draws
-// on top of all of it.
+// nodes snap to their neighbours' edges and centres, and right-click opens the
+// commands for whatever is under the pointer.
 
 const MIN_ZOOM = 0.4;
 const MAX_ZOOM = 2;
 
-/** How near, in device pixels, a click has to be to grab a drawing. */
+/** How near, in device pixels, a click has to be to grab a label. */
 const INK_HIT_PX = 7;
 
 interface Viewport {
@@ -110,23 +92,16 @@ interface Viewport {
   z: number;
 }
 
-/** Everything the dock can put the pointer into. */
-type Tool = "select" | "hand" | "eraser" | AnnotationKind;
-
-const INK_TOOLS: AnnotationKind[] = [
-  "pen",
-  "marker",
-  "line",
-  "arrow",
-  "rect",
-  "ellipse",
-  "text",
-  "note",
-];
-
-const isInkTool = (t: Tool): t is AnnotationKind => (INK_TOOLS as string[]).includes(t);
-/** Tools that keep drawing after a stroke, instead of falling back to select. */
-const isRepeatTool = (t: Tool) => t === "pen" || t === "marker" || t === "eraser";
+/**
+ * Everything the dock can put the pointer into.
+ *
+ * Three. A drawing set lived here — pen, marker, eraser, shapes, arrows, a
+ * palette and three weights — and none of it survived contact with what this
+ * canvas is for: the wires draw themselves, so a line tool only ever produced
+ * something that looked like a wire and was not one, and colour belongs to the
+ * node (`tint`), which is the copy that exports.
+ */
+type Tool = "select" | "hand" | "label";
 
 /** A drag in flight. `null` when the pointer is not doing anything. */
 type Drag =
@@ -134,11 +109,9 @@ type Drag =
   | { mode: "node"; id: string; grabX: number; grabY: number; origins: Map<string, Point> }
   | { mode: "link"; from: string; x: number; y: number }
   | { mode: "marquee"; from: Point; to: Point; base: string[] }
-  | { mode: "draw"; anchor: Point }
-  | { mode: "ink"; id: string; grab: Point; origin: Annotation }
-  | { mode: "erase" };
+  | { mode: "ink"; id: string; grab: Point; origin: Annotation };
 
-/** Right-click target: a node, a wire, a drawing, or bare canvas. */
+/** Right-click target: a node, a wire, a label, or bare canvas. */
 interface Menu {
   x: number;
   y: number;
@@ -169,8 +142,8 @@ export interface AgentCanvasProps {
    */
   onEditNode?: (id: string) => void;
   /**
-   * Frozen layout: nodes cannot be moved, wired, added or deleted, and nothing
-   * can be drawn. Selecting, panning, zooming and editing a node's fields all
+   * Frozen layout: nodes cannot be moved, wired, added or deleted, and no
+   * label can be written. Selecting, panning, zooming and editing fields all
    * still work — this is the "stop me nudging the tree while I read it" lock,
    * not read-only mode. Controlled by the page so its own toolbar buttons can
    * grey out too.
@@ -230,14 +203,7 @@ export function AgentCanvas({
   const [menu, setMenu] = useState<Menu | null>(null);
   const [size, setSize] = useState({ w: 0, h: 0 });
 
-  // ---- the ink ------------------------------------------------------------
-  // Colour and weight are the pen's, not the drawing's: picking coral once and
-  // then drawing four arrows is the common case, and a per-stroke picker would
-  // make it four trips to the palette.
-  const [color, setColor] = useState<InkColor>("ink");
-  const [weight, setWeight] = useState<number>(WEIGHTS[0]);
-  /** The stroke under the pointer right now. Not in the graph until pointerup. */
-  const [draft, setDraft] = useState<Annotation | null>(null);
+  // ---- labels -------------------------------------------------------------
   const [inkSel, setInkSel] = useState<string | null>(null);
   const [editingInk, setEditingInk] = useState<string | null>(null);
   const [renaming, setRenaming] = useState<string | null>(null);
@@ -296,7 +262,7 @@ export function AgentCanvas({
     };
   }, []);
 
-  /** The grab radius for a drawing, in grid units at the current zoom. */
+  /** The grab radius for a label, in grid units at the current zoom. */
   const inkTol = () => INK_HIT_PX / (viewRef.current.z * GRID);
 
   // ---- viewport -----------------------------------------------------------
@@ -565,127 +531,48 @@ export function AgentCanvas({
     [],
   );
 
-  // ---- the ink ------------------------------------------------------------
+  // ---- labels -------------------------------------------------------------
 
-  const startInk = (at: Point, tool: AnnotationKind): Annotation => ({
-    id: newAnnotationId(),
-    kind: tool,
-    color,
-    weight,
-    ...(tool === "pen" || tool === "marker"
-      ? { points: [quantize(at)] }
-      : tool === "line" || tool === "arrow"
-        ? { points: [quantize(at), quantize(at)] }
-        : tool === "note"
-          ? { x: Math.round(at.x), y: Math.round(at.y), w: NOTE_W, h: NOTE_H, text: "" }
-          : tool === "text"
-            ? { x: Math.round(at.x), y: Math.round(at.y), w: TEXT_W, h: TEXT_H, text: "" }
-            : { x: at.x, y: at.y, w: 0, h: 0 }),
-  });
-
-  /** Drop a note or a label somewhere and open it for typing straight away. */
-  const placeText = useCallback(
-    (at: Point, kind: "text" | "note") => {
+  /** Drop a label somewhere and open it for typing straight away. */
+  const placeLabel = useCallback(
+    (at: Point) => {
       if (lockedRef.current) return;
-      const a = startInk(at, kind);
+      const a: Annotation = {
+        id: newAnnotationId(),
+        x: Math.round(at.x),
+        y: Math.round(at.y),
+        w: LABEL_W,
+        h: LABEL_H,
+        text: "",
+      };
       onChange(addAnnotation(graphRef.current, a));
       setInkSel(a.id);
       setEditingInk(a.id);
+      // Placed once, not armed: the next click should select, not litter a
+      // second empty label wherever it lands.
       setTool("select");
     },
-    // `startInk` closes over the current colour and weight, which is the point.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [onChange, color, weight],
+    [onChange],
   );
 
-  const eraseAt = (at: Point) => {
-    const hit = hitAnnotation(graphAnnotations(graphRef.current), at, inkTol());
-    if (!hit) return;
-    // One tag for the whole sweep: dragging the eraser across six strokes is
-    // one thing the user did, and ⌘Z should take back all six.
-    onChange(removeAnnotations(graphRef.current, [hit]), "erase");
-  };
-
   /**
-   * Take the gesture if a drawing tool is armed. Called from both the surface
-   * and the nodes, because ink goes on top of everything — a pen that stops
-   * working over a node is not a pen.
+   * Take the gesture if the label tool is armed. Called from both the surface
+   * and the nodes — a label can be written over a card, and a tool that stops
+   * at the edge of one would be unable to annotate the thing being annotated.
    */
-  const beginInk = (e: React.PointerEvent): boolean => {
-    if (locked || e.button !== 0) return false;
-    if (!isInkTool(tool) && tool !== "eraser") return false;
+  const beginLabel = (e: React.PointerEvent): boolean => {
+    if (locked || e.button !== 0 || tool !== "label") return false;
     e.stopPropagation();
     e.preventDefault(); // no focus ring jumping onto the node underneath
-    (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
-    const at = toWorld(e.clientX, e.clientY);
-
-    if (tool === "eraser") {
-      setDrag({ mode: "erase" });
-      eraseAt(at);
-      return true;
-    }
-    if (tool === "text" || tool === "note") {
-      placeText(at, tool);
-      return true;
-    }
-    setDraft(startInk(at, tool));
-    setDrag({ mode: "draw", anchor: quantize(at) });
-    setInkSel(null);
+    placeLabel(toWorld(e.clientX, e.clientY));
     return true;
-  };
-
-  /**
-   * The draft, advanced to a pointer position. Shared by the move and the up,
-   * because the last pointermove of a fast drag lands short of where the
-   * button was released — without folding the release in, a dragged arrow
-   * stops a few pixels before the thing it was aimed at.
-   */
-  const advanceDraft = (cur: Annotation, at: Point, anchor: Point, shift: boolean): Annotation => {
-    if (cur.kind === "pen" || cur.kind === "marker") {
-      return { ...cur, points: pushPoint(cur.points ?? [], at) };
-    }
-    if (cur.kind === "line" || cur.kind === "arrow") {
-      const end = quantize(at);
-      // Shift constrains to the nearest 45°, the way every drawing tool does —
-      // an arrow between two nodes usually wants to be straight.
-      return { ...cur, points: [anchor, shift ? octant(anchor, end) : end] };
-    }
-    // Quantised like the freehand tools, so a box's edges land on the same
-    // half-unit lattice as everything else and never between device pixels.
-    const q = quantize(at);
-    const x = Math.min(anchor.x, q.x);
-    const y = Math.min(anchor.y, q.y);
-    let w = Math.abs(q.x - anchor.x);
-    let h = Math.abs(q.y - anchor.y);
-    if (shift) {
-      const side = Math.min(w, h);
-      w = side;
-      h = side;
-    }
-    return { ...cur, x, y, w, h };
-  };
-
-  /** Commit whatever the draft became, if it is worth keeping. */
-  const finishDraw = (a: Annotation | null) => {
-    setDraft(null);
-    if (!a) return;
-    const b = annotationBounds(a);
-    const big = (b.maxX - b.minX) * (b.maxY - b.minY) > 0.25;
-    const drawn = a.points ? a.points.length > 1 : big;
-    if (!drawn) return;
-    onChange(addAnnotation(graphRef.current, a));
-    setInkSel(a.id);
-    // Pen, marker and eraser stay armed — you draw several strokes in a row.
-    // A shape or a label is placed once, so the pointer goes back to select
-    // rather than leaving the next click drawing another rectangle.
-    if (!isRepeatTool(tool)) setTool("select");
   };
 
   // ---- pointer ------------------------------------------------------------
 
   const panning = drag?.mode === "pan";
   const handMode = tool === "hand" || spaceHeld;
-  const inking = !locked && (isInkTool(tool) || tool === "eraser");
+  const inking = !locked && tool === "label";
 
   const onBackgroundPointerDown = (e: React.PointerEvent) => {
     setMenu(null);
@@ -698,14 +585,14 @@ export function AgentCanvas({
       return;
     }
     if (e.button !== 0) return;
-    if (beginInk(e)) return;
+    if (beginLabel(e)) return;
 
     setEdgeId(null);
     const at = toWorld(e.clientX, e.clientY);
 
-    // A drawing under the pointer wins over the marquee. Nodes never get here
-    // — they stop the event themselves — so this is genuinely "empty canvas or
-    // something drawn on it".
+    // A label under the pointer wins over the marquee. Nodes never get here —
+    // they stop the event themselves — so this is genuinely "empty canvas or a
+    // label written on it".
     const hit = hitAnnotation(drawings, at, inkTol());
     if (hit) {
       const a = drawings.find((x) => x.id === hit);
@@ -729,7 +616,7 @@ export function AgentCanvas({
 
   const onNodePointerDown = (e: React.PointerEvent, node: GraphNode) => {
     if (e.button !== 0) return;
-    if (beginInk(e)) return;
+    if (beginLabel(e)) return;
     e.stopPropagation();
     setMenu(null);
     setEdgeId(null);
@@ -792,20 +679,11 @@ export function AgentCanvas({
 
     const w = toWorld(e.clientX, e.clientY);
 
-    if (drag.mode === "erase") {
-      eraseAt(w);
-      return;
-    }
-
-    if (drag.mode === "draw") {
-      const shift = e.shiftKey;
-      setDraft((cur) => (cur ? advanceDraft(cur, w, drag.anchor, shift) : cur));
-      return;
-    }
-
     if (drag.mode === "ink") {
       const b = annotationBounds(drag.origin);
-      const to = quantize({ x: w.x - drag.grab.x, y: w.y - drag.grab.y });
+      // Whole grid units, like a node: the design is pixel art, and text parked
+      // on a fractional unit renders between device pixels.
+      const to = { x: Math.round(w.x - drag.grab.x), y: Math.round(w.y - drag.grab.y) };
       const moved = moveAnnotation(drag.origin, to.x - b.minX, to.y - b.minY);
       onChange(updateAnnotation(graphRef.current, drag.id, moved), `ink:${drag.id}`);
       return;
@@ -851,10 +729,6 @@ export function AgentCanvas({
   };
 
   const onPointerUp = (e: React.PointerEvent) => {
-    if (drag?.mode === "draw") {
-      const at = toWorld(e.clientX, e.clientY);
-      finishDraw(draft ? advanceDraft(draft, at, drag.anchor, e.shiftKey) : null);
-    }
     if (drag?.mode === "link") {
       // Which node the pointer is actually over, read off the DOM rather than
       // tracked during the drag — elementFromPoint is the only thing that
@@ -868,7 +742,7 @@ export function AgentCanvas({
   };
 
   const onDoubleClick = (e: React.MouseEvent) => {
-    // A double-tap with the pen armed is two strokes, not a rename request.
+    // A double-tap with the label tool armed is two labels, not a rename.
     if (locked || inking) return;
     const el = e.target as HTMLElement;
     const nodeId = el.closest<HTMLElement>("[data-node-id]")?.dataset.nodeId;
@@ -881,13 +755,11 @@ export function AgentCanvas({
     }
     const at = toWorld(e.clientX, e.clientY);
     const hit = hitAnnotation(drawings, at, inkTol());
-    const a = hit ? drawings.find((x) => x.id === hit) : undefined;
-    if (a && isTextKind(a.kind)) {
-      setInkSel(a.id);
-      setEditingInk(a.id);
+    if (hit) {
+      setInkSel(hit);
+      setEditingInk(hit);
       return;
     }
-    if (hit) return; // a stroke has nothing to open
     onAddSubagent?.(at);
   };
 
@@ -918,15 +790,7 @@ export function AgentCanvas({
   const TOOL_KEYS: Record<string, Tool> = {
     v: "select",
     h: "hand",
-    p: "pen",
-    m: "marker",
-    e: "eraser",
-    t: "text",
-    n: "note",
-    r: "rect",
-    o: "ellipse",
-    l: "line",
-    a: "arrow",
+    t: "label",
   };
 
   const onKeyDown = (e: React.KeyboardEvent) => {
@@ -937,13 +801,8 @@ export function AgentCanvas({
       return;
     }
     if (e.key === "Escape") {
-      // Peel one layer at a time. Escaping a menu, a half-drawn stroke or an
-      // open note must never also throw away the enlarged view.
-      if (draft) {
-        setDraft(null);
-        setDrag(null);
-        return;
-      }
+      // Peel one layer at a time. Escaping a menu or an open label must never
+      // also throw away the enlarged view.
       if (editingInk) {
         setEditingInk(null);
         return;
@@ -1022,7 +881,7 @@ export function AgentCanvas({
     // and a capital letter typed into a field that bubbled here does nothing.
     if (!mod(e) && !e.altKey && !e.shiftKey && TOOL_KEYS[e.key]) {
       const next = TOOL_KEYS[e.key];
-      if (locked && next !== "select" && next !== "hand") return;
+      if (locked && next === "label") return;
       e.preventDefault();
       setTool(next);
       return;
@@ -1120,11 +979,10 @@ export function AgentCanvas({
     return () => window.removeEventListener("blur", release);
   }, []);
 
-  // The lock takes the pen out of your hand: a locked canvas that is still
-  // armed with the eraser is one stray click from an edit it promised to
-  // refuse.
+  // The lock takes the pointer out of writing mode: a locked canvas still armed
+  // with the label tool is one stray click from an edit it promised to refuse.
   useEffect(() => {
-    if (locked && tool !== "select" && tool !== "hand") setTool("select");
+    if (locked && tool === "label") setTool("select");
   }, [locked, tool]);
 
   // ---- wires --------------------------------------------------------------
@@ -1177,63 +1035,17 @@ export function AgentCanvas({
   const menuEntries = (m: Menu): MenuEntry[] => {
     const ink = m.inkId ? drawings.find((a) => a.id === m.inkId) : undefined;
 
-    // --- a drawing -------------------------------------------------------
+    // --- a label ---------------------------------------------------------
     if (ink) {
       return [
-        { kind: "head", id: "h", label: ink.kind },
-        ...(isTextKind(ink.kind)
-          ? ([
-              {
-                kind: "item",
-                id: "edit",
-                label: "edit text",
-                hint: "dbl",
-                disabled: locked,
-                run: () => setEditingInk(ink.id),
-              },
-            ] as MenuEntry[])
-          : []),
-        {
-          kind: "sub",
-          id: "colour",
-          label: "colour",
-          disabled: locked,
-          items: INK_COLORS.map((c) => ({
-            kind: "item" as const,
-            id: `c-${c.id}`,
-            label: c.label.toLowerCase(),
-            swatch: c.css,
-            checked: ink.color === c.id,
-            run: () => onChange(updateAnnotation(graph, ink.id, { color: c.id })),
-          })),
-        },
-        {
-          kind: "sub",
-          id: "weight",
-          label: "weight",
-          disabled: locked,
-          items: WEIGHTS.map((w, i) => ({
-            kind: "item" as const,
-            id: `w-${w}`,
-            label: ["thin", "medium", "thick"][i],
-            checked: ink.weight === w,
-            run: () => onChange(updateAnnotation(graph, ink.id, { weight: w })),
-          })),
-        },
-        { kind: "rule", id: "r1" },
+        { kind: "head", id: "h", label: "label" },
         {
           kind: "item",
-          id: "front",
-          label: "bring forward",
+          id: "edit",
+          label: "edit text",
+          hint: "dbl",
           disabled: locked,
-          run: () => onChange(reorderAnnotation(graph, ink.id, "up")),
-        },
-        {
-          kind: "item",
-          id: "back",
-          label: "send back",
-          disabled: locked,
-          run: () => onChange(reorderAnnotation(graph, ink.id, "down")),
+          run: () => setEditingInk(ink.id),
         },
         {
           kind: "item",
@@ -1247,11 +1059,11 @@ export function AgentCanvas({
             setInkSel(copy.id);
           },
         },
-        { kind: "rule", id: "r2" },
+        { kind: "rule", id: "r1" },
         {
           kind: "item",
           id: "del",
-          label: "delete drawing",
+          label: "delete label",
           hint: "⌫",
           disabled: locked,
           run: () => {
@@ -1355,7 +1167,7 @@ export function AgentCanvas({
                 onChange(next);
               },
             },
-            ...INK_COLORS.filter((c) => c.id !== "paper").map((c) => ({
+            ...TINT_COLORS.map((c) => ({
               kind: "item" as const,
               id: `t-${c.id}`,
               label: c.label.toLowerCase(),
@@ -1529,19 +1341,11 @@ export function AgentCanvas({
       : []),
     {
       kind: "item",
-      id: "note",
-      label: "add note here",
-      hint: "N",
-      disabled: locked,
-      run: () => placeText(m.world, "note"),
-    },
-    {
-      kind: "item",
       id: "label",
       label: "add label here",
       hint: "T",
       disabled: locked,
-      run: () => placeText(m.world, "text"),
+      run: () => placeLabel(m.world),
     },
     {
       kind: "item",
@@ -1621,7 +1425,7 @@ export function AgentCanvas({
           {
             kind: "item",
             id: "clear",
-            label: `clear ${drawings.length} drawing${drawings.length === 1 ? "" : "s"}`,
+            label: `clear ${drawings.length} label${drawings.length === 1 ? "" : "s"}`,
             disabled: locked,
             run: () => {
               onChange({ ...graph, annotations: [] });
@@ -1757,7 +1561,6 @@ export function AgentCanvas({
             panning && "is-panning",
             locked && "is-locked",
             inking && "is-inking",
-            tool === "eraser" && "is-erasing",
             // The grid has to travel with the world, or a tweened camera slides
             // the nodes while the dots underneath them jump.
             easing && "is-easing",
@@ -1832,15 +1635,10 @@ export function AgentCanvas({
               )}
             </svg>
 
-            {/* INK — over the wires, under the nodes. A drawing is a comment on
-                the graph, so it must be readable across it without ever being
-                in the way of clicking one. */}
-            <AnnotationLayer
-              annotations={drawings}
-              draft={draft}
-              selected={inkSel}
-              editingId={editingInk}
-            />
+            {/* LABELS — over the wires, under the nodes. A label is a comment
+                on the graph, so it must be readable across it without ever
+                being in the way of clicking one. */}
+            <AnnotationLayer annotations={drawings} selected={inkSel} editingId={editingInk} />
 
             {shown.nodes.map((n) => (
               <CanvasNode
@@ -1865,8 +1663,8 @@ export function AgentCanvas({
               />
             ))}
 
-            {/* The live text editor sits above the nodes: a note being typed
-                into is the only thing on the canvas that owns the keyboard. */}
+            {/* The live editor sits above the nodes: a label being typed into
+                is the only thing on the canvas that owns the keyboard. */}
             {editingAnnotation && (
               <AnnotationEditor
                 a={editingAnnotation}
@@ -1878,10 +1676,10 @@ export function AgentCanvas({
                 }
                 onDone={() => {
                   setEditingInk(null);
-                  // An empty label is an accident — a click with the text tool
+                  // An empty label is an accident — a click with the label tool
                   // still armed. Leaving it would litter the canvas with
                   // invisible, un-clickable boxes.
-                  if (!editingAnnotation.text?.trim()) {
+                  if (!editingAnnotation.text.trim()) {
                     onChange(removeAnnotations(graph, [editingAnnotation.id]));
                     setInkSel(null);
                   }
@@ -1899,17 +1697,8 @@ export function AgentCanvas({
           </div>
 
           {/* TOOL DOCK — pinned to the surface, top-left, where every editor
-              this borrows from puts it. Two columns rather than one so eleven
-              tools do not run past the bottom of a 420px canvas. */}
-          <ToolDock
-            tool={tool}
-            onTool={setTool}
-            locked={locked}
-            color={color}
-            onColor={setColor}
-            weight={weight}
-            onWeight={setWeight}
-          />
+              this borrows from puts it. */}
+          <ToolDock tool={tool} onTool={setTool} locked={locked} />
 
           {/* Legend, pinned to the surface so it never pans away.
               Backed like the minimap rather than floating bare: the world pans
@@ -1925,25 +1714,25 @@ export function AgentCanvas({
               <>
                 read-only — select, pan and zoom still work
                 <br />
-                nothing here can be moved, wired, drawn on or deleted
+                nothing here can be moved, wired, labelled or deleted
               </>
             ) : locked ? (
               <>
                 canvas locked — nodes stay put. select, pan and zoom still work
                 <br />
-                unlock from the toolbar to move, wire or draw
+                unlock from the toolbar to move, wire or label
               </>
-            ) : isInkTool(tool) || tool === "eraser" ? (
+            ) : tool === "label" ? (
               <>
-                {tool} — drag to draw · shift constrains · Esc cancels
+                label — click anywhere to write · Esc cancels
                 <br />
-                right-click any drawing to recolour, restack or delete it
+                double-click a label to edit it, drag it to move it
               </>
             ) : (
               <>
                 drag to select · space or middle-drag to pan · ⌘scroll to zoom
                 <br />
-                right-click for everything · double-click a node to rename · P to draw
+                right-click for everything · double-click a node to rename · T to label
               </>
             )}
           </div>
@@ -1969,47 +1758,26 @@ export function AgentCanvas({
   );
 }
 
-/** The nearest 45° from `from`, for shift-constrained lines and arrows. */
-function octant(from: Point, to: Point): Point {
-  const dx = to.x - from.x;
-  const dy = to.y - from.y;
-  const angle = Math.round(Math.atan2(dy, dx) / (Math.PI / 4)) * (Math.PI / 4);
-  const len = Math.hypot(dx, dy);
-  return quantize({ x: from.x + Math.cos(angle) * len, y: from.y + Math.sin(angle) * len });
-}
-
 // ---------------------------------------------------------------- tool dock
 
-const DOCK: { id: Tool; label: string; key: string; icon: React.ReactNode }[] = [
-  { id: "pen", label: "Pen — pixel freehand", key: "P", icon: <PenIcon size={11} /> },
-  { id: "marker", label: "Marker — wide, translucent", key: "M", icon: <MarkerIcon size={11} /> },
-  { id: "eraser", label: "Eraser — drag over a drawing", key: "E", icon: <EraserIcon size={11} /> },
-  { id: "text", label: "Label — type on the canvas", key: "T", icon: <TextIcon size={11} /> },
-  { id: "note", label: "Sticky note", key: "N", icon: <NoteIcon size={11} /> },
-  { id: "rect", label: "Rectangle", key: "R", icon: <SquareIcon size={11} /> },
-  { id: "ellipse", label: "Ellipse", key: "O", icon: <CircleIcon size={11} /> },
-  { id: "line", label: "Line", key: "L", icon: <LineIcon size={11} /> },
-  { id: "arrow", label: "Arrow", key: "A", icon: <ArrowDiagIcon size={11} /> },
-];
-
+/**
+ * Three buttons, in one column.
+ *
+ * This was a two-column grid of eleven, plus a palette and a weight picker.
+ * Everything past "select, pan, write a note" was a drawing app growing inside
+ * a graph editor: the wires already draw themselves, so a line tool made
+ * things that looked like wires and were not, and a colour picked here only
+ * ever tinted marks that no export, install or share link carries.
+ */
 function ToolDock({
   tool,
   onTool,
   locked,
-  color,
-  onColor,
-  weight,
-  onWeight,
 }: {
   tool: Tool;
   onTool: (t: Tool) => void;
   locked: boolean;
-  color: InkColor;
-  onColor: (c: InkColor) => void;
-  weight: number;
-  onWeight: (w: number) => void;
 }) {
-  const drawing = isInkTool(tool) || tool === "eraser";
   return (
     <div
       className="t-dock absolute top-2 left-2 flex flex-col gap-1 p-1 border-2 border-line"
@@ -2019,79 +1787,30 @@ function ToolDock({
       aria-label="Canvas tools"
       aria-orientation="vertical"
     >
-      <div className="grid grid-cols-2 gap-1">
+      <DockButton
+        active={tool === "select"}
+        label="Select (V) — drag to marquee"
+        onClick={() => onTool("select")}
+      >
+        <CursorIcon size={11} />
+      </DockButton>
+      <DockButton
+        active={tool === "hand"}
+        label="Hand (H, or hold space) — drag to pan"
+        onClick={() => onTool("hand")}
+      >
+        <HandIcon size={11} />
+      </DockButton>
+      {/* Writing is the one thing a locked canvas refuses here, and a button
+          that only ever refuses is worse than one that is not there. */}
+      {!locked && (
         <DockButton
-          active={tool === "select"}
-          label="Select (V) — drag to marquee"
-          onClick={() => onTool("select")}
+          active={tool === "label"}
+          label="Label (T) — click to write on the canvas"
+          onClick={() => onTool("label")}
         >
-          <CursorIcon size={11} />
+          <TextIcon size={11} />
         </DockButton>
-        <DockButton
-          active={tool === "hand"}
-          label="Hand (H, or hold space) — drag to pan"
-          onClick={() => onTool("hand")}
-        >
-          <HandIcon size={11} />
-        </DockButton>
-        {/* Nothing here can run on a locked canvas, and a row of buttons that
-            all refuse is worse than a row that is not there. */}
-        {!locked &&
-          DOCK.map((t) => (
-            <DockButton
-              key={t.id}
-              active={tool === t.id}
-              label={`${t.label} (${t.key})`}
-              onClick={() => onTool(t.id)}
-            >
-              {t.icon}
-            </DockButton>
-          ))}
-      </div>
-
-      {/* The ink options only exist while something can be drawn with them. */}
-      {drawing && !locked && (
-        <div className="pt-1 border-t-2 border-line flex flex-col gap-1">
-          <div className="grid grid-cols-5 gap-1">
-            {INK_COLORS.map((c) => (
-              <button
-                key={c.id}
-                type="button"
-                title={c.label}
-                aria-label={`${c.label} ink`}
-                aria-pressed={color === c.id}
-                onClick={() => onColor(c.id)}
-                className={clsx(
-                  "w-4 h-4 border-2 cursor-pointer transition-colors duration-100",
-                  color === c.id ? "border-coral" : "border-line",
-                )}
-                style={{ background: c.css }}
-              />
-            ))}
-          </div>
-          <div className="grid grid-cols-3 gap-1">
-            {WEIGHTS.map((w, i) => (
-              <button
-                key={w}
-                type="button"
-                title={["Thin", "Medium", "Thick"][i]}
-                aria-label={`${["Thin", "Medium", "Thick"][i]} stroke`}
-                aria-pressed={weight === w}
-                onClick={() => onWeight(w)}
-                className={clsx(
-                  "h-4 grid place-items-center border-2 cursor-pointer transition-colors duration-100",
-                  weight === w ? "border-coral bg-stone" : "border-line bg-paper",
-                )}
-              >
-                <span
-                  aria-hidden="true"
-                  className="block w-2.5 bg-ink"
-                  style={{ height: Math.max(1, w / 2) }}
-                />
-              </button>
-            ))}
-          </div>
-        </div>
       )}
     </div>
   );
@@ -2184,7 +1903,7 @@ function CanvasNode({
         height: nodeHeight(node.kind) * GRID,
         // The tag is a border colour, not a fill: a filled node stops being a
         // card in this system and starts being a button.
-        ...(node.tint ? ({ "--tint": inkCss(node.tint) } as React.CSSProperties) : {}),
+        ...(node.tint ? ({ "--tint": tintCss(node.tint) } as React.CSSProperties) : {}),
       }}
       onPointerDown={onPointerDown}
       onPointerEnter={onEnter}

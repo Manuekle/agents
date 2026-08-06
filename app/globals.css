@@ -1244,29 +1244,14 @@ html::-webkit-scrollbar-corner {
   z-index: 5;
 }
 
-/* ---------- the ink ---------- */
-/* Strokes are drawn in the world, so their width scales with the zoom — which
-   is right: a drawing is pinned to the graph, not to the screen. Square caps
-   and mitred joins keep a quantised path reading as pixel art instead of being
-   rounded back into a curve at every corner. */
-.t-ink {
-  fill: none;
-  stroke-linecap: square;
-  stroke-linejoin: miter;
-  pointer-events: none;
-}
-/* One device pixel at any zoom, like the alignment guides: a selection box
-   that thickens as you zoom in stops being a marker and becomes a shape. */
-.t-ink-sel {
-  fill: none;
-  stroke: var(--coral);
-  stroke-width: 1;
-  stroke-dasharray: 3 3;
-  vector-effect: non-scaling-stroke;
-  pointer-events: none;
-}
-.t-ink-note {
-  box-shadow: 3px 3px 0 0 var(--shadow);
+/* ---------- labels ---------- */
+/* Text in the world, so it pans and zooms with the nodes it was written about.
+   A selected one wears a dashed outline drawn with `outline` rather than a
+   border: an outline sits outside the box and cannot reflow the text inside
+   it, so selecting a label never makes it re-wrap. */
+.t-ink-text[data-selected] {
+  outline: 1px dashed var(--coral);
+  outline-offset: 3px;
 }
 .t-ink-editor {
   z-index: 6;
@@ -1291,16 +1276,12 @@ html::-webkit-scrollbar-corner {
   z-index: 5;
 }
 
-/* Ink tools take the whole surface, nodes included — a pen that stops at the
-   edge of a card is not a pen. */
+/* The label tool takes the whole surface, nodes included — a note about a card
+   is usually written on the card. */
 .t-canvas.is-inking,
 .t-canvas.is-inking .t-node button,
 .t-canvas.is-inking .t-port {
   cursor: crosshair;
-}
-.t-canvas.is-erasing,
-.t-canvas.is-erasing .t-node button {
-  cursor: cell;
 }
 
 .t-minimap-ink {

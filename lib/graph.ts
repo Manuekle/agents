@@ -1,11 +1,6 @@
 import { SUBAGENT_MASCOTS, mascotForSeed, type MascotState } from "./mascot";
 import { AITMPL_KINDS, componentId, kindOfArg, type AitmplKind } from "./aitmpl";
-import {
-  annotationsBounds,
-  normalizeAnnotations,
-  type Annotation,
-  type InkColor,
-} from "./annotations";
+import { annotationsBounds, normalizeAnnotations, type Annotation } from "./annotations";
 import type { Agent, PickedSkill } from "./types";
 
 // The composer's canvas model.
@@ -57,11 +52,11 @@ export interface GraphNode {
   name: string;
 
   /**
-   * A colour tag, by token. Purely organisational — nothing exports it. On a
-   * graph with twenty nodes it is the difference between "the red branch" and
-   * reading four names to find the one you meant.
+   * A colour tag, by token. Purely organisational — it changes nothing about
+   * what the agent installs. On a graph with twenty nodes it is the difference
+   * between "the red branch" and reading four names to find the one you meant.
    */
-  tint?: InkColor;
+  tint?: TintColor;
   /**
    * Folded: this node's descendants are not drawn. Stored on the node rather
    * than in canvas state so a folded branch stays folded after a reload, which
@@ -118,6 +113,27 @@ export const COMPONENT_NODE_H = 7; // 56px
 
 export function nodeHeight(kind: NodeKind): number {
   return isAgentKind(kind) ? AGENT_NODE_H : COMPONENT_NODE_H;
+}
+
+/**
+ * The colour vocabulary for a node's tag — by token, never by hex. A branch
+ * tagged red in light mode has to still be tagged red after the theme wipe, and
+ * a stored `#ef5c47` would be a literal sitting in a saved document.
+ *
+ * Four, and no "paper": a tag is a border colour, and a border the colour of
+ * the background is a node that has lost its edge.
+ */
+export type TintColor = "ink" | "coral" | "ok" | "muted";
+
+export const TINT_COLORS: { id: TintColor; label: string; css: string }[] = [
+  { id: "ink", label: "Ink", css: "var(--ink)" },
+  { id: "coral", label: "Coral", css: "var(--coral)" },
+  { id: "ok", label: "Green", css: "var(--ok)" },
+  { id: "muted", label: "Muted", css: "var(--muted)" },
+];
+
+export function tintCss(color: TintColor): string {
+  return TINT_COLORS.find((c) => c.id === color)?.css ?? "var(--line)";
 }
 
 /**
@@ -636,22 +652,6 @@ export function removeAnnotations(graph: AgentGraph, ids: string[]): AgentGraph 
   const doomed = new Set(ids);
   const next = graphAnnotations(graph).filter((a) => !doomed.has(a.id));
   if (next.length === graphAnnotations(graph).length) return graph;
-  return { ...graph, annotations: next };
-}
-
-/**
- * Paint order is array order, so "bring forward" is a move within the list.
- * One step at a time rather than straight to the end: overlapping drawings are
- * usually two or three deep, and jumping to the top loses the stack you built.
- */
-export function reorderAnnotation(graph: AgentGraph, id: string, dir: "up" | "down"): AgentGraph {
-  const list = graphAnnotations(graph);
-  const i = list.findIndex((a) => a.id === id);
-  if (i === -1) return graph;
-  const j = dir === "up" ? i + 1 : i - 1;
-  if (j < 0 || j >= list.length) return graph;
-  const next = [...list];
-  [next[i], next[j]] = [next[j], next[i]];
   return { ...graph, annotations: next };
 }
 

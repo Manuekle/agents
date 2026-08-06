@@ -80,7 +80,7 @@ Buttons and labels are `font-pixel` uppercase at 11px; badges are `font-mono` up
 - `.pixel-border` — `2px solid var(--line)` + `4px 4px 0 0 var(--shadow)`.
 - `.pixel-border-sm` — same border + `2px 2px 0` shadow (buttons, small panels).
 - Canvas grid: `GRID = 8` units, `NODE_W = 26` (208px), agent node 11 (88px), component node 7 (56px) — `lib/graph.ts`.
-- Canvas ink: freehand is quantised to `QUANT = 0.5` grid units (4px) and drawn with square caps and mitred joins, so a hand-drawn stroke comes out as pixel art rather than as an ink line pasted over it. Ink colour is a **token name** (`ink`, `coral`, `ok`, `muted`, `paper` — `INK_COLORS` in `lib/annotations.ts`), never a hex: a drawing made in light mode has to survive the theme wipe.
+- Canvas colour: a node's tag is a **token name** (`ink`, `coral`, `ok`, `muted` — `TINT_COLORS` in `lib/graph.ts`), never a hex, because a tag chosen in light mode has to survive the theme wipe. It paints the node's border and nothing else — a filled node stops being a card and starts being a button. Canvas labels take no colour at all: one size, `--ink`, so a margin note stays a margin note.
 - Focus: `outline: 2px solid var(--coral)` (offset `2px`, `-2px` on the canvas surface). Never remove it.
 
 ## 5. Texture

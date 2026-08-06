@@ -87,16 +87,16 @@ Feature gating (`planAllows`) is separate from access gating: today the only fea
 | `skills-search.ts`, `skills-candidates.ts`, `skills-seed.ts`, `aitmpl.ts` | registry search and seeding |
 | `motion.ts` | reads CSS motion tokens back into JS |
 | `theme-wipe.ts` | the block-wipe theme transition |
-| `annotations.ts` | the canvas' drawing layer — kinds, hit-testing, ink tokens, (de)serialize |
+| `annotations.ts` | the canvas' labels — geometry, hit-testing, (de)serialize |
 | `mascot.ts`, `avatar.ts`, `brand.ts`, `site.ts`, `palette.ts`, `stars.ts`, `share.ts`, `copy.ts`, `clsx.ts` | small single-purpose helpers |
 | `use-auth.ts`, `use-plan.ts`, `use-graph-history.ts` | client hooks |
 
 ## 5. Components
 
 - `components/ui.tsx` — the primitive kit (see DESIGN.md §7). Build from it first.
-- `components/canvas/AgentCanvas.tsx` — pan/zoom/marquee graph editor: drag, wire, fold a branch, rename in place, align a selection, draw on it.
+- `components/canvas/AgentCanvas.tsx` — pan/zoom/marquee graph editor: drag, wire, fold a branch, rename in place, align a selection, label it. Three tools in the dock (select · hand · label) and no more: the wires draw themselves, so a drawing set here only ever produced marks that looked like wires and exported to nothing.
 - `components/canvas/ContextMenu.tsx` — the right-click menu. Renders and drives a list of entries (keyboard, submenus, staying on screen); the canvas builds the list, because only it has the graph, the selection and the history.
-- `components/canvas/Annotations.tsx` — the drawing layer: one `<svg>` for strokes and shapes, DOM for labels and notes, plus the live text editor.
+- `components/canvas/Annotations.tsx` — the label layer: DOM text in world space, plus the live editor.
 - `components/dither-kit/` — the in-house chart library (cartesian + polar, dithered paint, axes, legend, tooltip). No chart dependency beyond `d3-scale`/`d3-shape`.
 - Feature components: `SkillBrowser`, `CommandPalette`, `McpTokens`, `AiProviderSettings`, `PlanUsage`, `Mascot`, `Nav`, `Footer`, …
 

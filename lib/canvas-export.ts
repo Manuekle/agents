@@ -6,6 +6,11 @@
 // once for SVG, once for a 2D context — is how the two silently drift until
 // the PNG and the SVG of the same graph stop being the same picture.
 //
+// The `ellipse` primitive has no caller since the shape tools were cut; it
+// stays because both backends already implement it and a `Prim` union that can
+// only draw what today's canvas draws is one that has to be reopened the first
+// time anything round is ever needed.
+//
 // What comes out is what is *on screen*: a folded branch stays folded, because
 // exporting a view that shows more than the view does is a surprise, not a
 // feature. Selection, hover, guides and the marquee are chrome and never go in.
@@ -31,17 +36,9 @@ import {
   visibleGraph,
   type AgentGraph,
   type GraphNode,
+  type TintColor,
 } from "./graph";
-import {
-  MARKER_ALPHA,
-  MARKER_SCALE,
-  annotationBounds,
-  arrowHead,
-  isTextKind,
-  strokePath,
-  type Annotation,
-  type InkColor,
-} from "./annotations";
+import { LABEL_LINE, LABEL_SIZE, type Annotation } from "./annotations";
 import { MASCOTS } from "./mascot";
 import { mascotOf } from "./graph";
 
@@ -128,7 +125,7 @@ function readInk(): Ink {
   };
 }
 
-function inkColor(c: InkColor, ink: Ink): string {
+function tintColor(c: TintColor, ink: Ink): string {
   switch (c) {
     case "coral":
       return ink.coral;
@@ -136,8 +133,6 @@ function inkColor(c: InkColor, ink: Ink): string {
       return ink.ok;
     case "muted":
       return ink.muted;
-    case "paper":
-      return ink.paper;
     default:
       return ink.ink;
   }
@@ -241,8 +236,8 @@ export function buildScene(graph: AgentGraph): Scene {
     });
   }
 
-  // --- the drawing layer ---------------------------------------------------
-  for (const a of graphAnnotations(graph)) drawAnnotation(prims, a, ink, offX, offY);
+  // --- the labels ----------------------------------------------------------
+  for (const a of graphAnnotations(graph)) drawLabel(prims, a, ink, offX, offY);
 
   // --- nodes ---------------------------------------------------------------
   for (const n of g.nodes) drawNode(prims, n, graph, ink, X(n.x), Y(n.y));
@@ -256,66 +251,25 @@ export function buildScene(graph: AgentGraph): Scene {
   };
 }
 
-function drawAnnotation(prims: Prim[], a: Annotation, ink: Ink, offX: number, offY: number) {
-  const color = inkColor(a.color, ink);
-  const marker = a.kind === "marker";
-  const sw = marker ? a.weight * MARKER_SCALE : a.weight;
-  const opacity = marker ? MARKER_ALPHA : undefined;
-  const box = annotationBounds(a);
-  const x = box.minX * GRID + offX;
-  const y = box.minY * GRID + offY;
-  const w = (box.maxX - box.minX) * GRID;
-  const h = (box.maxY - box.minY) * GRID;
-
-  if (a.kind === "rect") {
-    prims.push({ t: "rect", x, y, w, h, stroke: color, sw });
-    return;
-  }
-  if (a.kind === "ellipse") {
-    prims.push({ t: "ellipse", cx: x + w / 2, cy: y + h / 2, rx: w / 2, ry: h / 2, stroke: color, sw });
-    return;
-  }
-  if (isTextKind(a.kind)) {
-    const size = a.weight <= 2 ? 12 : a.weight <= 4 ? 16 : 24;
-    const pad = a.kind === "note" ? 6 : 0;
-    if (a.kind === "note") {
-      // The note's wash, then its border — a tinted card, the way the canvas
-      // draws it, with the ink token carrying the contrast for the text.
-      prims.push({ t: "rect", x, y, w, h, fill: color, fillOpacity: 0.16 });
-      prims.push({ t: "rect", x, y, w, h, stroke: color, sw: 2 });
-    }
-    const lines = wrap(a.text ?? "", size, Math.max(8, w - pad * 2));
-    const lh = size * 1.35;
-    lines.forEach((line, i) => {
-      const baseline = y + pad + lh * i + size * 0.85;
-      // Clipped to the card: a note is a fixed box on the canvas and must not
-      // grow one in the export.
-      if (a.kind === "note" && baseline > y + h - 2) return;
-      prims.push({
-        t: "text",
-        x: x + pad,
-        y: baseline,
-        text: line,
-        size,
-        fill: a.kind === "note" ? ink.ink : color,
-        family: "mono",
-      });
-    });
-    return;
-  }
-
-  const points = (a.points ?? []).map((p) => ({ x: p.x + offX / GRID, y: p.y + offY / GRID }));
-  if (points.length === 0) return;
-  prims.push({ t: "path", d: strokePath(points, GRID), stroke: color, sw, opacity });
-  if (a.kind === "arrow" && points.length > 1) {
+/** A label, wrapped to its box exactly the way the canvas wraps it. */
+function drawLabel(prims: Prim[], a: Annotation, ink: Ink, offX: number, offY: number) {
+  const x = a.x * GRID + offX;
+  const y = a.y * GRID + offY;
+  const lines = wrap(a.text, LABEL_SIZE, Math.max(8, a.w * GRID));
+  const lh = LABEL_SIZE * LABEL_LINE;
+  lines.forEach((line, i) => {
     prims.push({
-      t: "path",
-      d: arrowHead(points[points.length - 2], points[points.length - 1], GRID, a.weight),
-      stroke: color,
-      sw,
-      opacity,
+      t: "text",
+      x,
+      // Baseline, from the top of the line box — the same 0.85 the canvas' own
+      // line-height lands on.
+      y: y + lh * i + LABEL_SIZE * 0.85,
+      text: line,
+      size: LABEL_SIZE,
+      fill: ink.ink,
+      family: "mono",
     });
-  }
+  });
 }
 
 function drawNode(
@@ -329,7 +283,7 @@ function drawNode(
   const w = NODE_W * GRID;
   const h = nodeHeight(n.kind) * GRID;
   const agentish = isAgentKind(n.kind);
-  const border = n.tint ? inkColor(n.tint, ink) : ink.line;
+  const border = n.tint ? tintColor(n.tint, ink) : ink.line;
 
   prims.push({
     t: "rect",
