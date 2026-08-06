@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { clientIp, rateLimit } from "@/lib/foundry";
 import { SEED_SKILLS } from "@/lib/skills-seed";
 import { searchSkills } from "@/lib/skills-search";
 import {
@@ -17,6 +18,19 @@ export const runtime = "nodejs";
 const SORTS: SortKey[] = ["relevance", "installs", "alpha"];
 const PAGE = 60;
 
+// A skills.sh query is a live outbound fetch on every miss (lib/skills-search
+// has no cache of its own — only the aitmpl catalog does), so this route is one
+// unauthenticated request away from being a scraping proxy for skills.sh
+// wearing our IP. That is the exact reason /api/skills/candidates is gated;
+// this one has to stay public because /skills and ⌘K are, so it gets a ceiling
+// instead of a login. Generous on purpose: the command palette fires two of
+// these per search and the browser paginates.
+const MAX_PER_MINUTE = 60;
+
+// No registry query is a paragraph. Longer than this is either a mistake or an
+// attempt to make the upstream do expensive work on our behalf.
+const MAX_QUERY = 120;
+
 function sortParam(v: string | null): SortKey {
   return SORTS.includes(v as SortKey) ? (v as SortKey) : "relevance";
 }
@@ -32,8 +46,18 @@ function offsetParam(v: string | null): number {
 // the default searches skills.sh (installable via `npx skills add`) and
 // overlays aitmpl copy wherever a slug happens to match.
 export async function GET(req: Request) {
+  const limit = rateLimit("skills", clientIp(req), MAX_PER_MINUTE);
+  if (!limit.ok) {
+    return NextResponse.json(
+      { ok: false, error: "rate limited", skills: [] },
+      { status: 429, headers: { "retry-after": String(limit.retryAfter) } },
+    );
+  }
+
   const params = new URL(req.url).searchParams;
-  const q = params.get("q")?.trim() ?? "";
+  // Truncated rather than rejected: a query this long is never deliberate, and
+  // the first 120 characters still search for whatever the visitor meant.
+  const q = (params.get("q")?.trim() ?? "").slice(0, MAX_QUERY);
   const sort = sortParam(params.get("sort"));
 
   if (params.get("source") === "aitmpl") {

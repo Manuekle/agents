@@ -10,6 +10,7 @@ import { usePlan } from "@/lib/use-plan";
 import { useSignedIn } from "@/lib/use-auth";
 import { PLANS } from "@/lib/plans";
 import { copyText } from "@/lib/copy";
+import { clsx } from "@/lib/clsx";
 
 interface TokenRow {
   id: string;
@@ -35,6 +36,11 @@ export function McpTokens() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
+  // Which row is one press away from being revoked. Two presses rather than a
+  // browser confirm(), matching how the home page deletes an agent — and for a
+  // stronger reason: revoking is instant, permanent, and breaks whatever CLI is
+  // holding that token right now, with no way to get the same string back.
+  const [confirming, setConfirming] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     const sb = supabaseBrowser();
@@ -79,7 +85,11 @@ export function McpTokens() {
   const revoke = async (id: string) => {
     const sb = supabaseBrowser();
     if (!sb) return;
-    await sb.from("api_tokens").delete().eq("id", id);
+    setConfirming(null);
+    const { error } = await sb.from("api_tokens").delete().eq("id", id);
+    // A revoke that silently fails leaves a live token on screen looking dead —
+    // the one outcome worse than not revoking at all.
+    if (error) setError(error.message);
     void load();
   };
 
@@ -183,10 +193,27 @@ export function McpTokens() {
                     </span>
                   </span>
                   <button
-                    onClick={() => revoke(t.id)}
-                    className="font-mono text-[10px] px-2 py-1 border-2 border-line hover:bg-coral-text hover:text-paper transition-colors shrink-0 cursor-pointer"
+                    type="button"
+                    aria-label={
+                      confirming === t.id ? `Confirm revoking ${t.name}` : `Revoke ${t.name}`
+                    }
+                    title={
+                      confirming === t.id
+                        ? "Press again to revoke"
+                        : "Revoke this token — anything using it stops working"
+                    }
+                    onClick={() =>
+                      confirming === t.id ? void revoke(t.id) : setConfirming(t.id)
+                    }
+                    onBlur={() => setConfirming((id) => (id === t.id ? null : id))}
+                    className={clsx(
+                      "font-mono text-[10px] px-2 py-1 border-2 border-line transition-colors shrink-0 cursor-pointer",
+                      confirming === t.id
+                        ? "bg-coral-text text-paper"
+                        : "hover:bg-coral-text hover:text-paper",
+                    )}
                   >
-                    Revoke
+                    {confirming === t.id ? "Sure?" : "Revoke"}
                   </button>
                 </li>
               ))}

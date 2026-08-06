@@ -628,7 +628,7 @@ function Builder() {
                 {!editingRoot && (
                   <button
                     onClick={() => selectOne(root?.id ?? null)}
-                    className="font-mono text-[10px] px-2 py-0.5 border-2 border-line bg-paper hover:bg-stone transition-colors cursor-pointer"
+                    className="inline-flex items-center min-h-6 font-mono text-[10px] px-2 py-0.5 border-2 border-line bg-paper hover:bg-stone transition-colors cursor-pointer"
                   >
                     <span className="inline-flex items-center gap-1">
                       <AngleLeftIcon size={10} />
@@ -818,7 +818,7 @@ function Builder() {
                         setPreviewState("wizard");
                       }}
                       title={locked ? "Canvas is locked" : `remove ${nodeRef(n)}`}
-                      className="inline-flex items-center gap-1 font-mono text-[10px] px-2 py-0.5 border-2 border-line bg-fill text-on-fill hover:bg-coral-text transition-colors disabled:opacity-50 disabled:pointer-events-none"
+                      className="inline-flex items-center gap-1 min-h-6 font-mono text-[10px] px-2 py-0.5 border-2 border-line bg-fill text-on-fill hover:bg-coral-text transition-colors disabled:opacity-50 disabled:pointer-events-none"
                     >
                       {n.name} <span className="opacity-70">✕</span>
                     </button>

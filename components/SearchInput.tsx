@@ -258,6 +258,13 @@ export function SearchInput({
               "grid place-items-center size-5 shrink-0 border-2 border-line bg-paper",
               "font-mono text-[10px] leading-none text-muted",
               "hover:bg-stone hover:text-ink transition-colors",
+              // The chip stays 20px — it has to sit inside the field without
+              // crowding the text — but 20×20 is under the 24px target minimum,
+              // and this is the control people reach for on a phone after
+              // mistyping. The pseudo-element carries the hit area out to 24
+              // without moving the box that is drawn. Nothing else in the row is
+              // a target, so the extra 2px cannot overlap one.
+              "relative before:absolute before:-inset-0.5 before:content-['']",
             )}
           >
             ×

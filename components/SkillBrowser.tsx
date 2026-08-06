@@ -323,7 +323,10 @@ export function SkillBrowser({
               onClick={() => switchKind(k.id)}
               title={k.blurb}
               className={clsx(
-                "font-mono text-[10px] px-2 py-0.5 border-2 border-line transition-colors",
+                // `min-h-6`: 10px type on `py-0.5` measures 23px, one pixel
+                // under the 24px target minimum, and these sit in a wrapped row
+                // on a 6px gap so nothing about the spacing makes up for it.
+                "inline-flex items-center min-h-6 font-mono text-[10px] px-2 py-0.5 border-2 border-line transition-colors cursor-pointer",
                 kind === k.id ? "bg-ink text-paper" : "bg-paper hover:bg-stone",
               )}
             >
@@ -339,7 +342,10 @@ export function SkillBrowser({
             <button
               onClick={() => setCategory(null)}
               className={clsx(
-                "font-mono text-[10px] px-2 py-0.5 border-2 border-line transition-colors",
+                // `min-h-6`: 10px type on `py-0.5` measures 23px, one pixel
+                // under the 24px target minimum, and these sit in a wrapped row
+                // on a 6px gap so nothing about the spacing makes up for it.
+                "inline-flex items-center min-h-6 font-mono text-[10px] px-2 py-0.5 border-2 border-line transition-colors cursor-pointer",
                 category === null ? "bg-fill text-on-fill" : "bg-paper hover:bg-stone",
               )}
             >
@@ -350,7 +356,10 @@ export function SkillBrowser({
                 key={c.name}
                 onClick={() => setCategory(c.name === category ? null : c.name)}
                 className={clsx(
-                  "font-mono text-[10px] px-2 py-0.5 border-2 border-line transition-colors",
+                  // `min-h-6`: 10px type on `py-0.5` measures 23px, one pixel
+                // under the 24px target minimum, and these sit in a wrapped row
+                // on a 6px gap so nothing about the spacing makes up for it.
+                "inline-flex items-center min-h-6 font-mono text-[10px] px-2 py-0.5 border-2 border-line transition-colors cursor-pointer",
                   category === c.name ? "bg-fill text-on-fill" : "bg-paper hover:bg-stone",
                 )}
               >
@@ -363,7 +372,7 @@ export function SkillBrowser({
             <button
               key={s}
               onClick={() => setQ(s)}
-              className="font-mono text-[10px] px-2 py-0.5 border-2 border-line bg-paper hover:bg-stone transition-colors"
+              className="inline-flex items-center min-h-6 font-mono text-[10px] px-2 py-0.5 border-2 border-line bg-paper hover:bg-stone transition-colors cursor-pointer"
             >
               #{s}
             </button>

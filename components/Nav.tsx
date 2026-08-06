@@ -89,7 +89,7 @@ export function Nav() {
               toggle need ~840px. The cutover used to be `sm` (640px), which
               overflowed the row on every narrow laptop once signed in — the
               whole set moves into the drawer below `lg` instead. */}
-          <nav className="hidden lg:flex items-center gap-1">
+          <nav aria-label="Site" className="hidden lg:flex items-center gap-1">
             {LINKS.map((l) => {
               const locked = lockedFor(l.href);
               return (
@@ -162,17 +162,25 @@ export function Nav() {
       </div>
 
       {/* MOBILE DRAWER — the clip wrapper tweens height so the page below is
-          pushed down in step with the panel instead of jumping. */}
-      <div id="nav-drawer" className="lg:hidden t-panel-clip" data-open={open}>
+          pushed down in step with the panel instead of jumping.
+          `inert` while closed, not just `tabIndex={-1}` on the links: the clip
+          is `height: 0; overflow: hidden`, which hides the panel from sight but
+          leaves everything inside it focusable. The two controls at the foot —
+          the stars pill and the account button — carried no tabIndex guard, so
+          tabbing the header on a phone dropped focus into a panel nobody could
+          see. One attribute on the wrapper covers whatever ends up in here. */}
+      <div id="nav-drawer" className="lg:hidden t-panel-clip" data-open={open} inert={!open}>
         <div className="t-panel-slide border-t-2 border-line" data-open={open}>
-          <nav className="mx-auto max-w-6xl px-5 py-3 flex flex-col gap-1">
+          <nav
+            aria-label="Site (mobile)"
+            className="mx-auto max-w-6xl px-5 py-3 flex flex-col gap-1"
+          >
             {LINKS.map((l) => {
               const locked = lockedFor(l.href);
               return (
                 <Link
                   key={l.href}
                   href={hrefFor(l, locked)}
-                  tabIndex={open ? undefined : -1}
                   className={clsx(
                     "font-mono text-xs px-3 py-2 border-2 transition-colors flex items-center gap-1.5",
                     isActive(path, l)

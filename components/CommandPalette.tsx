@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useId, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { clsx } from "@/lib/clsx";
 import { copyText } from "@/lib/copy";
@@ -123,6 +123,7 @@ export function CommandPalette() {
   const inputRef = useRef<HTMLInputElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
   const overlayRef = useRef<HTMLDivElement>(null);
+  const baseId = useId();
   // Every search increments this; a response whose token is stale is dropped.
   // Without it a slow "re" can land after a fast "react" and replace it.
   const token = useRef(0);
@@ -218,8 +219,16 @@ export function CommandPalette() {
     // toast below is a sibling of the overlay, not an ancestor, so it was
     // being inerted too — and an inert live region announces nothing, which is
     // the one thing that element exists to do.
+    //
+    // Next's route announcer is exempt for the same reason: it is a live region
+    // whose whole job is to say the page changed, and choosing a page row here
+    // navigates while this effect is still torn down — inerted, that navigation
+    // is announced to nobody.
     const roots = [...document.body.children].filter(
-      (el): el is HTMLElement => el instanceof HTMLElement && !el.hasAttribute("data-palette"),
+      (el): el is HTMLElement =>
+        el instanceof HTMLElement &&
+        !el.hasAttribute("data-palette") &&
+        el.tagName !== "NEXT-ROUTE-ANNOUNCER",
     );
     for (const el of roots) el.inert = true;
 
@@ -363,6 +372,11 @@ export function CommandPalette() {
   // whether or not it has anything to say. A region inserted at the same
   // moment its text appears announces unreliably across screen readers; a
   // stable one that gets written into does not.
+  //
+  // It carries two things. A toast, which is shown; and, while the palette is
+  // open, the result count, which is not — arrowing through a list nobody
+  // announced the size of gives no sense of how far there is to go, and a
+  // search that quietly returns nothing is otherwise silent.
   const status = (
     <div
       role="status"
@@ -373,7 +387,10 @@ export function CommandPalette() {
         !toast && "sr-only",
       )}
     >
-      {toast ?? ""}
+      {toast ??
+        (open && !closing && !busy && !stale
+          ? `${rows.length} result${rows.length === 1 ? "" : "s"}`
+          : "")}
     </div>
   );
 
@@ -409,17 +426,35 @@ export function CommandPalette() {
         onKeyDown={onKeyDown}
       >
         <div className="flex items-center gap-2 border-b-2 border-line px-3">
-          <span className="font-mono text-[10px] text-muted shrink-0">›</span>
+          <span className="font-mono text-[10px] text-muted shrink-0" aria-hidden="true">
+            ›
+          </span>
+          {/* A combobox, not a bare text field. The arrow keys move a highlight
+              that focus never follows — that is the right behaviour, and it is
+              also why the highlight has to be announced some other way. Without
+              `aria-activedescendant` a screen reader hears the typing and
+              nothing else: ↑↓ moves a bar it is never told about, and Enter
+              opens a row it never read out. The list below carries the matching
+              listbox/option roles that make those ids mean something. */}
           <input
             ref={inputRef}
             value={q}
             onChange={(e) => setQ(e.target.value)}
             placeholder="Search pages, skills, hooks, MCP servers…"
             aria-label="Search"
+            role="combobox"
+            aria-expanded={rows.length > 0}
+            aria-controls={`${baseId}-list`}
+            aria-activedescendant={rows[active] ? `${baseId}-row-${active}` : undefined}
+            aria-autocomplete="list"
+            autoComplete="off"
+            spellCheck={false}
             className="flex-1 bg-transparent py-3 font-mono text-xs outline-none placeholder:text-muted"
           />
           {(busy || stale) && (
-            <span className="font-mono text-[10px] text-muted shrink-0">…</span>
+            <span className="font-mono text-[10px] text-muted shrink-0" aria-hidden="true">
+              …
+            </span>
           )}
           <kbd className="font-mono text-[9px] text-muted border-2 border-line px-1.5 py-0.5 shrink-0">
             esc
@@ -430,18 +465,28 @@ export function CommandPalette() {
             about to be replaced does not read as a settled result. */}
         <div
           ref={listRef}
+          id={`${baseId}-list`}
+          role="listbox"
+          aria-label="Results"
           className={clsx("max-h-[52vh] overflow-auto transition-opacity", stale && "opacity-50")}
         >
           {rows.map((row, i) => (
-            <button
+            // A div, not a button: in a combobox the input keeps focus and
+            // points at the active row, so options must not be separately
+            // tabbable — as buttons they put every result into the tab order
+            // and gave Tab two jobs at once. Same call ui.tsx's Select makes.
+            <div
               key={row.id}
+              id={`${baseId}-row-${i}`}
+              role="option"
+              aria-selected={i === active}
+              aria-disabled={row.kind === "component" && !row.command}
               data-active={i === active}
               onMouseEnter={() => setActive(i)}
               onClick={() => choose(row)}
-              disabled={row.kind === "component" && !row.command}
               className={clsx(
-                "w-full text-left px-3 py-2 flex items-baseline gap-2 transition-colors",
-                "disabled:opacity-40 disabled:pointer-events-none",
+                "w-full text-left px-3 py-2 flex items-baseline gap-2 transition-colors cursor-pointer",
+                row.kind === "component" && !row.command && "opacity-40 pointer-events-none",
                 i === active ? "bg-fill text-on-fill" : "hover:bg-stone",
               )}
             >
@@ -462,7 +507,7 @@ export function CommandPalette() {
               >
                 {row.hint}
               </span>
-            </button>
+            </div>
           ))}
           {!busy && rows.length === 0 && (
             <p className="font-mono text-xs text-muted py-8 px-3 text-center">

@@ -119,10 +119,20 @@ export function Footer() {
 
         {/* link columns */}
         {COLS.map((col) => (
-          <nav key={col.title}>
-            <h3 className="font-pixel text-[10px] uppercase mb-3 flex items-center gap-1.5">
+          // Three navigation landmarks side by side, plus the two in the header.
+          // Unlabelled they all announce as "navigation", so a reader jumping
+          // by landmark gets five identical stops and has to enter each one to
+          // find out which is which. The column heading already names it.
+          <nav key={col.title} aria-label={col.title}>
+            {/* h2, not h3. The footer is on every route, including ones whose
+                main content is an h1 and nothing else (/skills, /login, the
+                loading states) — as h3 these were the first heading after the
+                page title on those, so the outline read h1 → h3 and a reader
+                moving by level heard a rung that was not there. Nothing here
+                sits under a section heading, so h2 is also just the true depth. */}
+            <h2 className="font-pixel text-[10px] uppercase mb-3 flex items-center gap-1.5">
               {col.title}
-            </h3>
+            </h2>
             <ul className="space-y-2">
               {col.links.map((l) => (
                 <li key={l.label}>

@@ -376,6 +376,16 @@ export function Select<T extends string>({
       }
       return;
     }
+    // Tab takes focus to the next control, and this list is anchored to the
+    // trigger it just left — open, it hangs over whatever the visitor moved on
+    // to while still claiming a trigger that is no longer focused. Handled as a
+    // key rather than on blur: the options are divs, so a pointer press on one
+    // does not blur the trigger in every engine, and an onBlur that fired first
+    // would tear the list down before the click could land on it.
+    if (e.key === "Tab") {
+      setOpen(false);
+      return;
+    }
     if (e.key === "ArrowDown" || e.key === "ArrowUp") {
       e.preventDefault();
       if (!open) return setOpen(true);

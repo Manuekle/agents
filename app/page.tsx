@@ -142,14 +142,36 @@ export default function Home() {
               <div className="font-mono text-[11px] text-muted mt-1">
                 {MASCOTS[state].blurb}
               </div>
-              <div className="mt-3 flex justify-center gap-1 flex-wrap">
+              {/* The dot stays 8px — it is punctuation under the sprite, not a
+                  button that wants to be seen — but the *target* around it is
+                  24×24. Ten 8px dots on a 4px gap put ten targets 12px apart,
+                  which fails the 24px minimum twice over: too small to hit, and
+                  too close together for the spacing allowance to save. The
+                  button is the target and the span is the dot.
+
+                  Five across rather than a wrapping row: at a 24px pitch ten in
+                  a line overflow the card and wrap 8 + 2, and a stranded pair
+                  reads as a mistake. A 5×2 block reads as a block. */}
+              <div
+                role="group"
+                aria-label="Mascot state"
+                className="mt-2 grid grid-cols-5 justify-items-center"
+              >
                 {MASCOT_ORDER.map((s, n) => (
                   <button
                     key={s}
+                    type="button"
                     onClick={() => setI(n)}
                     aria-label={s}
-                    className={`w-2 h-2 border border-line ${n === i ? "bg-coral" : "bg-paper"}`}
-                  />
+                    aria-pressed={n === i}
+                    className="w-6 h-6 grid place-items-center cursor-pointer group/dot"
+                  >
+                    <span
+                      className={`w-2 h-2 border border-line transition-colors ${
+                        n === i ? "bg-coral" : "bg-paper group-hover/dot:bg-coral-deep"
+                      }`}
+                    />
+                  </button>
                 ))}
               </div>
             </Panel>
@@ -159,6 +181,12 @@ export default function Home() {
 
       {/* FEATURES */}
       <section className="mx-auto max-w-6xl px-5 py-14 grid gap-4 md:grid-cols-3">
+        {/* Every other section on this page wears its name in pixel caps; this
+            one is three cards and reads fine without one. But the cards are h3s,
+            and with no h2 above them the outline went h1 → h3 on the first thing
+            after the hero — a screen reader skipping by heading level hears a
+            level that is not there. Named here rather than drawn. */}
+        <h2 className="sr-only">What it does</h2>
         {[
           { t: "Skill scraping", d: "Pull skills from any registry, README or JSON feed into one catalog.", tag: "scrape" },
           { t: "Guided or manual", d: "Let AI draft the persona from a few answers, or write every field yourself.", tag: "compose" },

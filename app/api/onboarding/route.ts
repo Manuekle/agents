@@ -41,6 +41,24 @@ export async function POST(req: Request) {
     );
   }
 
+  // The body is read and checked *before* the quota is touched. It used to be
+  // the other way round, and a malformed payload — a dropped connection
+  // mid-POST, a client bug, an empty `purpose` — spent a draft off the month's
+  // allowance and then answered 400. The visitor paid for a request that never
+  // reached a model.
+  let body: unknown;
+  try {
+    body = await req.json();
+  } catch {
+    return NextResponse.json({ error: "invalid JSON body" }, { status: 400 });
+  }
+
+  const raw = (body ?? {}) as Record<string, unknown>;
+  const purpose = clamp(raw.purpose, LIMITS.purpose);
+  if (!purpose) {
+    return NextResponse.json({ error: "purpose is required" }, { status: 400 });
+  }
+
   // Every draft that gets here belongs to an account, so every draft comes out
   // of that account's monthly plan quota.
   //
@@ -50,6 +68,7 @@ export async function POST(req: Request) {
   // free draft. `gate.userId` is the id the gate already verified; it is null
   // only on a deploy with no Supabase at all, where there is no quota to spend.
   const supabase = gate.userId ? await supabaseServer() : null;
+  let charged = false;
   if (supabase) {
     // One statement checks and increments, so two drafts racing for the last
     // slot cannot both be granted it.
@@ -63,20 +82,21 @@ export async function POST(req: Request) {
         { status: 402 },
       );
     }
+    charged = !error;
   }
 
-  let body: unknown;
-  try {
-    body = await req.json();
-  } catch {
-    return NextResponse.json({ error: "invalid JSON body" }, { status: 400 });
-  }
-
-  const raw = (body ?? {}) as Record<string, unknown>;
-  const purpose = clamp(raw.purpose, LIMITS.purpose);
-  if (!purpose) {
-    return NextResponse.json({ error: "purpose is required" }, { status: 400 });
-  }
+  /**
+   * Put the slot back when the draft fails on our side. A 502 from Foundry is
+   * our outage, not the visitor's draft, and charging for it is how a Free
+   * plan's ten runs out at eight. Errors are swallowed: on a deploy that has
+   * not run 0006 the function does not exist, and failing to refund must never
+   * turn a 502 into a 500.
+   */
+  const refund = async () => {
+    // rpc() resolves with `{ error }` rather than rejecting, so a missing
+    // function is a value to ignore, not an exception to catch.
+    if (charged && supabase) await supabase.rpc("refund_ai_draft");
+  };
 
   const target =
     typeof raw.target === "string" && TARGET_IDS.has(raw.target as never)
@@ -107,6 +127,7 @@ export async function POST(req: Request) {
     });
     text = response.output_text ?? "";
   } catch (e) {
+    await refund();
     return NextResponse.json(
       { error: `Foundry request failed: ${e instanceof Error ? e.message : "unknown error"}` },
       { status: 502 },
@@ -117,10 +138,12 @@ export async function POST(req: Request) {
   try {
     drafted = JSON.parse(text);
   } catch {
+    await refund();
     return NextResponse.json({ error: "Foundry returned malformed JSON" }, { status: 502 });
   }
 
   if (!drafted.name || !drafted.role || !drafted.systemPrompt) {
+    await refund();
     return NextResponse.json({ error: "Foundry response missing required fields" }, { status: 502 });
   }
 

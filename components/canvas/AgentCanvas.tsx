@@ -2105,7 +2105,7 @@ function Minimap({
       onPointerDown={(e) => e.stopPropagation()}
       onClick={jump}
       role="img"
-      aria-label={`Graph overview: ${graph.nodes.length} nodes`}
+      aria-label={`Graph overview: ${graph.nodes.length} node${graph.nodes.length === 1 ? "" : "s"}`}
     >
       {/* Drawings first and faint: they set the extent of the map, so leaving
           them out entirely would make the box lie about how far the world goes. */}
@@ -2179,7 +2179,11 @@ function CanvasButton({
       disabled={disabled}
       onClick={onClick}
       className={clsx(
-        "inline-flex shrink-0 items-center justify-center font-mono text-[10px] px-2 py-0.5 border-2 border-line transition-colors cursor-pointer",
+        // `min-h-6`/`min-w-6`: at 10px type and `py-0.5` these came out 18-20px
+        // tall, under the 24px target minimum, and they sit shoulder to shoulder
+        // in the bar so nothing about the spacing rescues them. The dock buttons
+        // to the left were already 24 — this makes the row agree with itself.
+        "inline-flex shrink-0 items-center justify-center min-h-6 min-w-6 font-mono text-[10px] px-2 py-0.5 border-2 border-line transition-colors cursor-pointer",
         active ? "bg-fill text-on-fill" : "bg-paper hover:bg-stone",
         disabled && "opacity-40 pointer-events-none",
       )}
